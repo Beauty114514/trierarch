@@ -1,0 +1,10 @@
+prefix=/home/Beauty/Code/Trierarch/trierarch-wayland/libs
+includedir=${prefix}/include
+libdir=${prefix}/lib
+
+Name: Wayland Cursor
+Description: Wayland cursor helper library
+Version: 1.24.0
+Requires.private: wayland-client
+Libs: -L${libdir} -lwayland-cursor
+Cflags: -I${includedir}

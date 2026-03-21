@@ -1,0 +1,87 @@
+src/raw_api.lo: \
+  /home/Beauty/Code/Trierarch/trierarch-wayland/libffi/src/raw_api.c \
+  include/ffi.h include/ffitarget.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/stddef.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/__stddef_header_macro.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/__stddef_ptrdiff_t.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/__stddef_size_t.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/__stddef_wchar_t.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/__stddef_null.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/__stddef_max_align_t.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/__stddef_offsetof.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/limits.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/limits.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/sys/cdefs.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/android/versioning.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/android/api-level.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/bits/get_device_api_level_inlines.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/android/ndk-version.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/float.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/linux/limits.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/bits/posix_limits.h \
+  /home/Beauty/Code/Trierarch/trierarch-wayland/libffi/include/ffi_common.h \
+  fficonfig.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/alloca.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/string.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/xlocale.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/bits/strcasecmp.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/sys/types.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/stdint.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/stdint.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/bits/wchar_limits.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/linux/types.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/aarch64-linux-android/asm/types.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/asm-generic/types.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/asm-generic/int-ll64.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/aarch64-linux-android/asm/bitsperlong.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/asm-generic/bitsperlong.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/linux/posix_types.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/linux/stddef.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/linux/compiler_types.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/linux/compiler.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/aarch64-linux-android/asm/posix_types.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/asm-generic/posix_types.h \
+  /home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/bits/pthread_types.h
+include/ffi.h:
+include/ffitarget.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/stddef.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/__stddef_header_macro.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/__stddef_ptrdiff_t.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/__stddef_size_t.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/__stddef_wchar_t.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/__stddef_null.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/__stddef_max_align_t.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/__stddef_offsetof.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/limits.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/limits.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/sys/cdefs.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/android/versioning.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/android/api-level.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/bits/get_device_api_level_inlines.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/android/ndk-version.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/float.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/linux/limits.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/bits/posix_limits.h:
+/home/Beauty/Code/Trierarch/trierarch-wayland/libffi/include/ffi_common.h:
+fficonfig.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/alloca.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/string.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/xlocale.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/bits/strcasecmp.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/sys/types.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/stdint.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/stdint.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/bits/wchar_limits.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/linux/types.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/aarch64-linux-android/asm/types.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/asm-generic/types.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/asm-generic/int-ll64.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/aarch64-linux-android/asm/bitsperlong.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/asm-generic/bitsperlong.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/linux/posix_types.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/linux/stddef.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/linux/compiler_types.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/linux/compiler.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/aarch64-linux-android/asm/posix_types.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/asm-generic/posix_types.h:
+/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/bits/pthread_types.h:

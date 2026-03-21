@@ -1,0 +1,14 @@
+prefix=/home/Beauty/Code/Trierarch/trierarch-wayland/libs
+includedir=${prefix}/include
+libdir=${prefix}/lib
+
+datarootdir=${prefix}/share
+pkgdatadir=${pc_sysrootdir}${datarootdir}/wayland
+
+Name: Wayland Server
+Description: Server side implementation of the Wayland protocol
+Version: 1.24.0
+Requires.private: libffi
+Libs: -L${libdir} -lwayland-server -lm
+Libs.private: -pthread
+Cflags: -I${includedir}

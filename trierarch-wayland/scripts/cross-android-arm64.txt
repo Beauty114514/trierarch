@@ -1,0 +1,17 @@
+[binaries]
+# API 23+ for wayland (e.g. open_memstream). @NDK@ and @NDK_HOST@ replaced by script (e.g. linux-x86_64, darwin-arm64).
+c = '@NDK@/toolchains/llvm/prebuilt/@NDK_HOST@/bin/aarch64-linux-android23-clang'
+cpp = '@NDK@/toolchains/llvm/prebuilt/@NDK_HOST@/bin/aarch64-linux-android23-clang++'
+ar = '@NDK@/toolchains/llvm/prebuilt/@NDK_HOST@/bin/llvm-ar'
+strip = '@NDK@/toolchains/llvm/prebuilt/@NDK_HOST@/bin/llvm-strip'
+pkgconfig = 'pkg-config'
+
+[host_machine]
+system = 'android'
+cpu_family = 'aarch64'
+cpu = 'aarch64'
+endian = 'little'
+
+[built-in options]
+c_args = ['-DANDROID', '-fPIC']
+cpp_args = ['-DANDROID', '-fPIC']

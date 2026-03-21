@@ -1,0 +1,7 @@
+prefix=/home/Beauty/Code/Trierarch/trierarch-wayland/libs
+includedir=${prefix}/include
+
+Name: wayland-egl-backend
+Description: Backend wayland-egl interface
+Version: 3
+Cflags: -I${includedir}

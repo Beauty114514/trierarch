@@ -1,0 +1,11 @@
+prefix=/usr
+includedir=${prefix}/include
+libdir=${prefix}/lib
+
+gbmbackendspath=/usr/lib/gbm
+
+Name: gbm
+Description: Mesa gbm library
+Version: 26.1.0-arch1.3
+Libs: -L${libdir} -lgbm
+Cflags: -I${includedir}

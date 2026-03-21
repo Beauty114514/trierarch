@@ -1,0 +1,28 @@
+[package]
+name = "trierarch"
+version = "0.1.0"
+edition = "2021"
+description = "JNI library for proot, rootfs, and PTY I/O."
+
+[lib]
+crate-type = ["cdylib"]
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
+android_logger = { version = "0.14", default-features = false }
+
+[dependencies]
+anyhow = "1.0"
+log = "0.4"
+nix = { version = "0.30", features = ["term", "fs", "process", "signal"] }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
+sha2 = "0.10"
+tar = "0.4"
+xz2 = "0.1"
+
+[profile.release]
+# Keep strip = false so JNI symbols (Java_*) remain exported for System.loadLibrary
+strip = false
+opt-level = "z"
+lto = true
+codegen-units = 1

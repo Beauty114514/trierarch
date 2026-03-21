@@ -1,0 +1,10 @@
+src/aarch64/sysv.lo: \
+  /home/Beauty/Code/Trierarch/trierarch-wayland/libffi/src/aarch64/sysv.S \
+  fficonfig.h include/ffi.h include/ffitarget.h \
+  /home/Beauty/Code/Trierarch/trierarch-wayland/libffi/include/ffi_cfi.h \
+  /home/Beauty/Code/Trierarch/trierarch-wayland/libffi/src/aarch64/internal.h
+fficonfig.h:
+include/ffi.h:
+include/ffitarget.h:
+/home/Beauty/Code/Trierarch/trierarch-wayland/libffi/include/ffi_cfi.h:
+/home/Beauty/Code/Trierarch/trierarch-wayland/libffi/src/aarch64/internal.h:

@@ -1,0 +1,295 @@
+/*
+ * wl_compositor, wl_surface, wl_region. Attach/commit/damage/frame.
+ */
+#include "server_internal.h"
+#include <stdlib.h>
+
+static void xdg_surface_resource_destroy(struct wl_resource *resource);
+static void xdg_toplevel_resource_destroy(struct wl_resource *resource);
+
+static void surface_resource_destroy(struct wl_resource *resource) {
+    struct compositor_surface *surf = wl_resource_get_user_data(resource);
+    if (!surf) return;
+    if (surf->xdg_toplevel_res) {
+        wl_resource_set_user_data(surf->xdg_toplevel_res, NULL);
+        surf->xdg_toplevel_res = NULL;
+    }
+    if (surf->xdg_surface_res) {
+        wl_resource_set_user_data(surf->xdg_surface_res, NULL);
+        surf->xdg_surface_res = NULL;
+    }
+    if (surf->subsurface_res) {
+        wl_resource_set_user_data(surf->subsurface_res, NULL);
+        surf->subsurface_res = NULL;
+    }
+    if (surf->current_buffer && surf->current_buffer->type == BUF_EGL && surf->current_buffer->u.egl)
+        surf->current_buffer->u.egl->surf = NULL;
+    if (surf->pending_buffer && surf->pending_buffer->type == BUF_EGL && surf->pending_buffer->u.egl)
+        surf->pending_buffer->u.egl->surf = NULL;
+    if (surf->parent) {
+        surf->parent = NULL;
+        wl_list_remove(&surf->sub_link);
+        wl_list_init(&surf->sub_link);
+    }
+    pthread_mutex_lock(&surf->srv->surfaces_mutex);
+    if (surf->srv->pointer_focus == surf)
+        surf->srv->pointer_focus = NULL;
+    if (surf->srv->cursor_surface == surf)
+        surf->srv->cursor_surface = NULL;
+    wl_list_remove(&surf->link);
+    pthread_mutex_unlock(&surf->srv->surfaces_mutex);
+    if (surf->current_buffer) {
+        buffer_ref_release_no_post(surf->current_buffer);
+        surf->current_buffer = NULL;
+    }
+    if (surf->pending_buffer) {
+        buffer_ref_clear_owner(surf->pending_buffer);
+        buffer_ref_release_no_post(surf->pending_buffer);
+        surf->pending_buffer = NULL;
+    }
+    free(surf);
+}
+
+static void surface_destroy(struct wl_client *client, struct wl_resource *resource) {
+    (void)client;
+    wl_resource_destroy(resource);
+}
+
+static void surface_attach(struct wl_client *client, struct wl_resource *resource,
+        struct wl_resource *buffer_res, int32_t x, int32_t y) {
+    (void)client;
+    struct compositor_surface *surf = wl_resource_get_user_data(resource);
+    if (!surf) return;
+    surf->buffer_offset_x = x;
+    surf->buffer_offset_y = y;
+
+    if (!buffer_res) {
+        if (surf->pending_buffer) {
+            buffer_ref_clear_owner(surf->pending_buffer);
+            buffer_ref_release(surf->pending_buffer);
+            surf->pending_buffer = NULL;
+        }
+        return;
+    }
+    void *raw = wl_resource_get_user_data(buffer_res);
+    if (!raw) {
+        /* EGL buffer (no user_data) */
+        if (!surf->srv->egl_buffer_supported) {
+            wl_resource_post_event(buffer_res, WL_BUFFER_RELEASE);
+            return;
+        }
+        int32_t w = 0, h = 0;
+        if (surf->pending_buffer && buffer_ref_width(surf->pending_buffer) > 0)
+            w = buffer_ref_width(surf->pending_buffer), h = buffer_ref_height(surf->pending_buffer);
+        if ((w <= 0 || h <= 0) && surf->current_buffer && buffer_ref_width(surf->current_buffer) > 0)
+            w = buffer_ref_width(surf->current_buffer), h = buffer_ref_height(surf->current_buffer);
+        if (w <= 0 || h <= 0) {
+            w = surf->srv->output_width > 0 ? surf->srv->output_width : 1080;
+            h = surf->srv->output_height > 0 ? surf->srv->output_height : 1920;
+        }
+        struct compositor_buffer_ref *ref = buffer_attach_egl_buffer(client, buffer_res, surf, w, h);
+        if (!ref) {
+            wl_client_post_no_memory(client);
+            return;
+        }
+        if (surf->pending_buffer) {
+            buffer_ref_clear_owner(surf->pending_buffer);
+            buffer_ref_release(surf->pending_buffer);
+        }
+        surf->pending_buffer = ref;
+        return;
+    }
+    struct shm_buffer *buf = raw;
+    struct compositor_buffer_ref *ref = calloc(1, sizeof(*ref));
+    if (!ref) {
+        wl_client_post_no_memory(client);
+        return;
+    }
+    ref->type = BUF_SHM;
+    ref->u.shm = buf;
+    if (surf->pending_buffer) {
+        buffer_ref_clear_owner(surf->pending_buffer);
+        buffer_ref_release(surf->pending_buffer);
+    }
+    surf->pending_buffer = ref;
+}
+
+static void surface_damage(struct wl_client *client, struct wl_resource *resource,
+        int32_t x, int32_t y, int32_t width, int32_t height) {
+    (void)client; (void)resource; (void)x; (void)y; (void)width; (void)height;
+}
+
+static void surface_damage_buffer(struct wl_client *client, struct wl_resource *resource,
+        int32_t x, int32_t y, int32_t width, int32_t height) {
+    (void)client; (void)resource; (void)x; (void)y; (void)width; (void)height;
+}
+
+static void pending_frame_cb_destroy(struct wl_listener *listener, void *data) {
+    (void)data;
+    struct pending_frame_cb *p = wl_container_of(listener, p, resource_listener);
+    wl_list_remove(&p->link);
+    wl_list_remove(&p->resource_listener.link);
+    free(p);
+}
+
+static void surface_frame(struct wl_client *client, struct wl_resource *surface_res, uint32_t callback_id) {
+    (void)surface_res;
+    struct compositor_surface *surf = wl_resource_get_user_data(surface_res);
+    if (!surf || !surf->srv) return;
+    struct wl_resource *cb = wl_resource_create(client, &wl_callback_interface, 1, callback_id);
+    if (cb) {
+        struct pending_frame_cb *p = calloc(1, sizeof(*p));
+        if (p) {
+            p->resource = cb;
+            p->resource_listener.notify = pending_frame_cb_destroy;
+            wl_resource_add_destroy_listener(cb, &p->resource_listener);
+            wl_resource_set_implementation(cb, NULL, NULL, NULL);
+            wl_list_insert(surf->srv->pending_frame_callbacks.prev, &p->link);
+        } else {
+            wl_resource_destroy(cb);
+        }
+    }
+}
+
+static void surface_set_opaque_region(struct wl_client *c, struct wl_resource *r, struct wl_resource *region) {
+    (void)c; (void)r; (void)region;
+}
+static void surface_set_input_region(struct wl_client *c, struct wl_resource *r, struct wl_resource *region) {
+    (void)c; (void)r; (void)region;
+}
+static void surface_set_buffer_transform(struct wl_client *c, struct wl_resource *r, int32_t transform) {
+    (void)c; (void)r; (void)transform;
+}
+static void surface_set_buffer_scale(struct wl_client *c, struct wl_resource *r, int32_t scale) {
+    (void)c;
+    struct compositor_surface *surf = wl_resource_get_user_data(r);
+    if (surf && scale >= 1) surf->buffer_scale = scale;
+}
+
+static void surface_commit(struct wl_client *client, struct wl_resource *resource) {
+    (void)client;
+    struct compositor_surface *surf = wl_resource_get_user_data(resource);
+    if (!surf) return;
+
+    pthread_mutex_lock(&surf->srv->surfaces_mutex);
+    struct compositor_buffer_ref *pending = surf->pending_buffer;
+    surf->pending_buffer = NULL;
+
+    if (pending && buffer_ref_width(pending) > 0 && buffer_ref_height(pending) > 0) {
+        if (surf->current_buffer) {
+            buffer_ref_clear_owner(surf->current_buffer);
+            buffer_ref_release(surf->current_buffer);
+        }
+        surf->current_buffer = pending;
+        buffer_ref_set_owner(pending, surf);
+    } else {
+        if (pending) buffer_ref_release(pending);
+    }
+    pthread_mutex_unlock(&surf->srv->surfaces_mutex);
+
+    /* Send wl_surface.enter(output) when surface gets a buffer and hasn't yet */
+    if (surf->current_buffer && !surf->entered_output) {
+        struct wl_client *cl = wl_resource_get_client(surf->resource);
+        struct output_resource_node *onode;
+        wl_list_for_each(onode, &surf->srv->output_resources, link) {
+            if (wl_resource_get_client(onode->resource) == cl) {
+                wl_surface_send_enter(surf->resource, onode->resource);
+                break;
+            }
+        }
+        surf->entered_output = true;
+    }
+}
+
+static const struct wl_surface_interface surface_impl = {
+    .destroy = surface_destroy,
+    .attach = surface_attach,
+    .damage = surface_damage,
+    .damage_buffer = surface_damage_buffer,
+    .frame = surface_frame,
+    .set_opaque_region = surface_set_opaque_region,
+    .set_input_region = surface_set_input_region,
+    .commit = surface_commit,
+    .set_buffer_transform = surface_set_buffer_transform,
+    .set_buffer_scale = surface_set_buffer_scale,
+};
+
+static void region_destroy(struct wl_client *client, struct wl_resource *resource) {
+    (void)client;
+    wl_resource_destroy(resource);
+}
+static void region_add(struct wl_client *c, struct wl_resource *r, int32_t x, int32_t y, int32_t w, int32_t h) {
+    (void)c;(void)r;(void)x;(void)y;(void)w;(void)h;
+}
+static void region_subtract(struct wl_client *c, struct wl_resource *r, int32_t x, int32_t y, int32_t w, int32_t h) {
+    (void)c;(void)r;(void)x;(void)y;(void)w;(void)h;
+}
+
+static const struct wl_region_interface region_impl = {
+    .destroy = region_destroy,
+    .add = region_add,
+    .subtract = region_subtract,
+};
+
+static void compositor_create_surface(struct wl_client *client,
+        struct wl_resource *resource, uint32_t id) {
+    struct wayland_server *srv = wl_resource_get_user_data(resource);
+    struct compositor_surface *surf = calloc(1, sizeof(*surf));
+    if (!surf) {
+        wl_client_post_no_memory(client);
+        return;
+    }
+    surf->srv = srv;
+    surf->current_buffer = NULL;
+    surf->pending_buffer = NULL;
+    surf->xdg_surface_res = NULL;
+    surf->xdg_toplevel_res = NULL;
+    surf->buffer_offset_x = surf->buffer_offset_y = 0;
+    surf->buffer_scale = 1;
+    surf->entered_output = false;
+    surf->parent = NULL;
+    surf->subsurface_res = NULL;
+    wl_list_init(&surf->children);
+    wl_list_init(&surf->sub_link);
+    pthread_mutex_lock(&srv->surfaces_mutex);
+    wl_list_insert(&srv->surfaces, &surf->link);
+    pthread_mutex_unlock(&srv->surfaces_mutex);
+
+    struct wl_resource *surface = wl_resource_create(client, &wl_surface_interface,
+            wl_resource_get_version(resource), id);
+    if (!surface) {
+        pthread_mutex_lock(&srv->surfaces_mutex);
+        wl_list_remove(&surf->link);
+        pthread_mutex_unlock(&srv->surfaces_mutex);
+        free(surf);
+        wl_client_post_no_memory(client);
+        return;
+    }
+    surf->resource = surface;
+    wl_resource_set_implementation(surface, &surface_impl, surf, surface_resource_destroy);
+}
+
+static void compositor_create_region(struct wl_client *client,
+        struct wl_resource *resource, uint32_t id) {
+    struct wl_resource *region = wl_resource_create(client, &wl_region_interface,
+            wl_resource_get_version(resource), id);
+    if (!region) {
+        wl_client_post_no_memory(client);
+        return;
+    }
+    wl_resource_set_implementation(region, &region_impl, NULL, NULL);
+}
+
+static const struct wl_compositor_interface compositor_impl = {
+    .create_surface = compositor_create_surface,
+    .create_region = compositor_create_region,
+};
+
+void surface_compositor_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id) {
+    struct wl_resource *resource = wl_resource_create(client, &wl_compositor_interface, version, id);
+    if (!resource) {
+        wl_client_post_no_memory(client);
+        return;
+    }
+    wl_resource_set_implementation(resource, &compositor_impl, data, NULL);
+}
