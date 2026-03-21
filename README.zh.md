@@ -4,6 +4,16 @@
 
 ---
 
+**下载：** 最新 APK 见 **[GitHub Releases](https://github.com/Beauty114514/trierarch/releases/latest)**。
+
+## 截图 / 演示
+
+| KDE Plasma（Wayland） | Firefox（proot 内） |
+|----------------------|---------------------|
+| ![KDE Plasma 桌面](docs/images/desktop.jpg) | ![Firefox](docs/images/firefox.jpg) |
+
+---
+
 本仓库为 **monorepo**，包含 Android 应用及相关组件（`trierarch-app`、`trierarch-native`、`trierarch-proot`、`trierarch-wayland`、`trierarch-optimize` 等）。主仓库地址：**[github.com/Beauty114514/trierarch](https://github.com/Beauty114514/trierarch)**。
 
 **Trierarch** 是一款 Android 应用：采用与 **Termux** 生态一致的 **proot** 容器技术（**无需**单独安装 Termux 应用），在设备上运行 **Arch Linux** rootfs。其他桌面环境在**原理上**也可尝试或实现（同样的 proot + Wayland 链路），但**开发、文档与体验优化重心在 KDE Plasma（Wayland）**。应用内置 **Wayland** 合成器（触摸指针、绝对/相对模式、软键盘输入等）。在应用内通过 **Display 启动脚本** 启动你的 **Plasma（Wayland）** 会话。界面为 Jetpack Compose；JNI/native 层见 [`trierarch-native/`](trierarch-native/)。
@@ -23,8 +33,17 @@
 
 ## Wayland 与 Display
 
-- 在侧边栏开启 **Wayland**，切换到 Wayland 视图即可看到合成器画面。触摸作为指针（设置中可选绝对/相对触摸板模式）；点击 Keyboard 将按键发给当前焦点 client。
-- **Display**：点击可执行你配置的 **Display 启动脚本**（请按 **KDE Plasma / Wayland** 的方式编写）；长按可编辑脚本。若已有 Wayland 客户端连接，应用不会重复执行脚本。
+- **侧栏**：用**双指**从**屏幕左侧边缘向右滑动**即可打开侧栏（建议用双指，减少与系统边缘返回手势冲突）。下图分别为**终端 / Wayland 视图**下与**已进入桌面**后划出的侧栏。
+
+| 终端 / Wayland 视图下的侧栏 | 进入桌面后的侧栏 |
+|----------------------------|-----------------|
+| ![终端界面侧栏](docs/images/sidebarInConsole.jpg) | ![桌面侧栏](docs/images/sidebarInDesktop.jpg) |
+
+- 在侧栏开启 **Wayland**，切换到 Wayland 视图即可看到合成器画面。触摸作为指针（设置中可选绝对/相对触摸板模式）；点击 **Keyboard** 将按键发给当前焦点 client。
+
+- **Display**：点击可执行你配置的 **Display 启动脚本**（请按 **KDE Plasma / Wayland** 的方式编写）；长按可编辑脚本。若已有 Wayland 客户端连接，应用不会重复执行脚本。**进入桌面（Plasma）后**，再点 **Display** 可回到**终端 / Wayland 界面**；**再双指从左侧划出侧栏**，再点 **Display** 即可**回到桌面画面**。
+
+![侧栏中的 Display](docs/images/display.jpg)
 
 ## 输入说明（GTK / Qt）
 
@@ -34,6 +53,10 @@
 
 - 先在支持 `Ctrl+Shift+U` 的 **GTK 应用**（例如 Mousepad）中完成输入；
 - 然后复制粘贴到 Qt 应用中（通常 `Ctrl+V` / `Ctrl+Shift+V` 在目标应用里行为略有差异，以实际应用表现为准）。
+
+侧栏 **Keyboard** 用于向当前焦点窗口注入上述按键（含 `Ctrl+Shift+U` 等）：
+
+![侧栏 Keyboard（配合 GTK 输入）](docs/images/keyboard.jpg)
 
 如果你偏好使用更接近“全键盘”的软键盘，建议尝试 [**Unexpected Keyboard**](https://play.google.com/store/apps/details?id=juloo.keyboard2)（[Google Play 官方应用页](https://play.google.com/store/apps/details?id=juloo.keyboard2)；**开源**，[GitHub 仓库](https://github.com/Julow/Unexpected-Keyboard)），可更方便地输入/复制 ASCII 以及其他字符。
 

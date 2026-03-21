@@ -4,6 +4,16 @@
 
 ---
 
+**Download:** latest APK → **[GitHub Releases](https://github.com/Beauty114514/trierarch/releases/latest)**.
+
+## Screenshots
+
+| KDE Plasma (Wayland) | Firefox (inside proot) |
+|------------------------|-------------------------|
+| ![KDE Plasma desktop](docs/images/desktop.jpg) | ![Firefox](docs/images/firefox.jpg) |
+
+---
+
 This **monorepo** hosts the Android app and supporting code (`trierarch-app`, `trierarch-native`, `trierarch-proot`, `trierarch-wayland`, `trierarch-optimize`, and more). Primary home: **[github.com/Beauty114514/trierarch](https://github.com/Beauty114514/trierarch)**.
 
 **Trierarch** is an Android app built on the **proot**-style container stack familiar from the **Termux** ecosystem—you **do not** need the Termux app installed. It runs an **Arch Linux** rootfs on your phone or tablet. Other desktop environments may be usable **in principle** (same proot + Wayland setup), but **development**, **documentation**, and **tuning** focus on **KDE Plasma** on **Wayland**. The app bundles its own **Wayland** compositor (pointer/touch, absolute or relative mode, soft keyboard → clients). Use the **Display startup script** in settings to launch your **Plasma (Wayland)** session. Jetpack Compose UI; JNI/native code lives in [`trierarch-native/`](trierarch-native/).
@@ -23,8 +33,17 @@ For developers who want to build from source, see [`README_DEV.md`](README_DEV.m
 
 ## Wayland and Display
 
-- Turn **Wayland** on in the side menu; switch to the Wayland view to see the compositor output. Touch acts as pointer (absolute or relative/touchpad mode in settings); use the Keyboard button to send key events to the focused client.
-- **Display**: tap to run your **Display startup script** (configure it for **KDE Plasma** / Wayland); long-press to edit the script. The app skips re-running the script if a Wayland client is already connected.
+- **Side menu** — Use a **two-finger** swipe **from the left edge of the screen toward the right** to open it (two fingers help avoid clashing with Android edge-back gestures). Examples below: side menu in the terminal/Wayland view, and after entering the desktop.
+
+| Side menu (terminal / Wayland view) | Side menu (desktop session) |
+|-------------------------------------|-----------------------------|
+| ![Side menu in console view](docs/images/sidebarInConsole.jpg) | ![Side menu on desktop](docs/images/sidebarInDesktop.jpg) |
+
+- Turn **Wayland** on in the side menu; switch to the Wayland view to see the compositor output. Touch acts as pointer (absolute or relative/touchpad mode in settings); use the **Keyboard** button to send key events to the focused client.
+
+- **Display** — Tap to run your **Display startup script** (configure it for **KDE Plasma** / Wayland); long-press to edit the script. The app skips re-running the script if a Wayland client is already connected. After Plasma is running, tap **Display** again to return to the **terminal / Wayland** view; open the side menu and tap **Display** once more to go back to the desktop output.
+
+![Display in side menu](docs/images/display.jpg)
 
 ## Input Tips (GTK / Qt)
 
@@ -34,6 +53,10 @@ For **Qt apps**, `Ctrl+Shift+U` support may be incomplete due to underlying limi
 
 - Enter the text in a **GTK app** that supports `Ctrl+Shift+U` first (e.g. Mousepad);
 - Copy it, then paste into the Qt app (usually `Ctrl+V` / `Ctrl+Shift+V`, but the exact behavior depends on the target application).
+
+The in-app **Keyboard** button injects those keys (including `Ctrl+Shift+U`) to the focused client:
+
+![Keyboard in side menu (GTK workflow)](docs/images/keyboard.jpg)
 
 If you prefer a more “full keyboard” experience on the soft keyboard, you may try [**Unexpected Keyboard**](https://play.google.com/store/apps/details?id=juloo.keyboard2) on [Google Play](https://play.google.com/store/apps/details?id=juloo.keyboard2) (open source: [GitHub](https://github.com/Julow/Unexpected-Keyboard)).
 
