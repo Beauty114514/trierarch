@@ -28,6 +28,7 @@
 
 - 面向用户的行为变化：必要时更新根目录 [`README.zh.md`](README.zh.md) / [`README.md`](README.md)。
 - 构建说明：[`README_DEV.zh.md`](README_DEV.zh.md) 与各子目录 **模块 README**。
+- 发版：[`docs/RELEASING.zh.md`](docs/RELEASING.zh.md)（[English](docs/RELEASING.md)）。
 - Plasma/rootfs 调优：[`trierarch-optimize/`](trierarch-optimize/)。
 
 ## 许可

@@ -19,6 +19,11 @@ captures/
 .idea/
 .cursor/
 
+# Release APK signing secrets (see trierarch-app/keystore.properties.example)
+trierarch-app/keystore.properties
+trierarch-app/*.jks
+trierarch-app/*.keystore
+
 # --- Rust (trierarch-native) ---
 **/target/
 

@@ -12,7 +12,7 @@
 
 如需从源码构建应用，请查看 [`README_DEV.zh.md`](README_DEV.zh.md)。
 
-**贡献与安全：**见 [`CONTRIBUTING.zh.md`](CONTRIBUTING.zh.md)（[English](CONTRIBUTING.md)）、[`SECURITY.zh.md`](SECURITY.zh.md)（[English](SECURITY.md)）。变更记录见 [`CHANGELOG.md`](CHANGELOG.md)。
+**贡献与安全：**见 [`CONTRIBUTING.zh.md`](CONTRIBUTING.zh.md)（[English](CONTRIBUTING.md)）、[`SECURITY.zh.md`](SECURITY.zh.md)（[English](SECURITY.md)）。变更记录见 [`CHANGELOG.md`](CHANGELOG.md)。发版：[`docs/RELEASING.zh.md`](docs/RELEASING.zh.md)（[English](docs/RELEASING.md)）。
 
 ## Arch rootfs
 

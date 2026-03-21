@@ -28,6 +28,7 @@ Thanks for your interest in this project. This document is a **starting point**�
 
 - User-facing behaviour: update root [`README.md`](README.md) / [`README.zh.md`](README.zh.md) if needed.
 - Build instructions: [`README_DEV.md`](README_DEV.md) and the **module** `README` under each directory.
+- Releases: [`docs/RELEASING.md`](docs/RELEASING.md) ([中文](docs/RELEASING.zh.md)).
 - Plasma/rootfs tips: [`trierarch-optimize/`](trierarch-optimize/).
 
 ## License

@@ -12,7 +12,7 @@ This **monorepo** hosts the Android app and supporting code (`trierarch-app`, `t
 
 For developers who want to build from source, see [`README_DEV.md`](README_DEV.md).
 
-**Contributing & security:** see [`CONTRIBUTING.md`](CONTRIBUTING.md) ([中文](CONTRIBUTING.zh.md)) and [`SECURITY.md`](SECURITY.md) ([中文](SECURITY.zh.md)). Changes are summarized in [`CHANGELOG.md`](CHANGELOG.md).
+**Contributing & security:** see [`CONTRIBUTING.md`](CONTRIBUTING.md) ([中文](CONTRIBUTING.zh.md)) and [`SECURITY.md`](SECURITY.md) ([中文](SECURITY.zh.md)). Changes are summarized in [`CHANGELOG.md`](CHANGELOG.md). Release checklist: [`docs/RELEASING.md`](docs/RELEASING.md) ([中文](docs/RELEASING.zh.md)).
 
 ## Arch rootfs
 
