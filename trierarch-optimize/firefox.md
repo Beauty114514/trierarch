@@ -1,48 +1,42 @@
 # Firefox (Trierarch / proot)
 
-Install and run Firefox inside the Trierarch Arch environment. Without the config changes below, Firefox may crash.
+## Why it breaks
 
-## 1. Install Firefox
+1. **Sandboxing & namespaces** — Firefox’s multiprocess model and **content-process sandbox** assume Linux namespaces, `/proc`, permissions, etc. Under **proot**’s user namespace and filesystem view, the default sandbox profile often **does not match** what Firefox expects, which can **crash at startup** or behave badly.  
+2. **Out of the box** — Leaving sandbox settings at desktop defaults is unsafe for this environment.
 
-In the Trierarch terminal (proot shell), run:
+## What to do
+
+### 1. Install Firefox
+
+Inside proot:
 
 ```bash
 pacman -S firefox
 ```
 
-Confirm with `Y` when prompted. If you need to initialize the keyring first:
+If you need the keyring first:
 
 ```bash
 pacman-key --init
 pacman-key --populate archlinux
+pacman -S firefox
 ```
 
-Then run `pacman -S firefox` again.
+### 2. Change about:config (required)
 
-## 2. Fix crashes (about:config)
+1. Open **`about:config`** → accept the risk prompt.  
+2. Search **`sandbox`** and set:  
+   - **`media.cubed.sandbox`** → **`false`**  
+   - **`security.sandbox.content.level`** → **`0`**  
+3. **Restart** Firefox.
 
-Firefox can crash in this environment due to sandbox settings. Adjust them as follows.
+| Setting | New value |
+|---------|-----------|
+| `media.cubed.sandbox` | `false` |
+| `security.sandbox.content.level` | `0` |
 
-1. **Open config**
-   - In the Firefox address bar, type: `about:config`
-   - Press **Enter**.
+## Why this works
 
-2. **Accept warning**
-   - Click **“Accept the Risk and Continue”** to open the preferences (about:config) page.
-
-3. **Search and change settings**
-   - In the **Search** box on the about:config page, type: `sandbox`
-   - Find and set:
-     - **`media.cubed.sandbox`** → set to **`false`**
-     - **`security.sandbox.content.level`** → set to **`0`**
-   - (Double-click the value to change it, or use the edit control.)
-
-4. **Restart**
-   - Restart Firefox. It should then run normally in Trierarch.
-
-## Summary
-
-| Setting                         | New value |
-|---------------------------------|-----------|
-| `media.cubed.sandbox`           | `false`   |
-| `security.sandbox.content.level`| `0`       |
+- Lowering the **content sandbox** stops Firefox from relying on kernel/sandbox primitives that are **often incomplete or inconsistent under proot**, so the browser can run in a plain user-namespace stack.  
+- Trade-off: **weaker sandboxing**—acceptable for many local proot desktop sessions; don’t reuse the same profile for untrusted browsing without extra isolation.

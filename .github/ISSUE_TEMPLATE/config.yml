@@ -1,0 +1,6 @@
+# https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/configuring-issue-templates-for-your-repository
+blank_issues_enabled: true
+contact_links:
+  - name: Security policy
+    url: https://github.com/Beauty114514/trierarch/blob/main/SECURITY.md
+    about: Do not file public issues for undisclosed vulnerabilities—follow this policy.

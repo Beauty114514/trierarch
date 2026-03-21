@@ -1,48 +1,42 @@
 # Firefox（Trierarch / proot）
 
-在 Trierarch 的 Arch 环境中安装并运行 Firefox。不做以下配置修改时，Firefox 可能会崩溃。
+## 原因
 
-## 1. 安装 Firefox
+1. **沙箱与命名空间**：Firefox 的多进程与 **内容进程沙箱**依赖 Linux 的命名空间、`/proc`、权限等；在 **proot** 提供的用户命名空间与文件系统视图下，默认沙箱路径与假设与常规桌面不一致，易导致 **启动即崩溃或未定义行为**。  
+2. **未改配置时**：默认开启的沙箱等级会在本环境中触发不兼容。
 
-在 Trierarch 终端（proot shell）中执行：
+## 解决方法
+
+### 1. 安装 Firefox
+
+在 proot 内：
 
 ```bash
 pacman -S firefox
 ```
 
-提示时输入 `Y` 确认。若需先初始化密钥环：
+若需初始化密钥环：
 
 ```bash
 pacman-key --init
 pacman-key --populate archlinux
+pacman -S firefox
 ```
 
-再执行一次 `pacman -S firefox` 即可。
+### 2. 调整 about:config（关键）
 
-## 2. 避免崩溃（about:config）
+1. 地址栏打开：`about:config` → 接受风险。  
+2. 搜索 **`sandbox`**，修改：  
+   - **`media.cubed.sandbox`** → **`false`**  
+   - **`security.sandbox.content.level`** → **`0`**  
+3. **重启** Firefox。
 
-在此环境中，Firefox 可能因沙箱相关设置而崩溃，需在 about:config 中修改以下两项。
+| 配置项 | 修改为 |
+|--------|--------|
+| `media.cubed.sandbox` | `false` |
+| `security.sandbox.content.level` | `0` |
 
-1. **打开配置页**
-   - 在 Firefox 地址栏输入：`about:config`
-   - 按 **回车**。
+## 为什么能解决
 
-2. **接受警告**
-   - 在弹出界面点击 **「接受风险并继续」**，进入 preferences（about:config）设置页。
-
-3. **搜索并修改**
-   - 在 about:config 页面的 **搜索框** 中输入：`sandbox`
-   - 找到并修改：
-     - **`media.cubed.sandbox`** → 改为 **`false`**
-     - **`security.sandbox.content.level`** → 改为 **`0`**
-   - （双击该条目的值即可修改，或使用右侧编辑控件。）
-
-4. **重启**
-   - 重启 Firefox 后即可正常使用。
-
-## 小结
-
-| 配置项                           | 修改为   |
-|----------------------------------|----------|
-| `media.cubed.sandbox`            | `false`  |
-| `security.sandbox.content.level` | `0`      |
+- 降低或关闭 **内容沙箱等级**后，Firefox 不再依赖那些在 proot 下常失败或行为不一致的内核/命名空间能力，从而能在 **用户态容器**里稳定运行。  
+- 代价是沙箱防护减弱；在 **本机 proot 桌面会话**内通常可接受，请勿与不可信网页/插件混用同一配置而不加额外隔离。

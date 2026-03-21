@@ -1,34 +1,44 @@
-# Trierarch (App)
+# Android application
 
 [中文](README.zh.md) | English
 
----
+Part of the [Trierarch monorepo](https://github.com/Beauty114514/trierarch).
 
-Android app: run a Linux shell (optionally an Arch rootfs) via **proot** without Termux. Optional **Wayland** GUI: built-in compositor with pointer (touch, absolute/relative mode) and keyboard (soft keyboard → Wayland). Use the **Display startup script** (in app settings) to launch any desktop or window manager (e.g. sway, Xfce, KDE) inside proot. Jetpack Compose UI; native layer from [trierarch-native](https://github.com/Beauty114514/trierarch-native).
+## Role and what’s implemented
 
-For developers who want to build from source, see [`README_DEV.md`](README_DEV.md).
+- **Jetpack Compose** UI: install flow, terminal, side menu, Wayland view toggle, Display startup script editor, settings.
+- **Assets:** proot launcher script, keymap, bundled JNI names; **`jniLibs/arm64-v8a/`** loads `.so` files built in other directories (Rust JNI, proot, Wayland stack).
+- **Bridges:** Kotlin `NativeBridge` / `WaylandBridge` call into native code.
 
-## Arch rootfs
+This directory does **not** build those native libraries; see [`README_DEV.md`](../README_DEV.md) and each component’s README.
 
-- Rootfs path: `data_dir/arch` (app internal storage).
-- **Auto-download**: If no rootfs exists at first launch, the app downloads the Arch Linux aarch64 rootfs from [proot-distro](https://github.com/termux/proot-distro/releases) (~156 MB) and extracts it. Requires network.
-- **Manual**: You can put a Termux proot-distro Arch aarch64 rootfs there (e.g. download and extract manually).
-- If `data_dir/arch` has no usable `sh`, proot runs with `-0 /system/bin/sh`.
+## Prerequisites
 
-## Wayland and Display
+- Android Studio or Android SDK + a compatible **NDK** (for Gradle / prefab if used).
+- Prebuilt `.so` dependencies copied into `app/src/main/jniLibs/arm64-v8a/` as described in [`README_DEV.md`](../README_DEV.md).
 
-- Turn **Wayland** on in the side menu; switch to the Wayland view to see the compositor output. Touch acts as pointer (absolute or relative/touchpad mode in settings); use the Keyboard button to send key events to the focused client.
-- **Display**: tap to run your **Display startup script** (e.g. `sway` or `startx`); long-press to edit the script. The app skips re-running the script if a Wayland client is already connected.
+## Manual build (Gradle)
 
-## Input Tips (GTK / Qt)
+From **`trierarch-app/`** (monorepo layout):
 
-We currently solved `Ctrl+Shift+U` for **GTK apps**, so you can enter Chinese, other non-ASCII characters, and Emoji more smoothly (for example in Firefox).
+```bash
+cd trierarch-app
+./gradlew assembleDebug
+```
 
-For **Qt apps**, `Ctrl+Shift+U` support may be incomplete due to underlying limitations. If you need Chinese / other non-ASCII input in a Qt app, the recommended workflow is:
+Optional install to a connected device:
 
-- Enter the text in a **GTK app** that supports `Ctrl+Shift+U` first (e.g. Mousepad);
-- Copy it, then paste into the Qt app (usually `Ctrl+V` / `Ctrl+Shift+V`, but the exact behavior depends on the target application).
+```bash
+./gradlew installDebug
+```
 
-If you prefer a more “full keyboard” experience on the soft keyboard, you may try **Unexpected Keyboard**.
+**Output (example):** `app/build/outputs/apk/debug/app-debug.apk`.
 
-If we find a more universal solution in the future, we will update the project as soon as possible. Contributions and testing feedback from users and other open-source developers are also welcome.
+There is no separate wrapper script beyond **`gradlew`**; that is the standard build entry.
+
+## Using the build output
+
+- Install the APK on an **arm64-v8a** device/emulator.
+- At runtime the app expects native libs under `jniLibs` and optional Arch rootfs under app storage (see root [`README.md`](../README.md)).
+
+For assembling JNI libs before `./gradlew`, follow [`README_DEV.md`](../README_DEV.md).

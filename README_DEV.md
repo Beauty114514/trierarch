@@ -1,0 +1,77 @@
+# Trierarch — Developer Docs
+
+[User docs](README.md) | English
+
+---
+
+For anyone building the Android app from source. All paths are relative to the **repository root**.
+
+The app loads several native libraries from `trierarch-app/app/src/main/jniLibs/arm64-v8a/`. Below: what each part does, what it produces, and where to read build instructions. **English** → link to each directory’s `README.md`; **中文** → use each directory’s `README.zh.md`.
+
+---
+
+### Android application (UI & APK)
+
+Runs the Compose UI, bundles assets, and produces the installable **APK**. You assemble JNI libraries into `jniLibs`, then run Gradle here.
+
+- **Role:** packaging and Java/Kotlin UI.
+- **Artifact:** e.g. `trierarch-app/app/build/outputs/apk/debug/app-debug.apk`.
+- **Details:** [`trierarch-app/README.md`](trierarch-app/README.md)
+
+---
+
+### JNI / native layer (Rust)
+
+Implements proot integration, PTY I/O, rootfs download/extract, etc., exposed to the app as **`libtrierarch.so`**.
+
+- **Role:** Rust JNI bridge used by the Android code.
+- **Artifact:** `trierarch-native/target/aarch64-linux-android/release/libtrierarch.so` → copy to `trierarch-app/app/src/main/jniLibs/arm64-v8a/`.
+- **Details:** [`trierarch-native/README.md`](trierarch-native/README.md)
+
+---
+
+### PRoot (Android aarch64)
+
+Builds the **proot** binary and loader used as **`libproot.so`** / **`libproot_loader.so`** in the app.
+
+- **Role:** userspace chroot/exec inside the Arch rootfs.
+- **Artifacts:** `trierarch-proot/build-android/out/aarch64/proot` → `libproot.so`, `loader` → `libproot_loader.so` (see proot README for exact copy names).
+- **Details:** [`trierarch-proot/README.md`](trierarch-proot/README.md)
+
+---
+
+### In-app Wayland compositor
+
+Builds the minimal Wayland server `.so` files so Linux GUI clients in the rootfs can render into the app surface.
+
+- **Role:** Wayland compositor + dependencies for the in-app view.
+- **Artifacts:** everything under `trierarch-wayland/out/arm64-v8a/*.so` → copy into `trierarch-app/app/src/main/jniLibs/arm64-v8a/`.
+- **Details:** [`trierarch-wayland/README.md`](trierarch-wayland/README.md)
+
+---
+
+## Assemble native libs and build the APK
+
+After building the pieces above (see each `README.md`), from the repo root:
+
+```bash
+mkdir -p trierarch-app/app/src/main/jniLibs/arm64-v8a
+cp trierarch-proot/build-android/out/aarch64/proot   trierarch-app/app/src/main/jniLibs/arm64-v8a/libproot.so
+cp trierarch-proot/build-android/out/aarch64/loader trierarch-app/app/src/main/jniLibs/arm64-v8a/libproot_loader.so
+cp trierarch-native/target/aarch64-linux-android/release/libtrierarch.so trierarch-app/app/src/main/jniLibs/arm64-v8a/
+cp trierarch-wayland/out/arm64-v8a/*.so trierarch-app/app/src/main/jniLibs/arm64-v8a/
+```
+
+Ensure `trierarch-app/app/src/main/assets/keymap_us.xkb` is present (shipped in this repo). Then:
+
+```bash
+cd trierarch-app
+./gradlew assembleDebug
+./gradlew installDebug
+```
+
+Output: `trierarch-app/app/build/outputs/apk/debug/app-debug.apk`.
+
+## Notes
+
+- The app stores its Arch rootfs under `data_dir/arch` (internal storage). If missing at first launch, it may be auto-downloaded via `proot-distro` (network required).

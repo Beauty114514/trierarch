@@ -1,65 +1,66 @@
-# Trierarch Wayland
+# trierarch-wayland
 
 [English](README.md) | 中文
 
----
+[Trierarch monorepo](https://github.com/Beauty114514/trierarch) 中的 Wayland 合成器目录。目录内自带的 **Wayland** / **wayland-protocols** / **libffi** 上游树请保留其自带的许可证文件。
 
-[Trierarch](https://github.com/Beauty114514/trierarch-app) 用的最小化 Wayland 合成器：在 Android 应用进程内运行，通过 SHM 提供单一全屏输出，供 proot 等环境中的 Linux 图形程序在应用 Surface 上显示。**输入**：指针（触摸 → wl_pointer，支持触摸板模式与平板模式）与键盘（Android 软键盘 → wl_keyboard 发给焦点 client）。实现 xdg-shell、presentation-time、viewporter、subcompositor、relative-pointer、pointer-constraints 及最小 data-device/wl_surface 扩展，以便运行完整桌面环境（如 KDE）。
+## 作用与已实现能力
+
+在 Android 应用进程内运行的**最小 Wayland 合成器**：单一全屏 SHM 输出，使 proot 等环境中的 Linux 图形客户端能画到应用 **Surface**。**输入：** 触摸 → `wl_pointer`（含绝对/相对/触摸板模式），软键盘 → `wl_keyboard`。**协议：** xdg-shell、presentation-time、viewporter、subcompositor、relative-pointer、pointer-constraints 及最小 data-device / `wl_surface` 相关实现，足以支撑 **KDE Plasma（Wayland）** 等桌面栈。
+
+**Unicode 输入：** 对 CJK/emoji 等无法直接映射的字符，将提交文本按码位拆分，并注入常见的 `Ctrl+Shift+U` + 十六进制 + `Space` 序列（逐码位）；ASCII 仍走普通按键事件。
+
+**运行时：** 在应用提供的目录（如 `getFilesDir()/usr/tmp`）下创建名为 **`wayland-trierarch`** 的 socket；客户端需设置 `XDG_RUNTIME_DIR` 与 `WAYLAND_DISPLAY=wayland-trierarch`。
 
 ## 前置条件
 
-- Android NDK（如 `$ANDROID_NDK_HOME` 或 `$HOME/Android/Sdk/ndk/<版本>`）
-- **面向 Android arm64-v8a 的 Wayland server 与 libffi**  
-  本模块依赖 `libwayland-server.so` 和 `libffi.so`，构建前须自行放入 `libs/lib/`。可选方式：
-  - **使用自带脚本**（推荐）：在 `trierarch-wayland` 目录下执行  
-    `./scripts/build-wayland-android.sh`  
-    脚本会编译 libffi、Wayland 和 compositor（ndk-build），并把 **三个** `.so` 都输出到 `out/arm64-v8a/`。需要宿主机安装：`meson`、`ninja`、`wayland`、`wayland-protocols`（如 Arch：`pacman -S meson ninja wayland wayland-protocols`）。脚本会自动查找 NDK，必要时可设置 `ANDROID_NDK_HOME`。
-  - 或自行为 Android arm64-v8a 编译 [Wayland](https://gitlab.freedesktop.org/wayland/wayland) 与 [libffi](https://github.com/libffi/libffi)，将 `.so` 与头文件放入 `libs/lib/` 和 `libs/include/`。
-  - 或使用预编译包，将 `libwayland-server.so`、`libffi.so` 放入 `libs/lib/`，并保证 `libs/include/` 中有 Wayland server 头文件。
+- Android NDK（`ANDROID_NDK_HOME` 或 SDK 下 `ndk/<版本>`）
+- **仅手动编 compositor** 时：需已有面向 **arm64-v8a** 的 `libwayland-server.so`、`libffi.so` 及头文件（本仓库已含 `libs/include/`、`libs/share/`）。
+- **一键脚本** 时：宿主机需 **meson**、**ninja**、**wayland**、**wayland-protocols**（如 Arch：`pacman -S meson ninja wayland wayland-protocols`）。
 
-本仓库已包含 `libs/include/` 与 `libs/share/`。脚本会填充 `libs/lib/` 并可刷新 `protocol/`；否则只需从外部构建或预编译得到上述两个 `.so` 并放入 `libs/lib/`。
+本模块**仅 arm64-v8a**（见 `Application.mk`）。
 
-## 构建
+## 手动构建
 
-**推荐**：直接执行脚本，会完成全部构建并写入 `out/arm64-v8a/`：
+在已准备好 **`libs/lib/`**（含 `libwayland-server.so`、`libffi.so` 及头文件）时，在 **`trierarch-wayland/`** 下只编合成器：
 
 ```bash
-cd /path/to/trierarch-wayland
-./scripts/build-wayland-android.sh
-```
-
-**手动构建**：若已有 `libs/lib/` 与 `libs/include/`（wayland + libffi），可只编 compositor：
-
-```bash
-cd /path/to/trierarch-wayland
+cd trierarch-wayland
 ndk-build NDK_PROJECT_PATH=. APP_BUILD_SCRIPT=./Android.mk APP_ABI=arm64-v8a
 ```
 
-产物在 `obj/local/arm64-v8a/libwayland-compositor.so`。本模块**仅支持 arm64-v8a**（见 `Application.mk`）。
+**中间产物：** `obj/local/arm64-v8a/libwayland-compositor.so`。依赖库仍需与之一同打包；日常更推荐下面**脚本构建**，一次性输出到 `out/arm64-v8a/`。
 
-## 在应用中使用
+## 脚本构建（推荐）
 
-将 `trierarch-wayland/out/arm64-v8a/` 下的 **所有** `.so` 拷贝到应用的 JNI 库目录：
+编译 **libffi**、**Wayland** 与合成器，并将全部 `.so` 输出到 **`out/arm64-v8a/`**：
 
 ```bash
-cp /path/to/trierarch-wayland/out/arm64-v8a/*.so trierarch-app/app/src/main/jniLibs/arm64-v8a/
+cd trierarch-wayland
+./scripts/build-wayland-android.sh
 ```
 
-即得到：`libwayland-compositor.so`、`libwayland-server.so`、`libffi.so`。
+需安装上文宿主机依赖；若找不到 NDK，请设置 `ANDROID_NDK_HOME`。
 
-在应用内使用 `System.loadLibrary("wayland-compositor")` 加载，并通过 `app.trierarch.WaylandBridge` 调用 JNI：`nativeStartServer`、`nativeSurfaceCreated`、`nativeSurfaceDestroyed`、`nativeStopWayland`、`nativeIsWaylandReady`、`nativeGetOutputSize`、`nativeGetSocketDir`、`nativeOnPointerEvent`、`nativeSetCursorPhysical`、`nativeOnKeyEvent`、`nativeCommitTextUtf8`、`nativeHasActiveClients`。
+**产物：** `trierarch-wayland/out/arm64-v8a/libwayland-compositor.so`、`libwayland-server.so`、`libffi.so`。
 
-**多语言输入（Unicode 注入）**：对无法通过普通按键映射产生的字符（如 CJK/emoji），Trierarch 会将提交的字符串按 Unicode codepoint 逐个解析，并注入 Linux 桌面常见的 Unicode 输入序列：`Ctrl+Shift+U` + 十六进制码位 + `Space`（逐字符）。ASCII 与控制键继续走普通键盘事件映射。
+## 编译产物怎么用
 
-## Socket 与运行时目录
+将 `out/arm64-v8a/` 下**所有** `.so` 拷贝到应用 JNI 目录（在 monorepo 根目录执行）：
 
-合成器在应用传入的运行时目录（如 `getFilesDir()/usr/tmp`）下创建名为 **wayland-trierarch** 的 Wayland socket。客户端（如 proot 内的程序）需将该目录设为 `XDG_RUNTIME_DIR`，并设置 `WAYLAND_DISPLAY=wayland-trierarch` 进行连接。
+```bash
+cp trierarch-wayland/out/arm64-v8a/*.so trierarch-app/app/src/main/jniLibs/arm64-v8a/
+```
 
-## 本仓库中的 protocol 与 libs
+应用通过 `System.loadLibrary("wayland-compositor")` 加载，并在 `app.trierarch.WaylandBridge` 上调用 JNI（`nativeStartServer`、`nativeSurfaceCreated`、`nativeSurfaceDestroyed`、`nativeStopWayland`、`nativeIsWaylandReady`、`nativeGetOutputSize`、`nativeGetSocketDir`、`nativeOnPointerEvent`、`nativeSetCursorPhysical`、`nativeOnKeyEvent`、`nativeCommitTextUtf8`、`nativeHasActiveClients` 等）。
 
-- **protocol/** — 合成器使用的 Wayland 协议生成的 C 代码（xdg-shell、presentation-time、viewporter、subcompositor 等）。其余协议文件保留供后续扩展。
-- **libs/** — Wayland 与 libffi 的头文件及共享库（由脚本或自行填充），见上文前置条件。
-- **out/arm64-v8a/** — 统一构建输出：供 app 使用的三个 `.so`。由脚本生成，将其中的文件拷入应用的 jniLibs 即可。
-- （已移除）`ime-bridge/` 输入法桥接方案：由于桌面环境对 input-method 协议的暴露/权限策略差异较大，当前主路线使用键盘事件 + Unicode 输入序列注入以获得更广泛的兼容性。
+随后在 `trierarch-app/` 构建 APK；完整集成见 [`README_DEV.zh.md`](../README_DEV.zh.md)。
 
-许可证见 Trierarch 仓库根目录。
+## 本目录结构说明
+
+- **`protocol/`** — 合成器使用的协议生成代码。
+- **`libs/`** — 头文件与（脚本或手动步骤后）共享库。
+- **`out/arm64-v8a/`** — 打包进 APK 的统一输出目录。
+- **`wayland/`**、**`wayland-protocols/`**、**`libffi/`** — 上游源码，勿删其中许可证文件。
+
+**本仓库合成器源码**的许可证见 monorepo 根目录 [`LICENSE`](../LICENSE)。

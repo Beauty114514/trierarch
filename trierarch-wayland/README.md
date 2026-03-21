@@ -1,65 +1,66 @@
-# Trierarch Wayland
+# trierarch-wayland
 
 [中文](README.zh.md) | English
 
----
+Part of the [Trierarch monorepo](https://github.com/Beauty114514/trierarch). Vendored **Wayland** / **wayland-protocols** / **libffi** trees carry their own licenses under `wayland/`, `wayland-protocols/`, `libffi/`.
 
-Minimal Wayland compositor for [Trierarch](https://github.com/Beauty114514/trierarch-app): runs inside the Android app process, exposes a single fullscreen output over SHM so that Linux GUI apps (e.g. under proot) can display on the app Surface. **Input**: pointer (touch → wl_pointer, touchpad and tablet modes) and keyboard (Android IME → wl_keyboard to focused client). Implements xdg-shell, presentation-time, viewporter, subcompositor, relative-pointer, pointer-constraints, and minimal data-device/wl_surface extensions so that full desktop environments (e.g. KDE) can run.
+## Role and what’s implemented
+
+Minimal **Wayland compositor** running inside the Android app process: one fullscreen SHM output so Linux GUI clients (e.g. in proot) can render into the app **Surface**. **Input:** touch → `wl_pointer` (absolute / relative / touchpad modes), soft keyboard → `wl_keyboard`. **Protocols:** xdg-shell, presentation-time, viewporter, subcompositor, relative-pointer, pointer-constraints, minimal data-device / `wl_surface` pieces—enough for **KDE Plasma (Wayland)** and similar stacks.
+
+**Unicode input:** for CJK/emoji, committed text is split into codepoints and injected using the common `Ctrl+Shift+U` + hex + `Space` sequence per codepoint; ASCII stays on normal key events.
+
+**Runtime:** compositor socket name **`wayland-trierarch`** under the app-provided dir (e.g. `getFilesDir()/usr/tmp`). Clients set `XDG_RUNTIME_DIR` and `WAYLAND_DISPLAY=wayland-trierarch`.
 
 ## Prerequisites
 
-- Android NDK (e.g. `$ANDROID_NDK_HOME` or `$HOME/Android/Sdk/ndk/<version>`)
-- **Wayland server and libffi for Android (arm64-v8a)**  
-  This module links against `libwayland-server.so` and `libffi.so`. You must provide them in `libs/lib/` before building. Options:
-  - **Use the provided script** (recommended): from the `trierarch-wayland` directory run  
-    `./scripts/build-wayland-android.sh`  
-    It builds libffi, Wayland, the compositor (ndk-build), and puts **all three** `.so` files in `out/arm64-v8a/`. Requires: `meson`, `ninja`, and host `wayland` / `wayland-protocols` (e.g. on Arch: `pacman -S meson ninja wayland wayland-protocols`). The script uses the same NDK it finds (set `ANDROID_NDK_HOME` if needed).
-  - Or build [Wayland](https://gitlab.freedesktop.org/wayland/wayland) and [libffi](https://github.com/libffi/libffi) yourself for Android arm64-v8a and copy the `.so` and headers into `libs/lib/` and `libs/include/`.
-  - Or use prebuilt binaries (place `libwayland-server.so` and `libffi.so` in `libs/lib/`, with Wayland server headers in `libs/include/`).
+- Android NDK (`ANDROID_NDK_HOME` or SDK’s `ndk/<version>`)
+- For **manual** compositor-only build: `libwayland-server.so` and `libffi.so` for **arm64-v8a** plus headers under `libs/lib/` and `libs/include/` (this repo already ships `libs/include/`, `libs/share/`).
+- For the **all-in-one script:** host packages **meson**, **ninja**, **wayland**, **wayland-protocols** (e.g. Arch: `pacman -S meson ninja wayland wayland-protocols`).
 
-The repository already includes `libs/include/` and `libs/share/`. The script fills `libs/lib/` and can refresh `protocol/`; otherwise only the two `.so` files in `libs/lib/` are required from an external build.
+This module is **arm64-v8a only** (`Application.mk`).
 
-## Build
+## Manual build
 
-**Recommended:** run the script once; it produces everything and writes to `out/arm64-v8a/`:
+Use this when you already have **`libs/lib/`** populated with `libwayland-server.so` and `libffi.so` (and headers). From **`trierarch-wayland/`**:
 
 ```bash
-cd /path/to/trierarch-wayland
-./scripts/build-wayland-android.sh
-```
-
-**Manual:** if you already have `libs/lib/` and `libs/include/` (wayland + libffi), build only the compositor:
-
-```bash
-cd /path/to/trierarch-wayland
+cd trierarch-wayland
 ndk-build NDK_PROJECT_PATH=. APP_BUILD_SCRIPT=./Android.mk APP_ABI=arm64-v8a
 ```
 
-Output is in `obj/local/arm64-v8a/libwayland-compositor.so`. This module is **arm64-v8a only** (see `Application.mk`).
+**Intermediate output:** `obj/local/arm64-v8a/libwayland-compositor.so` — you still need the two dependency `.so` files next to it for packaging; the **recommended** workflow is the script below, which collects everything under `out/arm64-v8a/`.
 
-## Use in the app
+## Script build (recommended)
 
-Copy **all** `.so` files from `trierarch-wayland/out/arm64-v8a/` into the app’s JNI libs:
+Builds **libffi**, **Wayland**, and the compositor, then places **all** `.so` files in **`out/arm64-v8a/`**:
 
 ```bash
-cp /path/to/trierarch-wayland/out/arm64-v8a/*.so trierarch-app/app/src/main/jniLibs/arm64-v8a/
+cd trierarch-wayland
+./scripts/build-wayland-android.sh
 ```
 
-That gives you: `libwayland-compositor.so`, `libwayland-server.so`, `libffi.so`.
+Requires the host tools listed above. Set `ANDROID_NDK_HOME` if the NDK is not found automatically.
 
-Load with `System.loadLibrary("wayland-compositor")` and call the JNI methods on `app.trierarch.WaylandBridge`: `nativeStartServer`, `nativeSurfaceCreated`, `nativeSurfaceDestroyed`, `nativeStopWayland`, `nativeIsWaylandReady`, `nativeGetOutputSize`, `nativeGetSocketDir`, `nativeOnPointerEvent`, `nativeSetCursorPhysical`, `nativeOnKeyEvent`, `nativeCommitTextUtf8`, `nativeHasActiveClients`.
+**Output:** `trierarch-wayland/out/arm64-v8a/libwayland-compositor.so`, `libwayland-server.so`, `libffi.so`.
 
-**Multi-language input (Unicode injection):** For characters that cannot be produced by normal key mapping (e.g. CJK/emoji), Trierarch parses committed text into Unicode codepoints and injects the common Linux desktop Unicode input sequence: `Ctrl+Shift+U` + hex codepoint + `Space` (per codepoint). ASCII and control keys continue to use normal keyboard event mapping.
+## Using the build artifacts
 
-## Socket and runtime dir
+Copy every `.so` from `out/arm64-v8a/` into the app’s JNI libs (from monorepo root):
 
-The compositor creates a Wayland socket named **wayland-trierarch** in the runtime directory passed from the app (e.g. `getFilesDir()/usr/tmp`). Clients (e.g. under proot) must use that directory as `XDG_RUNTIME_DIR` and set `WAYLAND_DISPLAY=wayland-trierarch` to connect.
+```bash
+cp trierarch-wayland/out/arm64-v8a/*.so trierarch-app/app/src/main/jniLibs/arm64-v8a/
+```
 
-## Protocol and libs in this repo
+The app loads **`wayland-compositor`** (`System.loadLibrary("wayland-compositor")`) and uses JNI on `app.trierarch.WaylandBridge` (`nativeStartServer`, `nativeSurfaceCreated`, `nativeSurfaceDestroyed`, `nativeStopWayland`, `nativeIsWaylandReady`, `nativeGetOutputSize`, `nativeGetSocketDir`, `nativeOnPointerEvent`, `nativeSetCursorPhysical`, `nativeOnKeyEvent`, `nativeCommitTextUtf8`, `nativeHasActiveClients`, …).
 
-- **protocol/** — Generated C code for the Wayland protocols used by the compositor (xdg-shell, presentation-time, viewporter, subcompositor, etc.). Other protocol files in the repo are available for future use.
-- **libs/** — Headers and shared libraries for Wayland and libffi (filled by the script or by you). See Prerequisites.
-- **out/arm64-v8a/** — Unified build output: all three `.so` files for the app. Created by the script; copy its contents to the app’s jniLibs.
-- (Removed) `ime-bridge/` input-method bridge approach: input-method protocol exposure/permission differs across compositors, so the default path is now keyboard events + Unicode input sequence injection for broader compatibility.
+Then build the APK from `trierarch-app/`. See [`README_DEV.md`](../README_DEV.md).
 
-License: see the root of the Trierarch repository.
+## Repository layout (this directory)
+
+- **`protocol/`** — generated protocol stubs used by the compositor.
+- **`libs/`** — Wayland/libffi headers and (after script or manual steps) shared libs.
+- **`out/arm64-v8a/`** — unified output for packaging into the APK.
+- **`wayland/`**, **`wayland-protocols/`**, **`libffi/`** — upstream sources; keep their `COPYING` / `LICENSE` files.
+
+License for **our** compositor sources: see the **root** [`LICENSE`](../LICENSE) of the monorepo.

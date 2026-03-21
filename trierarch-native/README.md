@@ -2,25 +2,30 @@
 
 [中文](README.zh.md) | English
 
----
+Part of the [Trierarch monorepo](https://github.com/Beauty114514/trierarch).
 
-Rust JNI library for [Trierarch](https://github.com/Beauty114514/trierarch-app): proot launch, PTY I/O, and Arch rootfs download/extract. Used by the Android app via `NativeBridge`.
+## Role and what’s implemented
+
+Rust **`cdylib`** loaded by the Android app as **`libtrierarch.so`** (`System.loadLibrary("trierarch")`). JNI entry points are used from `NativeBridge`.
+
+**Implemented (high level):** proot-related process/PTY handling, Arch rootfs download with checksum verification, staged extract and atomic install into app storage, PTY output buffering, and other helpers the Kotlin layer calls.
 
 ## Prerequisites
 
-- Rust (rustup)
+- [Rust](https://www.rust-lang.org/) via `rustup`
 - Android NDK (`ANDROID_NDK_HOME` or under `$HOME/Android/Sdk/ndk/`)
 
 ```bash
 rustup target add aarch64-linux-android
 ```
 
-## Build
+## Manual build
 
-From this repo root, set the NDK toolchain and build:
+From **`trierarch-native/`**, point Cargo at the NDK LLVM toolchain (adjust `linux-x86_64` to `darwin-x86_64` / `darwin-arm64` on macOS):
 
 ```bash
-export NDK="${ANDROID_NDK_HOME:-$HOME/Android/Sdk/ndk/25.2.9519653}"   # or your NDK path
+cd trierarch-native
+export NDK="${ANDROID_NDK_HOME:-$HOME/Android/Sdk/ndk/25.2.9519653}"   # your NDK
 export AR="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
 export CC="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang"
 export CXX="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang++"
@@ -29,16 +34,28 @@ export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$CC"
 cargo build --release --target aarch64-linux-android
 ```
 
-On macOS use `darwin-x86_64` or `darwin-arm64` instead of `linux-x86_64` in the paths.
-
 **Output:** `target/aarch64-linux-android/release/libtrierarch.so`
 
-Copy this file into the app’s jniLibs so the Android app can load it:
+## Script build
+
+From **`trierarch-native/`**:
 
 ```bash
-cp target/aarch64-linux-android/release/libtrierarch.so /path/to/trierarch-app/app/src/main/jniLibs/arm64-v8a/
+./scripts/build_rust.sh
 ```
 
-## Optional: script
+The script discovers the NDK, exports the same toolchain variables, runs `cargo build --release --target aarch64-linux-android`, then copies:
 
-`scripts/build_rust.sh` is intended for a workspace that contains both this crate and the app. When using this repo alone, use the `cargo build` and `cp` steps above.
+`target/aarch64-linux-android/release/libtrierarch.so` → `../trierarch-app/app/src/main/jniLibs/arm64-v8a/`
+
+**Requires** the standard monorepo layout (`trierarch-app` next to `trierarch-native`).
+
+## Using the build artifact
+
+If you built manually, copy the library next to the app module:
+
+```bash
+cp target/aarch64-linux-android/release/libtrierarch.so ../trierarch-app/app/src/main/jniLibs/arm64-v8a/
+```
+
+Then build the APK from `trierarch-app/` (see [`README_DEV.md`](../README_DEV.md)).

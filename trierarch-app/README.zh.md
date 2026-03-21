@@ -1,34 +1,44 @@
-# Trierarch（应用）
+# Android 应用
 
 [English](README.md) | 中文
 
----
+[Trierarch monorepo](https://github.com/Beauty114514/trierarch) 中的应用子目录。
 
-Android 应用：通过 **proot** 在无 Termux 环境下运行 Linux shell（可选 Arch rootfs）。可选 **Wayland** 图形：内置合成器，支持指针（触摸、绝对/相对模式）与键盘（软键盘 → Wayland）。通过 **Display 启动脚本**（应用内设置）可在 proot 内启动任意桌面或窗口管理器（如 sway、Xfce、KDE）。Jetpack Compose UI；native 层来自 [trierarch-native](https://github.com/Beauty114514/trierarch-native)。
+## 作用与已实现能力
 
-如需从源码构建应用，请查看 [`README_DEV.zh.md`](README_DEV.zh.md)。
+- **Jetpack Compose** 界面：安装流程、终端、侧边栏、Wayland 视图开关、Display 启动脚本编辑、设置等。
+- **资源与集成：** proot 启动脚本、键位表、JNI 库名等；**`jniLibs/arm64-v8a/`** 加载由其它目录构建的 `.so`（Rust JNI、proot、Wayland 等）。
+- **桥接：** Kotlin `NativeBridge` / `WaylandBridge` 调用 native 层。
 
-## Arch rootfs
+本目录**不单独编译**上述原生库；依赖与拷贝顺序见仓库根目录 [`README_DEV.zh.md`](../README_DEV.zh.md) 及各组件 README。
 
-- rootfs 路径：`data_dir/arch`（应用内部存储）。
-- **自动下载**：若首次启动时不存在 rootfs，应用会从 [proot-distro](https://github.com/termux/proot-distro/releases) 下载 Arch Linux aarch64 rootfs（约 156 MB）并解压，需联网。
-- **手动**：也可自行下载 Termux proot-distro 的 Arch aarch64 rootfs 解压到该目录。
-- 若 `data_dir/arch` 下没有可用的 `sh`，proot 会以 `-0 /system/bin/sh` 运行。
+## 前置条件
 
-## Wayland 与 Display
+- Android Studio 或 Android SDK + 合适的 **NDK**（供 Gradle 使用）。
+- 已按 [`README_DEV.zh.md`](../README_DEV.zh.md) 将预编译 `.so` 放入 `app/src/main/jniLibs/arm64-v8a/`。
 
-- 在侧边栏开启 **Wayland**，切换到 Wayland 视图即可看到合成器画面。触摸作为指针（设置中可选绝对/相对触摸板模式）；点击 Keyboard 将按键发给当前焦点 client。
-- **Display**：点击可执行你配置的 **Display 启动脚本**（如 `sway` 或 `startx`）；长按可编辑脚本。若已有 Wayland 客户端连接，应用不会重复执行脚本。
+## 手动构建（Gradle）
 
-## 输入说明（GTK / Qt）
+在 monorepo 中进入 **`trierarch-app/`**：
 
-我们目前在 **GTK 类应用**里已经解决了 `Ctrl+Shift+U` 的输入问题：可在这类应用中更流畅地输入中文、其他语言字符以及 Emoji（例如 Firefox 等）。
+```bash
+cd trierarch-app
+./gradlew assembleDebug
+```
 
-由于底层限制，**Qt 类应用**对 `Ctrl+Shift+U` 的支持可能不完整，因此在 Qt 应用里如果有中文/非 ASCII 输入需求，建议：
+可选：安装到已连接设备：
 
-- 先在支持 `Ctrl+Shift+U` 的 **GTK 应用**（例如 Mousepad）中完成输入；
-- 然后复制粘贴到 Qt 应用中（通常 `Ctrl+V` / `Ctrl+Shift+V` 在目标应用里行为略有差异，以实际应用表现为准）。
+```bash
+./gradlew installDebug
+```
 
-如果你偏好使用更接近“全键盘”的软键盘，建议尝试 **Unexpected Keyboard**（可更方便地输入/复制 ASCII 以及其他字符）。
+**产物示例：** `app/build/outputs/apk/debug/app-debug.apk`。
 
-未来如果我们找到更通用的解决思路，会尽快在开发版本中更新；也欢迎你或其他开源开发者提供可行方案与测试反馈。由于个人精力有限，暂时难以在所有场景上都做到一次到位，感谢你的理解与协助。
+除 **`gradlew`** 外无额外封装脚本；日常构建即使用上述命令。
+
+## 编译产物怎么用
+
+- 在 **arm64-v8a** 设备/模拟器上安装 APK。
+- 运行时期望 `jniLibs` 下已有对应 `.so`，Arch rootfs 等行为见根目录 [`README.zh.md`](../README.zh.md)。
+
+在执行 `./gradlew` 之前如何汇总 JNI 库，见 [`README_DEV.zh.md`](../README_DEV.zh.md)。
