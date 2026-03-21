@@ -39,11 +39,23 @@ For developers who want to build from source, see [`README_DEV.md`](README_DEV.m
 |-------------------------------------|-----------------------------|
 | ![Side menu in console view](docs/images/sidebarInConsole.jpg) | ![Side menu on desktop](docs/images/sidebarInDesktop.jpg) |
 
-- Turn **Wayland** on in the side menu; switch to the Wayland view to see the compositor output. Touch acts as pointer (absolute or relative/touchpad mode in settings); use the **Keyboard** button to send key events to the focused client.
+- Turn **Wayland** on in the side menu; switch to the Wayland view to see the compositor output. Touch acts as a pointer (pointer modes are in **View Settings** below); use the **Keyboard** button to send key events to the focused client.
 
 - **Display** — Tap to run your **Display startup script** (configure it for **KDE Plasma** / Wayland); long-press to edit the script. The app skips re-running the script if a Wayland client is already connected. After Plasma is running, tap **Display** again to return to the **terminal / Wayland** view; open the side menu and tap **Display** once more to go back to the desktop output.
 
 ![Display in side menu](docs/images/display.jpg)
+
+## View Settings
+
+Open **View Settings** from the side menu (or the equivalent entry) to tune the compositor view and pointer behavior.
+
+![View Settings](docs/images/viewSettings.jpg)
+
+- **Pointer / mouse mode** — Two modes, e.g. **touchpad-style (relative)** vs **tablet-style (absolute)**, control how touch maps to pointer movement (same idea as the Wayland pointer behavior above).
+- **UI size vs clarity** — Two independent controls you can combine:
+  - **Resolution** — Lower the output resolution to change how large UI elements appear and to **reduce** GPU / compositing load (useful when you care about smoothness or power use).
+  - **Scale** — Adjusts size via **scaling** **without** changing the backing resolution, so you can resize the UI while **keeping** text and controls sharp.
+- **Combining** — You can **stack** both modes and tune the mix for your device until performance and sharpness feel right.
 
 ## Input Tips (GTK / Qt)
 
