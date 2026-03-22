@@ -6,7 +6,7 @@
 
 **Download:** latest APK → **[GitHub Releases](https://github.com/Beauty114514/trierarch/releases/latest)**.
 
-## Screenshots
+## Demo
 
 | KDE Plasma (Wayland) | Firefox (inside proot) |
 |------------------------|-------------------------|
@@ -14,74 +14,82 @@
 
 ---
 
-This **monorepo** hosts the Android app and supporting code (`trierarch-app`, `trierarch-native`, `trierarch-proot`, `trierarch-wayland`, `trierarch-optimize`, and more). Primary home: **[github.com/Beauty114514/trierarch](https://github.com/Beauty114514/trierarch)**.
+**Trierarch** is an Android app that runs an **Arch Linux** rootfs using a **proot**-style container, with a custom **Wayland** compositor (development and tuning focus on **KDE Plasma (Wayland)**). The goal is your own **Arch** + **KDE Plasma 6 (Wayland)** mobile desktop.
 
-**Trierarch** is an Android app built on the **proot**-style container stack familiar from the **Termux** ecosystem—you **do not** need the Termux app installed. It runs an **Arch Linux** rootfs on your phone or tablet. Other desktop environments may be usable **in principle** (same proot + Wayland setup), but **development**, **documentation**, and **tuning** focus on **KDE Plasma** on **Wayland**. The app bundles its own **Wayland** compositor (pointer/touch, absolute or relative mode, soft keyboard → clients). Use the **Display startup script** in settings to launch your **Plasma (Wayland)** session. Jetpack Compose UI; JNI/native code lives in [`trierarch-native/`](trierarch-native/).
+## 1. First launch: automatic rootfs download
 
-**Tuning & optimization:** documentation for improving apps and day-to-day use *inside* the desktop/rootfs starts at [`trierarch-optimize/README.md`](trierarch-optimize/README.md) ([中文](trierarch-optimize/README.zh.md)), which links to each tutorial (e.g. Firefox).
+- If there is no usable rootfs under `data_dir/arch` at first launch, the app **downloads and extracts** the Arch Linux aarch64 rootfs from [proot-distro](https://github.com/termux/proot-distro/releases) (~156 MB). Network required.
 
-For developers who want to build from source, see [`README_DEV.md`](README_DEV.md).
+## 2. Before the desktop: install Plasma inside proot (and basics)
 
-**Contributing & security:** see [`CONTRIBUTING.md`](CONTRIBUTING.md) ([中文](CONTRIBUTING.zh.md)) and [`SECURITY.md`](SECURITY.md) ([中文](SECURITY.zh.md)). Changes are summarized in [`CHANGELOG.md`](CHANGELOG.md). Release checklist: [`docs/RELEASING.md`](docs/RELEASING.md) ([中文](docs/RELEASING.zh.md)).
+In the **Arch shell inside proot**, **update first, then install the desktop** (example; adjust packages as you like):
 
-## Arch rootfs
+```bash
+pacman -Syu
+pacman -S plasma-desktop dolphin konsole
+```
 
-- Rootfs path: `data_dir/arch` (app internal storage).
-- **Auto-download**: If no rootfs exists at first launch, the app downloads the Arch Linux aarch64 rootfs from [proot-distro](https://github.com/termux/proot-distro/releases) (~156 MB) and extracts it. Requires network.
-- **Manual**: You can put a Termux proot-distro Arch aarch64 rootfs there (e.g. download and extract manually).
-- If `data_dir/arch` has no usable `sh`, proot runs with `-0 /system/bin/sh`.
+## 3. Side menu and Display (open menu, enable Wayland, run Display)
 
-## Wayland and Display
-
-- **Side menu** — Use a **two-finger** swipe **from the left edge of the screen toward the right** to open it (two fingers help avoid clashing with Android edge-back gestures). Examples below: side menu in the terminal/Wayland view, and after entering the desktop.
+- **Side menu** — **Two-finger** swipe **from the left edge of the screen toward the right** to open it. Below: side menu in the terminal/Wayland view vs after entering the desktop.
 
 | Side menu (terminal / Wayland view) | Side menu (desktop session) |
 |-------------------------------------|-----------------------------|
 | ![Side menu in console view](docs/images/sidebarInConsole.jpg) | ![Side menu on desktop](docs/images/sidebarInDesktop.jpg) |
 
-- Turn **Wayland** on in the side menu; switch to the Wayland view to see the compositor output. Touch acts as a pointer (pointer modes are in **View Settings** below); use the **Keyboard** button to send key events to the focused client.
+- **First**, turn **Wayland** on in the side menu.
 
-- **Display** — Tap to run your **Display startup script** (configure it for **KDE Plasma** / Wayland); long-press to edit the script. The app skips re-running the script if a Wayland client is already connected. After Plasma is running, tap **Display** again to return to the **terminal / Wayland** view; open the side menu and tap **Display** once more to go back to the desktop output.
+- **Display** — **Long-press** to edit the **Display startup script**; **short-press** to run it and start Plasma. **If a Wayland client is already connected, the app does not run the script again.**
+
+**Recommended script** (session D-Bus via `dbus-launch`, then Plasma Wayland; redirect output so the script doesn’t block):
+
+```bash
+dbus-launch --exit-with-session startplasma-wayland > /dev/null 2>&1 &
+```
 
 ![Display in side menu](docs/images/display.jpg)
 
-## View Settings
+## 4. After Plasma starts: View Settings and terminal ↔ desktop switching
 
-Open **View Settings** from the side menu (or the equivalent entry) to tune the compositor view and pointer behavior.
+### View Settings
+
+Open **View Settings** from the side menu to tune the compositor and pointer behavior:
 
 ![View Settings](docs/images/viewSettings.jpg)
 
-- **Pointer / mouse mode** — Two modes, e.g. **touchpad-style (relative)** vs **tablet-style (absolute)**, control how touch maps to pointer movement (same idea as the Wayland pointer behavior above).
-- **UI size vs clarity** — Two independent controls you can combine:
-  - **Resolution** — Lower the output resolution to change how large UI elements appear and to **reduce** GPU / compositing load (useful when you care about smoothness or power use).
-  - **Scale** — Adjusts size via **scaling** **without** changing the backing resolution, so you can resize the UI while **keeping** text and controls sharp.
-- **Combining** — You can **stack** both modes and tune the mix for your device until performance and sharpness feel right.
+- **Pointer / mouse mode** — e.g. **touchpad-style (relative)** vs **tablet-style (absolute)**.
+- **UI size vs clarity** — **Resolution** and **Scale** can be **combined**: Resolution lowers output resolution to reduce compositing load **and** adjusts on-screen element size; Scale resizes via scaling without changing the backing resolution to keep text/UI sharp. There’s no single “correct” mix—tune until it fits **your** device and habits.
 
-## Input Tips (GTK / Qt)
+### Switching between terminal and desktop with Display
 
-We currently solved `Ctrl+Shift+U` for **GTK apps**, so you can enter Chinese, other non-ASCII characters, and Emoji more smoothly (for example in Firefox).
+After Plasma is running, tap **Display** again to return to the **terminal / Wayland** view; **swipe the side menu open from the left again → Display** to go back to the desktop. The side menu and Display work in both the shell view and on the desktop.
 
-For **Qt apps**, `Ctrl+Shift+U` support may be incomplete due to underlying limitations. If you need Chinese / other non-ASCII input in a Qt app, the recommended workflow is:
+## 5. Keyboard and input (side menu Keyboard, GTK / Qt)
 
-- Enter the text in a **GTK app** that supports `Ctrl+Shift+U` first (e.g. Mousepad);
-- Copy it, then paste into the Qt app (usually `Ctrl+V` / `Ctrl+Shift+V`, but the exact behavior depends on the target application).
+The side **Keyboard** entry can **invoke** the soft keyboard.
 
-The in-app **Keyboard** button injects those keys (including `Ctrl+Shift+U`) to the focused client:
+![Keyboard in side menu](docs/images/keyboard.jpg)
 
-![Keyboard in side menu (GTK workflow)](docs/images/keyboard.jpg)
+In **GTK** apps you can enter **non-ASCII** characters (Chinese, emoji, special characters, etc.); input is completed automatically via the **`Ctrl+Shift+U`** path.
 
-If you prefer a more “full keyboard” experience on the soft keyboard, you may try [**Unexpected Keyboard**](https://play.google.com/store/apps/details?id=juloo.keyboard2) on [Google Play](https://play.google.com/store/apps/details?id=juloo.keyboard2) (open source: [GitHub](https://github.com/Julow/Unexpected-Keyboard)).
+**Qt** apps often don’t support that path: type in a **GTK** app first (**Mousepad**), then **copy/paste** into Qt. The **Android soft keyboard** and **Plasma clipboard** are **not integrated**—copy/paste inside Linux using the mouse or shortcuts (e.g. `Ctrl+C`, `Ctrl+V`). You can use a full soft keyboard such as [**Unexpected Keyboard**](https://play.google.com/store/apps/details?id=juloo.keyboard2) ([GitHub](https://github.com/Julow/Unexpected-Keyboard)).
 
-If we find a more universal solution in the future, we will update the project as soon as possible. Contributions and testing feedback from users and other open-source developers are also welcome.
+## 6. In-rootfs tuning (`trierarch-optimize`) and Arch documentation
+
+Topic guides for **tuning apps inside the rootfs desktop** are in **[`trierarch-optimize/README.md`](trierarch-optimize/README.md)** ([中文](trierarch-optimize/README.zh.md)), with links to articles (Firefox, non-ASCII input and fonts, etc.).
+
+For **general Arch Linux** setup, packages, and troubleshooting, use **[ArchWiki](https://wiki.archlinux.org/)** and the **[Arch Linux Chinese Wiki](https://wiki.archlinuxcn.org/)**. This app provides **proot + Wayland** on a phone; many Arch steps match a normal desktop install, but kernel features, full **systemd** sessions, etc. may differ.
+
+To build from source, see [`README_DEV.md`](README_DEV.md). **Contributing & security:** [`CONTRIBUTING.md`](CONTRIBUTING.md), [`SECURITY.md`](SECURITY.md); changes in [`CHANGELOG.md`](CHANGELOG.md); releases: [`docs/RELEASING.md`](docs/RELEASING.md).
 
 ## Acknowledgments
 
 Trierarch stands on many open-source projects. Thanks to their authors and communities, including (non-exhaustively):
 
 - **[PRoot](https://github.com/termux/proot)** and the **Termux** ecosystem; Arch rootfs from **[proot-distro](https://github.com/termux/proot-distro)** releases
-- **[Wayland](https://wayland.freedesktop.org/)** and **wayland-protocols** (reference sources under `trierarch-wayland/`)
+- **[Wayland](https://wayland.freedesktop.org/)** and **wayland-protocols** (under `trierarch-wayland/`)
 - **[libffi](https://github.com/libffi/libffi)** · **Rust** · **Kotlin** · **Jetpack Compose** · **Android** / **NDK**
-- The **KDE Plasma** and **Arch Linux** communities (the stack we focus on in documentation)
-- **[Unexpected Keyboard](https://github.com/Julow/Unexpected-Keyboard)** (optional third-party keyboard we mention in this README)
+- The **KDE Plasma** and **Arch Linux** communities
+- **[Unexpected Keyboard](https://github.com/Julow/Unexpected-Keyboard)** (third-party keyboard mentioned in this README)
 
 Bundled third-party code includes its own license files in-tree (e.g. `COPYING`, `LICENSE` under vendored paths). This section is a thank-you, not a complete legal notice.
