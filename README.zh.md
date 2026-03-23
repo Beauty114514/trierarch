@@ -37,7 +37,7 @@ pacman -S plasma-desktop dolphin konsole
 |----------------------------|-----------------|
 | ![终端界面侧栏](docs/images/sidebarInConsole.jpg) | ![桌面侧栏](docs/images/sidebarInDesktop.jpg) |
 
-- 在侧栏开启 **Wayland**。
+- 先在侧栏开启 **Wayland**。
 
 - **Display**：**长按**可编辑 **Display 启动脚本**；**短按**执行脚本以启动 Plasma。**若已有 Wayland 客户端连接，应用不会重复执行脚本。**
 
@@ -70,7 +70,7 @@ dbus-launch --exit-with-session startplasma-wayland > /dev/null 2>&1 &
 
 ![侧栏 Keyboard](docs/images/keyboard.jpg)
 
-在 **GTK 类应用**中，可输入 **非 ASCII** 字符（如中文、Emoji、特殊字符等）；通过 **`Ctrl+Shift+U`** 路径完成输入，侧栏 **Keyboard** 用于向当前窗口发送相应按键。
+在 **GTK 类应用**中，可输入 **非 ASCII** 字符（如中文、Emoji、特殊字符等），软件将自动通过 **`Ctrl+Shift+U`** 路径完成输入。
 
 **Qt 类应用**对同一路径往往不完整：可先在 **GTK 应用**（推荐 **Mousepad**）里输入，再**复制粘贴**到 Qt 应用。**目前 Android 软键盘与 Plasma 桌面剪贴板未打通**，复制粘贴请在 Linux 侧通过鼠标或快捷键完成（如 `Ctrl+C`、`Ctrl+V`）。可用 [**Unexpected Keyboard**](https://play.google.com/store/apps/details?id=juloo.keyboard2) 等全键盘软键盘（[GitHub](https://github.com/Julow/Unexpected-Keyboard)）。
 
