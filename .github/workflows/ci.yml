@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  native-check:
+    name: Native Rust Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: trierarch-native
+
+      - name: Cargo check
+        working-directory: trierarch-native
+        run: cargo check
+
+  app-kotlin-check:
+    name: Android App Kotlin Compile
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept SDK licenses
+        run: yes | sdkmanager --licenses
+
+      - name: Install required SDK packages
+        run: |
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Make gradlew executable
+        working-directory: trierarch-app
+        run: chmod +x gradlew
+
+      - name: Compile debug Kotlin
+        working-directory: trierarch-app
+        run: ./gradlew :app:compileDebugKotlin --stacktrace
