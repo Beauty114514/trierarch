@@ -15,8 +15,9 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 OUT_DIR="$PROJECT_DIR/libs"
 OUT_UNIFIED="$PROJECT_DIR/out/arm64-v8a"
 FFI_INSTALL="$PROJECT_DIR/libffi-install"
-WAYLAND_SRC="${WAYLAND_SRC:-$PROJECT_DIR/wayland}"
-PROTOCOLS_SRC="${WAYLAND_PROTOCOLS_SRC:-$PROJECT_DIR/wayland-protocols}"
+BUILD_SRC_DIR="${WAYLAND_BUILD_SRC_DIR:-$PROJECT_DIR/build-src}"
+WAYLAND_SRC="${WAYLAND_SRC:-$BUILD_SRC_DIR/wayland}"
+PROTOCOLS_SRC="${WAYLAND_PROTOCOLS_SRC:-$BUILD_SRC_DIR/wayland-protocols}"
 
 # NDK: prefer ANDROID_NDK_HOME, then NDK, then first under Sdk/ndk (same as trierarch-native/build_rust.sh)
 NDK="${ANDROID_NDK_HOME:-${NDK:-}}"
@@ -76,16 +77,19 @@ make -C "$FFI_SRC/build-android" install
 export PKG_CONFIG_PATH="$FFI_INSTALL/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
 
 # 2. Clone Wayland 1.24.x (match system wayland-scanner if possible)
+mkdir -p "$BUILD_SRC_DIR"
 if [ -d "$WAYLAND_SRC" ]; then
     echo "Removing existing wayland, re-cloning 1.24.0..."
     rm -rf "$WAYLAND_SRC"
 fi
 echo "Cloning wayland 1.24.0..."
 git clone --depth 1 --branch 1.24.0 https://gitlab.freedesktop.org/wayland/wayland.git "$WAYLAND_SRC"
+rm -rf "$WAYLAND_SRC/.git"
 
 if [ ! -d "$PROTOCOLS_SRC" ]; then
     echo "Cloning wayland-protocols..."
     git clone --depth 1 https://gitlab.freedesktop.org/wayland/wayland-protocols.git "$PROTOCOLS_SRC"
+    rm -rf "$PROTOCOLS_SRC/.git"
 fi
 
 # 3. Build Wayland (server lib only)
@@ -148,5 +152,7 @@ ls -la "$OUT_DIR/lib/"
 echo ""
 echo "Unified output (for app jniLibs): $OUT_UNIFIED"
 ls -la "$OUT_UNIFIED/" 2>/dev/null || true
+echo ""
+echo "External upstream sources (re-cloned by this script): $BUILD_SRC_DIR"
 echo ""
 echo "Copy all .so from $OUT_UNIFIED to trierarch-app/app/src/main/jniLibs/arm64-v8a/"
