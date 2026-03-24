@@ -2,7 +2,8 @@
 
 [English](README.md) | 中文
 
-[Trierarch monorepo](https://github.com/Beauty114514/trierarch) 中的 Wayland 合成器目录。目录内自带的 **Wayland** / **wayland-protocols** / **libffi** 上游树请保留其自带的许可证文件。
+[Trierarch monorepo](https://github.com/Beauty114514/trierarch) 中的 Wayland 合成器目录。上游 **Wayland** / **wayland-protocols** / **libffi** 源码由构建脚本管理，并遵循其自带许可证。
+提醒：上游源码现在按需拉取到 `build-src/`，不再要求在仓库中长期保留 `wayland/` 或 `wayland-protocols/` 目录。
 
 ## 作用与已实现能力
 
@@ -44,6 +45,12 @@ cd trierarch-wayland
 
 **产物：** `trierarch-wayland/out/arm64-v8a/libwayland-compositor.so`、`libwayland-server.so`、`libffi.so`。
 
+为便于复现，脚本会把上游源码拉到 `trierarch-wayland/build-src/`：
+- `build-src/wayland`
+- `build-src/wayland-protocols`
+
+并移除这些目录中的嵌套 `.git`，避免污染 monorepo 的 git 状态。重复执行脚本会自动重建这些源码目录。
+
 ## 编译产物怎么用
 
 将 `out/arm64-v8a/` 下**所有** `.so` 拷贝到应用 JNI 目录（在 monorepo 根目录执行）：
@@ -61,6 +68,7 @@ cp trierarch-wayland/out/arm64-v8a/*.so trierarch-app/app/src/main/jniLibs/arm64
 - **`protocol/`** — 合成器使用的协议生成代码。
 - **`libs/`** — 头文件与（脚本或手动步骤后）共享库。
 - **`out/arm64-v8a/`** — 打包进 APK 的统一输出目录。
-- **`wayland/`**、**`wayland-protocols/`**、**`libffi/`** — 上游源码，勿删其中许可证文件。
+- **`build-src/`** — 脚本管理的上游源码检出目录（`wayland`、`wayland-protocols`），用于可复现本地构建。
+- **`libffi/`** — 脚本使用的本地 libffi 源码/构建工作目录。
 
 **本仓库合成器源码**的许可证见 monorepo 根目录 [`LICENSE`](../LICENSE)。

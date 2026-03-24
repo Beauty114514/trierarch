@@ -35,6 +35,12 @@
 #define KEY_LINUX_RIGHTALT     100
 #define KEY_LINUX_LEFTMETA     125
 #define KEY_LINUX_RIGHTMETA    126
+#define KEY_LINUX_CAPSLOCK     58
+#define KEY_LINUX_NUMLOCK      69
+#define KEY_LINUX_SCROLLLOCK   70
+#define MOD_CAPSLOCK_MASK 0x10
+#define MOD_NUMLOCK_MASK  0x20
+#define MOD_SCROLL_MASK   0x40
 
 static void send_keymap_to_resource(struct wl_resource *keyboard_res, struct wayland_server *srv) {
     if (!keyboard_res || !srv || !srv->runtime_dir) return;
@@ -80,7 +86,7 @@ static void keyboard_send_enter(struct wayland_server *srv,
     wl_array_release(&keys);
     if (wl_resource_get_version(keyboard_res) >= 4)
         wl_keyboard_send_modifiers(keyboard_res, wl_display_next_serial(srv->display),
-            srv->keyboard_mods_depressed, 0, 0, 0);
+            srv->keyboard_mods_depressed, 0, srv->keyboard_mods_locked, 0);
 }
 
 static void keyboard_send_leave(struct wayland_server *srv,
@@ -128,30 +134,83 @@ void compositor_keyboard_key_event(wayland_server_t *srv_opaque, uint32_t time_m
 
     /* Update modifier state on modifier keys, then notify client. */
     bool mods_changed = false;
-    if (key_linux == KEY_LINUX_LEFTSHIFT || key_linux == KEY_LINUX_RIGHTSHIFT) {
-        if (state == WL_KEYBOARD_KEY_STATE_PRESSED) srv->keyboard_shift_count++;
-        else if (srv->keyboard_shift_count > 0) srv->keyboard_shift_count--;
-        mods_changed = true;
-    } else if (key_linux == KEY_LINUX_LEFTCTRL || key_linux == KEY_LINUX_RIGHTCTRL) {
-        if (state == WL_KEYBOARD_KEY_STATE_PRESSED) srv->keyboard_ctrl_count++;
-        else if (srv->keyboard_ctrl_count > 0) srv->keyboard_ctrl_count--;
-        mods_changed = true;
-    } else if (key_linux == KEY_LINUX_LEFTALT || key_linux == KEY_LINUX_RIGHTALT) {
-        if (state == WL_KEYBOARD_KEY_STATE_PRESSED) srv->keyboard_alt_count++;
-        else if (srv->keyboard_alt_count > 0) srv->keyboard_alt_count--;
-        mods_changed = true;
-    } else if (key_linux == KEY_LINUX_LEFTMETA || key_linux == KEY_LINUX_RIGHTMETA) {
-        if (state == WL_KEYBOARD_KEY_STATE_PRESSED) srv->keyboard_meta_count++;
-        else if (srv->keyboard_meta_count > 0) srv->keyboard_meta_count--;
-        mods_changed = true;
+    const bool pressed = (state == WL_KEYBOARD_KEY_STATE_PRESSED);
+    if (key_linux == KEY_LINUX_LEFTSHIFT) {
+        if (srv->keyboard_lshift_down != pressed) {
+            srv->keyboard_lshift_down = pressed;
+            mods_changed = true;
+        }
+    } else if (key_linux == KEY_LINUX_RIGHTSHIFT) {
+        if (srv->keyboard_rshift_down != pressed) {
+            srv->keyboard_rshift_down = pressed;
+            mods_changed = true;
+        }
+    } else if (key_linux == KEY_LINUX_LEFTCTRL) {
+        if (srv->keyboard_lctrl_down != pressed) {
+            srv->keyboard_lctrl_down = pressed;
+            mods_changed = true;
+        }
+    } else if (key_linux == KEY_LINUX_RIGHTCTRL) {
+        if (srv->keyboard_rctrl_down != pressed) {
+            srv->keyboard_rctrl_down = pressed;
+            mods_changed = true;
+        }
+    } else if (key_linux == KEY_LINUX_LEFTALT) {
+        if (srv->keyboard_lalt_down != pressed) {
+            srv->keyboard_lalt_down = pressed;
+            mods_changed = true;
+        }
+    } else if (key_linux == KEY_LINUX_RIGHTALT) {
+        if (srv->keyboard_ralt_down != pressed) {
+            srv->keyboard_ralt_down = pressed;
+            mods_changed = true;
+        }
+    } else if (key_linux == KEY_LINUX_LEFTMETA) {
+        if (srv->keyboard_lmeta_down != pressed) {
+            srv->keyboard_lmeta_down = pressed;
+            mods_changed = true;
+        }
+    } else if (key_linux == KEY_LINUX_RIGHTMETA) {
+        if (srv->keyboard_rmeta_down != pressed) {
+            srv->keyboard_rmeta_down = pressed;
+            mods_changed = true;
+        }
+    } else if (key_linux == KEY_LINUX_CAPSLOCK) {
+        if (srv->keyboard_capslock_down != pressed) {
+            srv->keyboard_capslock_down = pressed;
+            if (pressed) {
+                srv->keyboard_capslock_enabled = !srv->keyboard_capslock_enabled;
+            }
+            mods_changed = true;
+        }
+    } else if (key_linux == KEY_LINUX_NUMLOCK) {
+        if (srv->keyboard_numlock_down != pressed) {
+            srv->keyboard_numlock_down = pressed;
+            if (pressed) {
+                srv->keyboard_numlock_enabled = !srv->keyboard_numlock_enabled;
+            }
+            mods_changed = true;
+        }
+    } else if (key_linux == KEY_LINUX_SCROLLLOCK) {
+        if (srv->keyboard_scrolllock_down != pressed) {
+            srv->keyboard_scrolllock_down = pressed;
+            if (pressed) {
+                srv->keyboard_scrolllock_enabled = !srv->keyboard_scrolllock_enabled;
+            }
+            mods_changed = true;
+        }
     }
 
     if (mods_changed) {
         srv->keyboard_mods_depressed = 0;
-        if (srv->keyboard_shift_count) srv->keyboard_mods_depressed |= MOD_SHIFT_MASK;
-        if (srv->keyboard_ctrl_count) srv->keyboard_mods_depressed |= MOD_CTRL_MASK;
-        if (srv->keyboard_alt_count) srv->keyboard_mods_depressed |= MOD_ALT_MASK;
-        if (srv->keyboard_meta_count) srv->keyboard_mods_depressed |= MOD_META_MASK;
+        if (srv->keyboard_lshift_down || srv->keyboard_rshift_down) srv->keyboard_mods_depressed |= MOD_SHIFT_MASK;
+        if (srv->keyboard_lctrl_down || srv->keyboard_rctrl_down) srv->keyboard_mods_depressed |= MOD_CTRL_MASK;
+        if (srv->keyboard_lalt_down || srv->keyboard_ralt_down) srv->keyboard_mods_depressed |= MOD_ALT_MASK;
+        if (srv->keyboard_lmeta_down || srv->keyboard_rmeta_down) srv->keyboard_mods_depressed |= MOD_META_MASK;
+        srv->keyboard_mods_locked = 0;
+        if (srv->keyboard_capslock_enabled) srv->keyboard_mods_locked |= MOD_CAPSLOCK_MASK;
+        if (srv->keyboard_numlock_enabled) srv->keyboard_mods_locked |= MOD_NUMLOCK_MASK;
+        if (srv->keyboard_scrolllock_enabled) srv->keyboard_mods_locked |= MOD_SCROLL_MASK;
     }
 
     wl_list_for_each(node, &srv->keyboard_resources, link) {
@@ -160,7 +219,7 @@ void compositor_keyboard_key_event(wayland_server_t *srv_opaque, uint32_t time_m
 
         if (mods_changed && wl_resource_get_version(node->resource) >= 4) {
             wl_keyboard_send_modifiers(node->resource, wl_display_next_serial(srv->display),
-                srv->keyboard_mods_depressed, 0, 0, 0);
+                srv->keyboard_mods_depressed, 0, srv->keyboard_mods_locked, 0);
         }
 
         wl_keyboard_send_key(node->resource, serial, time_ms, key_linux, state);

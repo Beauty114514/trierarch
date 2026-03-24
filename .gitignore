@@ -18,6 +18,11 @@ app/build
 captures/
 .idea/
 .cursor/
+# Aggregated native build outputs copied into app module for packaging
+trierarch-app/app/src/main/jniLibs/
+
+# --- Drivers (currently not used in app build pipeline) ---
+trierarch-drivers/
 
 # Release APK signing secrets (see trierarch-app/keystore.properties.example)
 trierarch-app/keystore.properties
@@ -47,9 +52,13 @@ trierarch-wayland/obj/
 trierarch-wayland/out/
 trierarch-wayland/libs/arm64-v8a/
 !trierarch-wayland/libs/.gitkeep
+trierarch-wayland/libffi-install/
+trierarch-wayland/libffi-*.tar.gz
+trierarch-wayland/build-src/
 trierarch-wayland/**/*.o
 trierarch-wayland/**/*.a
 trierarch-wayland/**/*.so
+trierarch-wayland/**/.git/
 
 # --- trierarch-wayland/wayland (vendored upstream; patterns from wayland/.gitignore) ---
 trierarch-wayland/**/*.announce

@@ -26,7 +26,7 @@ LOCAL_SRC_FILES := \
     src/xdg_shell.c src/output.c src/seat.c src/pointer_input.c src/keyboard_input.c src/data_device.c \
     src/single_pixel_buffer.c src/viewporter.c src/xdg_decoration.c src/xdg_output.c \
     src/pointer_constraints.c src/relative_pointer.c src/presentation.c \
-    src/renderer.c src/jni_bridge.c \
+    src/renderer.c src/jni_bridge.c src/keycode_map.c \
     protocol/xdg-shell-server-protocol.c \
     protocol/single-pixel-buffer-v1-server-protocol.c \
     protocol/viewporter-server-protocol.c \

@@ -2,7 +2,8 @@
 
 [中文](README.zh.md) | English
 
-Part of the [Trierarch monorepo](https://github.com/Beauty114514/trierarch). Vendored **Wayland** / **wayland-protocols** / **libffi** trees carry their own licenses under `wayland/`, `wayland-protocols/`, `libffi/`.
+Part of the [Trierarch monorepo](https://github.com/Beauty114514/trierarch). Upstream **Wayland** / **wayland-protocols** / **libffi** sources are managed by the build script and carry their own licenses.
+Reminder: upstream source trees are now fetched into `build-src/` on demand and are not required to live in git-tracked `wayland/` or `wayland-protocols/` directories.
 
 ## Role and what’s implemented
 
@@ -44,6 +45,12 @@ Requires the host tools listed above. Set `ANDROID_NDK_HOME` if the NDK is not f
 
 **Output:** `trierarch-wayland/out/arm64-v8a/libwayland-compositor.so`, `libwayland-server.so`, `libffi.so`.
 
+For reproducibility, the script stores cloned upstream sources in `trierarch-wayland/build-src/`:
+- `build-src/wayland`
+- `build-src/wayland-protocols`
+
+It removes nested `.git` directories in those clone outputs to keep the monorepo git state clean. Re-running the script recreates these sources automatically.
+
 ## Using the build artifacts
 
 Copy every `.so` from `out/arm64-v8a/` into the app’s JNI libs (from monorepo root):
@@ -61,6 +68,7 @@ Then build the APK from `trierarch-app/`. See [`README_DEV.md`](../README_DEV.md
 - **`protocol/`** — generated protocol stubs used by the compositor.
 - **`libs/`** — Wayland/libffi headers and (after script or manual steps) shared libs.
 - **`out/arm64-v8a/`** — unified output for packaging into the APK.
-- **`wayland/`**, **`wayland-protocols/`**, **`libffi/`** — upstream sources; keep their `COPYING` / `LICENSE` files.
+- **`build-src/`** — script-managed upstream source checkout (`wayland`, `wayland-protocols`) for reproducible local builds.
+- **`libffi/`** — local libffi source/build workspace used by the script.
 
 License for **our** compositor sources: see the **root** [`LICENSE`](../LICENSE) of the monorepo.

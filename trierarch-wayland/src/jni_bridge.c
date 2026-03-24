@@ -17,6 +17,7 @@
 #include "compositor.h"
 #include "server_internal.h"
 #include "renderer.h"
+#include "keycode_map.h"
 
 #define LOG_TAG "WaylandJNI"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -347,82 +348,6 @@ JNIEXPORT jboolean JNICALL Java_app_trierarch_WaylandBridge_nativeHasActiveClien
     (void)env;(void)thiz;
     if (!g_server) return JNI_FALSE;
     return compositor_has_toplevel_client(g_server) ? JNI_TRUE : JNI_FALSE;
-}
-
-/*
- * Android keycode (KeyEvent.KEYCODE_*) to Linux evdev key code (KEY_* from input-event-codes.h).
- * Letters: Android uses 29-54 (A-Z order); evdev uses physical QWERTY positions.
- * Unmapped => 0 (ignore).
- */
-static uint32_t android_keycode_to_linux(int android_keycode) {
-    switch (android_keycode) {
-        case 4:   return 1;   /* KEYCODE_BACK -> KEY_ESC */
-        case 7:   return 11;  /* KEYCODE_0 -> KEY_0 */
-        case 8:   return 2;   case 9:   return 3;   case 10:  return 4;   case 11:  return 5;
-        case 12:  return 6;   case 13:  return 7;   case 14:  return 8;   case 15:  return 9;
-        case 16:  return 10;  /* KEYCODE_1..9 -> KEY_1..KEY_9 */
-        case 19:  return 103; /* KEYCODE_DPAD_UP -> KEY_UP */
-        case 20:  return 108; /* KEYCODE_DPAD_DOWN -> KEY_DOWN */
-        case 21:  return 105; /* KEYCODE_DPAD_LEFT -> KEY_LEFT */
-        case 22:  return 106; /* KEYCODE_DPAD_RIGHT -> KEY_RIGHT */
-        case 28:  return 28;  /* KEYCODE_ENTER (num) -> KEY_ENTER */
-        /* Android A(29)..Z(54) -> evdev KEY_* by physical key (QWERTY) */
-        case 29:  return 30;  /* A -> KEY_A */
-        case 30:  return 48;  /* B -> KEY_B */
-        case 31:  return 46;  /* C -> KEY_C */
-        case 32:  return 32;  /* D -> KEY_D */
-        case 33:  return 18;  /* E -> KEY_E */
-        case 34:  return 33;  /* F -> KEY_F */
-        case 35:  return 34;  /* G -> KEY_G */
-        case 36:  return 35;  /* H -> KEY_H */
-        case 37:  return 23;  /* I -> KEY_I */
-        case 38:  return 36;  /* J -> KEY_J */
-        case 39:  return 37;  /* K -> KEY_K */
-        case 40:  return 38;  /* L -> KEY_L */
-        case 41:  return 50;  /* M -> KEY_M */
-        case 42:  return 49;  /* N -> KEY_N */
-        case 43:  return 24;  /* O -> KEY_O */
-        case 44:  return 25;  /* P -> KEY_P */
-        case 45:  return 16;  /* Q -> KEY_Q */
-        case 46:  return 19;  /* R -> KEY_R */
-        case 47:  return 31;  /* S -> KEY_S */
-        case 48:  return 20;  /* T -> KEY_T */
-        case 49:  return 22;  /* U -> KEY_U */
-        case 50:  return 47;  /* V -> KEY_V */
-        case 51:  return 17;  /* W -> KEY_W */
-        case 52:  return 45;  /* X -> KEY_X */
-        case 53:  return 21;  /* Y -> KEY_Y */
-        case 54:  return 44;  /* Z -> KEY_Z */
-        case 55:  return 51;  /* KEYCODE_COMMA -> KEY_COMMA */
-        case 56:  return 52;  /* KEYCODE_PERIOD -> KEY_DOT */
-        case 57:  return 56;  /* KEYCODE_ALT_LEFT -> KEY_LEFTALT */
-        case 58:  return 100; /* KEYCODE_ALT_RIGHT -> KEY_RIGHTALT */
-        case 59:  return 42;  /* KEYCODE_SHIFT_LEFT -> KEY_LEFTSHIFT */
-        case 60:  return 54;  /* KEYCODE_SHIFT_RIGHT -> KEY_RIGHTSHIFT */
-        case 61:  return 15;  /* KEYCODE_TAB -> KEY_TAB */
-        case 62:  return 57;  /* KEYCODE_SPACE -> KEY_SPACE */
-        case 66:  return 28;  /* KEYCODE_ENTER -> KEY_ENTER */
-        case 67:  return 14;  /* KEYCODE_DEL -> KEY_BACKSPACE */
-        case 68:  return 41;  /* KEYCODE_GRAVE -> KEY_GRAVE */
-        case 69:  return 12;  /* KEYCODE_MINUS -> KEY_MINUS */
-        case 70:  return 13;  /* KEYCODE_EQUALS -> KEY_EQUAL */
-        case 71:  return 26;  /* KEYCODE_LEFT_BRACKET -> KEY_LEFTBRACE */
-        case 72:  return 27;  /* KEYCODE_RIGHT_BRACKET -> KEY_RIGHTBRACE */
-        case 73:  return 43;  /* KEYCODE_BACKSLASH -> KEY_BACKSLASH */
-        case 74:  return 39;  /* KEYCODE_SEMICOLON -> KEY_SEMICOLON */
-        case 75:  return 40;  /* KEYCODE_APOSTROPHE -> KEY_APOSTROPHE */
-        case 76:  return 53;  /* KEYCODE_SLASH -> KEY_SLASH */
-        case 111: return 1;   /* KEYCODE_ESCAPE -> KEY_ESC */
-        case 112: return 111; /* KEYCODE_FORWARD_DEL -> KEY_DELETE */
-        case 113: return 29;  /* KEYCODE_CTRL_LEFT -> KEY_LEFTCTRL */
-        case 114: return 97;  /* KEYCODE_CTRL_RIGHT -> KEY_RIGHTCTRL */
-        case 117: return 125; /* KEYCODE_META_LEFT -> KEY_LEFTMETA */
-        case 118: return 126; /* KEYCODE_META_RIGHT -> KEY_RIGHTMETA */
-        case 122: return 102; /* KEYCODE_MOVE_HOME -> KEY_HOME */
-        case 123: return 107; /* KEYCODE_MOVE_END -> KEY_END */
-        case 124: return 110; /* KEYCODE_INSERT -> KEY_INSERT */
-        default:  return 0;
-    }
 }
 
 JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeOnKeyEvent(JNIEnv *env, jobject thiz,
