@@ -9,13 +9,10 @@ import app.trierarch.WaylandBridge
 import java.util.concurrent.Executors
 
 /**
- * Focusable view that receives soft keyboard input and forwards key events
- * to the Wayland compositor (approach A: Android as keyboard).
- * For characters that cannot be produced by a normal keymap (e.g. CJK/emoji),
- * inject Linux desktop Unicode input sequence: Ctrl+Shift+U + hex + Space (per codepoint).
- * Measured 1x1 so IME will show; positioned off-screen so it does not block touch.
+ * Soft keyboard input sink (IME path).
+ * This is the canonical implementation for virtual keyboard input.
  */
-class WaylandKeyboardView(context: android.content.Context) : View(context) {
+class SoftKeyboardView(context: android.content.Context) : View(context) {
     private val commitExecutor = Executors.newSingleThreadExecutor { r ->
         Thread(r, "WaylandCommitExecutor").apply { isDaemon = true }
     }
@@ -48,7 +45,6 @@ class WaylandKeyboardView(context: android.content.Context) : View(context) {
             override fun commitText(text: CharSequence?, newCursorPosition: Int): Boolean {
                 if (text.isNullOrEmpty()) return true
                 val t = text.toString()
-                // Never block the IME/Ui thread with long paste; inject asynchronously.
                 commitExecutor.execute {
                     var time = System.currentTimeMillis()
                     fun keyDown(keyCode: Int) {
@@ -69,11 +65,11 @@ class WaylandKeyboardView(context: android.content.Context) : View(context) {
                     val longPaste = cps.size >= 200
                     for (cp in cps) {
                         when (cp) {
-                            10 -> { // \n
+                            10 -> {
                                 tap(KeyEvent.KEYCODE_ENTER)
                                 continue
                             }
-                            9 -> { // \t
+                            9 -> {
                                 tap(KeyEvent.KEYCODE_TAB)
                                 continue
                             }
@@ -89,14 +85,13 @@ class WaylandKeyboardView(context: android.content.Context) : View(context) {
                             }
                         }
 
-                        // Unicode input: Ctrl+Shift+U then hex digits then Space (confirm).
                         keyDown(KeyEvent.KEYCODE_CTRL_LEFT)
                         keyDown(KeyEvent.KEYCODE_SHIFT_LEFT)
                         tap(KeyEvent.KEYCODE_U)
                         keyUp(KeyEvent.KEYCODE_SHIFT_LEFT)
                         keyUp(KeyEvent.KEYCODE_CTRL_LEFT)
 
-                        val hex = cp.toString(16) // lowercase
+                        val hex = cp.toString(16)
                         for (ch in hex) {
                             val (kc, sh) = charToAndroidKeyCode(ch)
                             if (kc != 0) {
@@ -108,9 +103,7 @@ class WaylandKeyboardView(context: android.content.Context) : View(context) {
                         tap(KeyEvent.KEYCODE_SPACE)
 
                         injectedCodepoints++
-                        // Yield a bit during long pastes to keep UI/render responsive.
                         if (longPaste) {
-                            // For very long pastes, slow down noticeably to avoid overwhelming Wayland.
                             if (injectedCodepoints % 8 == 0) {
                                 try { Thread.sleep(2) } catch (_: InterruptedException) { }
                             }
@@ -124,13 +117,12 @@ class WaylandKeyboardView(context: android.content.Context) : View(context) {
         }
     }
 
-    /** Map printable ASCII to Android keycode and shift; 0 = unmapped (e.g. CJK, skip). */
     private fun charToAndroidKeyCode(c: Char): Pair<Int, Boolean> {
         val code = c.code
         when {
-            code in 48..57 -> return Pair(KeyEvent.KEYCODE_0 + (code - 48), false)  // 0-9
-            code in 97..122 -> return Pair(KeyEvent.KEYCODE_A + (code - 97), false)  // a-z
-            code in 65..90 -> return Pair(KeyEvent.KEYCODE_A + (code - 65), true)    // A-Z
+            code in 48..57 -> return Pair(KeyEvent.KEYCODE_0 + (code - 48), false)
+            code in 97..122 -> return Pair(KeyEvent.KEYCODE_A + (code - 97), false)
+            code in 65..90 -> return Pair(KeyEvent.KEYCODE_A + (code - 65), true)
             code == 32 -> return Pair(KeyEvent.KEYCODE_SPACE, false)
             code == 10 -> return Pair(KeyEvent.KEYCODE_ENTER, false)
             code == 9 -> return Pair(KeyEvent.KEYCODE_TAB, false)
@@ -145,16 +137,15 @@ class WaylandKeyboardView(context: android.content.Context) : View(context) {
             code == 47 -> return Pair(KeyEvent.KEYCODE_SLASH, false)
             code == 92 -> return Pair(KeyEvent.KEYCODE_BACKSLASH, false)
             code == 96 -> return Pair(KeyEvent.KEYCODE_GRAVE, false)
-            code in 33..47 -> return Pair(symbolToKeyCode(code), true)   // !"#$%&'()*+,-./
-            code in 58..64 -> return Pair(symbolToKeyCode(code), true)   // :;<=>?@
-            code in 123..126 -> return Pair(symbolToKeyCode(code), true) // {|}~
+            code in 33..47 -> return Pair(symbolToKeyCode(code), true)
+            code in 58..64 -> return Pair(symbolToKeyCode(code), true)
+            code in 123..126 -> return Pair(symbolToKeyCode(code), true)
             else -> return Pair(0, false)
         }
     }
 
-    /** Only called for shift-needed symbols: 33..43 (! to +), 58,60,62..64 (: < > ? @), 123..126 ({ | } ~). */
     private fun symbolToKeyCode(code: Int): Int = when (code) {
-        33 -> KeyEvent.KEYCODE_1      // !
+        33 -> KeyEvent.KEYCODE_1
         34 -> KeyEvent.KEYCODE_APOSTROPHE
         35 -> KeyEvent.KEYCODE_3
         36 -> KeyEvent.KEYCODE_4
@@ -165,17 +156,17 @@ class WaylandKeyboardView(context: android.content.Context) : View(context) {
         41 -> KeyEvent.KEYCODE_0
         42 -> KeyEvent.KEYCODE_8
         43 -> KeyEvent.KEYCODE_EQUALS
-        58 -> KeyEvent.KEYCODE_SEMICOLON  // :
-        60 -> KeyEvent.KEYCODE_COMMA      // <
-        62 -> KeyEvent.KEYCODE_PERIOD     // >
-        63 -> KeyEvent.KEYCODE_SLASH      // ?
-        64 -> KeyEvent.KEYCODE_2          // @
-        94 -> KeyEvent.KEYCODE_6          // ^
-        95 -> KeyEvent.KEYCODE_MINUS      // _
-        123 -> KeyEvent.KEYCODE_LEFT_BRACKET   // {
-        124 -> KeyEvent.KEYCODE_BACKSLASH      // |
-        125 -> KeyEvent.KEYCODE_RIGHT_BRACKET  // }
-        126 -> KeyEvent.KEYCODE_GRAVE     // ~
+        58 -> KeyEvent.KEYCODE_SEMICOLON
+        60 -> KeyEvent.KEYCODE_COMMA
+        62 -> KeyEvent.KEYCODE_PERIOD
+        63 -> KeyEvent.KEYCODE_SLASH
+        64 -> KeyEvent.KEYCODE_2
+        94 -> KeyEvent.KEYCODE_6
+        95 -> KeyEvent.KEYCODE_MINUS
+        123 -> KeyEvent.KEYCODE_LEFT_BRACKET
+        124 -> KeyEvent.KEYCODE_BACKSLASH
+        125 -> KeyEvent.KEYCODE_RIGHT_BRACKET
+        126 -> KeyEvent.KEYCODE_GRAVE
         else -> 0
     }
 }

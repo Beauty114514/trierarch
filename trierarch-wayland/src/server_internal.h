@@ -109,11 +109,23 @@ struct wayland_server {
     struct compositor_surface *keyboard_focus;
     /* Current depressed modifier bitmask (used for wl_keyboard.modifiers events). */
     uint32_t keyboard_mods_depressed;
-    /* Pressed counts for common modifiers (used to build keyboard_mods_depressed). */
-    uint32_t keyboard_shift_count;
-    uint32_t keyboard_ctrl_count;
-    uint32_t keyboard_alt_count;
-    uint32_t keyboard_meta_count;
+    /* Current locked modifier bitmask (CapsLock/NumLock/ScrollLock). */
+    uint32_t keyboard_mods_locked;
+    /* Per-side pressed state for modifiers (more robust than counters). */
+    bool keyboard_lshift_down;
+    bool keyboard_rshift_down;
+    bool keyboard_lctrl_down;
+    bool keyboard_rctrl_down;
+    bool keyboard_lalt_down;
+    bool keyboard_ralt_down;
+    bool keyboard_lmeta_down;
+    bool keyboard_rmeta_down;
+    bool keyboard_capslock_down;
+    bool keyboard_numlock_down;
+    bool keyboard_scrolllock_down;
+    bool keyboard_capslock_enabled;
+    bool keyboard_numlock_enabled;
+    bool keyboard_scrolllock_enabled;
     struct wl_list wm_base_resources;  /* xdg_wm_base resources for ping */
     /* Selection (clipboard): current owner and data_device list for selection(offer) */
     struct wl_list data_device_resources;
