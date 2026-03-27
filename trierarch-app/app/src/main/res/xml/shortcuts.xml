@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="terminal"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_terminal"
+        android:shortcutShortLabel="@string/shortcut_terminal_short"
+        android:shortcutLongLabel="@string/shortcut_terminal_long">
+        <intent
+            android:action="app.trierarch.action.OPEN_TERMINAL"
+            android:targetPackage="app.trierarch"
+            android:targetClass="app.trierarch.MainActivity" />
+    </shortcut>
+</shortcuts>

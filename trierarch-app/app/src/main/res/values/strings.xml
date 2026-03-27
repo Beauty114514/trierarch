@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Trierarch</string>
+    <string name="shortcut_terminal_short">Terminal</string>
+    <string name="shortcut_terminal_long">Terminal</string>
 </resources>

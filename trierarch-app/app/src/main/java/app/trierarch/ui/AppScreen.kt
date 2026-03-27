@@ -41,7 +41,30 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-fun AppScreen() {
+fun AppScreen(startInTerminal: Boolean = false) {
+    /*
+     * AppScreen is the app’s runtime coordinator and UI state machine.
+     *
+     * ### Lifecycle & state (read this before changing startup behavior)
+     *
+     * States (simplified):
+     * - native init: NativeBridge.init(...) succeeds -> we can call other native methods
+     * - rootfs missing: download+extract rootfs -> ask user to restart (fresh proot session)
+     * - proot running: spawn proot shell under a PTY -> terminal I/O is available
+     * - Wayland server running: WaylandBridge.nativeStartServer(runtimeDir)
+     * - view: `showWayland=false` shows the terminal; `showWayland=true` shows the compositor Surface
+     *
+     * Invariants / ordering constraints:
+     * - proot must be spawned before starting the Wayland server because Wayland clients live inside
+     *   the proot environment and rely on the socket under XDG_RUNTIME_DIR.
+     * - Display startup script is injected via PTY stdin (i.e. typed into the proot shell).
+     *   It is guarded by nativeHasActiveClients() so we don’t re-run the script once a desktop client
+     *   is already connected.
+     *
+     * Entry modes:
+     * - Default launcher entry: may auto-run Display script once, then switch to Wayland view.
+     * - Terminal shortcut entry (`startInTerminal=true`): stays in terminal, never auto-runs Display.
+     */
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -56,7 +79,6 @@ fun AppScreen() {
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var downloadStarted by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
-    var waylandOn by remember { mutableStateOf(false) }
     var showWayland by remember { mutableStateOf(false) }
     var settingsOpen by remember { mutableStateOf(false) }
     var displayScriptDialogOpen by remember { mutableStateOf(false) }
@@ -64,7 +86,51 @@ fun AppScreen() {
     var resolutionPercent by remember { mutableStateOf(100) }
     var scalePercent by remember { mutableStateOf(100) }
     var showKeyboardTrigger by remember { mutableStateOf(0) }
+    var autoDisplayTriggered by remember { mutableStateOf(false) }
     val prefs = remember(context) { context.getSharedPreferences("trierarch_prefs", 0) }
+
+    /**
+     * Display startup contract (shared by auto-start and the SideMenu "Display" entry):
+     *
+     * - **Idempotent**: once a Wayland toplevel client is connected, do not re-run the script.
+     * - **Execution model**: script is injected into the running proot shell by writing UTF-8 bytes
+     *   into the PTY stdin (equivalent to the user typing it and pressing Enter).
+     *
+     * Preconditions:
+     * - proot is spawned (PTY stdin exists)
+     * - Wayland server is started (socket exists under runtimeDir; clients can connect)
+     */
+    fun runDisplayStartupScriptIfNeeded() {
+        val hasClients = try {
+            WaylandBridge.nativeHasActiveClients()
+        } catch (_: Throwable) {
+            false
+        }
+        if (!hasClients) {
+            val script = prefs.getString("display_startup_script", "")?.trim()
+            if (!script.isNullOrEmpty()) {
+                NativeBridge.writeInput((script + "\n").toByteArray(Charsets.UTF_8))
+            }
+        }
+    }
+
+    fun triggerDisplayToggle() {
+        if (showWayland) {
+            showWayland = false
+        } else {
+            runDisplayStartupScriptIfNeeded()
+            showWayland = true
+        }
+        menuOpen = false
+    }
+
+    LaunchedEffect(startInTerminal) {
+        if (startInTerminal) {
+            showWayland = false
+        } else {
+            autoDisplayTriggered = false
+        }
+    }
 
     LaunchedEffect(Unit) {
         mouseMode = prefs.getInt("mouse_mode", MOUSE_MODE_TOUCHPAD)
@@ -140,22 +206,39 @@ fun AppScreen() {
         setImmersiveMode(context as? Activity, showWayland)
     }
 
-    LaunchedEffect(prootSpawned, waylandOn) {
+    LaunchedEffect(prootSpawned, startInTerminal) {
         if (!prootSpawned) return@LaunchedEffect
-        if (waylandOn) {
-            val keymapTarget = File(waylandRuntimeDir, "keymap_us.xkb")
-            if (!keymapTarget.exists()) {
-                context.assets.open("keymap_us.xkb").use { input ->
-                    keymapTarget.outputStream().use { out ->
-                        input.copyTo(out)
-                    }
+
+        // Always start the Wayland server once proot is ready.
+        val keymapTarget = File(waylandRuntimeDir, "keymap_us.xkb")
+        if (!keymapTarget.exists()) {
+            context.assets.open("keymap_us.xkb").use { input ->
+                keymapTarget.outputStream().use { out ->
+                    input.copyTo(out)
                 }
             }
-            WaylandBridge.nativeStartServer(waylandRuntimeDir)
-        } else {
-            WaylandBridge.nativeStopWayland()
-            showWayland = false
         }
+        try {
+            WaylandBridge.nativeStartServer(waylandRuntimeDir)
+        } catch (_: Throwable) {
+            // If native libs are missing or init fails, stay in terminal.
+            return@LaunchedEffect
+        }
+
+        if (startInTerminal) return@LaunchedEffect
+
+        // Default launch behavior (MAIN/LAUNCHER): enter Wayland view.
+        // Only auto-run Display startup script when it is explicitly configured.
+        if (!autoDisplayTriggered) {
+            autoDisplayTriggered = true
+
+            val script = prefs.getString("display_startup_script", "")?.trim()
+            if (!script.isNullOrEmpty()) {
+                runDisplayStartupScriptIfNeeded()
+            }
+        }
+
+        showWayland = true
     }
 
     LaunchedEffect(prootSpawned) {
@@ -252,27 +335,7 @@ fun AppScreen() {
         SideMenu(
             visible = menuOpen,
             onDismiss = { menuOpen = false },
-            waylandOn = waylandOn,
-            onWaylandClick = { waylandOn = !waylandOn },
-            onDisplayClick = {
-                if (showWayland) {
-                    showWayland = false
-                } else {
-                    val hasClients = try {
-                        WaylandBridge.nativeHasActiveClients()
-                    } catch (_: Throwable) {
-                        false
-                    }
-                    if (!hasClients) {
-                        val script = prefs.getString("display_startup_script", "")?.trim()
-                        if (!script.isNullOrEmpty()) {
-                            NativeBridge.writeInput((script + "\n").toByteArray(Charsets.UTF_8))
-                        }
-                    }
-                    showWayland = true
-                }
-                menuOpen = false
-            },
+            onDisplayClick = { triggerDisplayToggle() },
             onDisplayLongPress = { displayScriptDialogOpen = true },
             onViewClick = { settingsOpen = true },
             onKeyboardClick = {

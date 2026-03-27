@@ -71,8 +71,6 @@ fun Modifier.twoFingerSwipeFromLeft(onSwipeRight: () -> Unit): Modifier = compos
 fun SideMenu(
     visible: Boolean,
     onDismiss: () -> Unit,
-    waylandOn: Boolean,
-    onWaylandClick: () -> Unit,
     onDisplayClick: () -> Unit,
     onDisplayLongPress: () -> Unit,
     onViewClick: () -> Unit,
@@ -109,22 +107,10 @@ fun SideMenu(
                     )
                     Box(
                         modifier = Modifier
-                            .clickable { onWaylandClick() }
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.CenterStart
-                    ) {
-                        Text(
-                            "Wayland: ${if (waylandOn) "On" else "Off"}",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .pointerInput(waylandOn) {
+                            .pointerInput(Unit) {
                                 detectTapGestures(
                                     onLongPress = { onDisplayLongPress() },
-                                    onTap = { if (waylandOn) onDisplayClick() }
+                                    onTap = { onDisplayClick() }
                                 )
                             }
                             .padding(vertical = 12.dp),
@@ -133,7 +119,7 @@ fun SideMenu(
                         Text(
                             "Display",
                             style = MaterialTheme.typography.bodyLarge,
-                            color = if (waylandOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                     Box(
@@ -150,9 +136,9 @@ fun SideMenu(
                     }
                     Box(
                         modifier = Modifier
-                            .pointerInput(waylandOn) {
+                            .pointerInput(Unit) {
                                 detectTapGestures(
-                                    onTap = { if (waylandOn) onKeyboardClick() }
+                                    onTap = { onKeyboardClick() }
                                 )
                             }
                             .padding(vertical = 12.dp),
@@ -161,7 +147,7 @@ fun SideMenu(
                         Text(
                             "Keyboard",
                             style = MaterialTheme.typography.bodyLarge,
-                            color = if (waylandOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                 }

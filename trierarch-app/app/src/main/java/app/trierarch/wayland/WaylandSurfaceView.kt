@@ -29,6 +29,22 @@ fun WaylandSurfaceView(
     onKeyboardTriggerConsumed: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    /*
+     * WaylandSurfaceView hosts the native compositor output inside a SurfaceView.
+     *
+     * Contract:
+     * - The native server must already be started via WaylandBridge.nativeStartServer(runtimeDir).
+     * - When the Surface becomes available we call nativeSurfaceCreated(...) which switches native code into
+     *   "render mode" (EGL + render loop). When destroyed we call nativeSurfaceDestroyed() to tear down EGL and
+     *   resume the lightweight dispatch thread.
+     *
+     * Input model (high level):
+     * - Touchpad mode: one-finger moves a cursor relatively; taps click; two-finger scroll; two-finger tap = right click.
+     * - Tablet mode: touch is absolute; tap clicks; long-press triggers right click or drag depending on movement.
+     *
+     * Note: This file intentionally documents *behavioral contracts* and non-obvious thresholds, not every line
+     * of gesture code.
+     */
     val rp = resolutionPercent.coerceIn(10, 100)
     val sp = scalePercent.coerceIn(10, 100)
     AndroidView(
@@ -143,13 +159,20 @@ private class WaylandTouchLayout(context: Context) : FrameLayout(context) {
     private var tabletPendingWy = 0f
 
     private companion object {
-        const val TAP_THRESHOLD = 15f
-        const val TABLET_DRAG_SLOP = 4f
-        const val LONG_PRESS_RIGHT_MS = 500L
+        /*
+         * Gesture thresholds (tuned for phones; values are in physical pixels / milliseconds).
+         *
+         * We intentionally keep these values local to the input implementation:
+         * - They are part of the UX contract (avoid accidental drags / right-clicks).
+         * - They may require device-specific tuning; if you change one, test both modes.
+         */
+        const val TAP_THRESHOLD = 15f              // max movement to still count as a tap
+        const val TABLET_DRAG_SLOP = 4f            // small movement before committing to drag in tablet mode
+        const val LONG_PRESS_RIGHT_MS = 500L       // tablet-mode long press -> right click
         const val TWO_FINGER_TAP_MAX_DURATION_MS = 400L
-        const val TWO_FINGER_TAP_THRESHOLD = 22f
-        const val TOUCHPAD_TAP_MAX_MS = 180L
-        const val TOUCHPAD_HOLD_DRAG_MS = 220L
+        const val TWO_FINGER_TAP_THRESHOLD = 22f   // centroid movement threshold for two-finger tap
+        const val TOUCHPAD_TAP_MAX_MS = 180L       // touchpad-mode tap click max duration
+        const val TOUCHPAD_HOLD_DRAG_MS = 220L     // touchpad-mode hold -> begin drag (left button down)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
