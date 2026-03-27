@@ -20,24 +20,26 @@
 
 - If there is no usable rootfs under `data_dir/arch` at first launch, the app **downloads and extracts** the Arch Linux aarch64 rootfs from [proot-distro](https://github.com/termux/proot-distro/releases) (~156 MB). Network required.
 
-## 2. Before the desktop: install Plasma inside proot (and basics)
+## 2. Before the desktop: enter Terminal (shortcut) and install Plasma inside proot
 
-In the **Arch shell inside proot**, **update first, then install the desktop** (example; adjust packages as you like):
+Long-press the app icon to show **shortcuts**, then tap **Terminal** to enter the **Arch shell inside proot**.
+
+![App shortcut](docs/images/shortcut.jpg)
+
+In the proot Arch shell, **update first, then install the desktop** (example; adjust packages as you like):
 
 ```bash
 pacman -Syu
 pacman -S plasma-desktop dolphin konsole
 ```
 
-## 3. Side menu and Display (open menu, enable Wayland, run Display)
+## 3. Side menu and Display (open menu, set Display script, start the desktop)
 
-- **Side menu** — **Two-finger** swipe **from the left edge of the screen toward the right** to open it. Below: side menu in the terminal/Wayland view vs after entering the desktop.
+- **Side menu** — **Two-finger** swipe **from the left edge of the screen toward the right** to open it. Below: side menu in the terminal view vs after entering the desktop.
 
 | Side menu (terminal / Wayland view) | Side menu (desktop session) |
 |-------------------------------------|-----------------------------|
-| ![Side menu in console view](docs/images/sidebarInConsole.jpg) | ![Side menu on desktop](docs/images/sidebarInDesktop.jpg) |
-
-- **First**, turn **Wayland** on in the side menu.
+| ![Side menu in terminal view](docs/images/sidebarInTerminal.jpg) | ![Side menu on desktop](docs/images/sidebarInDesktop.jpg) |
 
 - **Display** — **Long-press** to edit the **Display startup script**; **short-press** to run it and start Plasma. **If a Wayland client is already connected, the app does not run the script again.**
 
@@ -48,6 +50,12 @@ dbus-launch --exit-with-session startplasma-wayland > /dev/null 2>&1 &
 ```
 
 ![Display in side menu](docs/images/display.jpg)
+
+## 4. Daily use: tap app to auto-start the desktop
+
+After you have set a Display startup script, you can **tap the app icon normally** to enter the desktop view; the app will **inject and run the Display script automatically** (idempotent when a desktop client is already connected).
+
+The **Terminal** shortcut is mainly for initialization (installing a desktop + terminal app) or as a fallback when you don’t have a terminal available inside the desktop yet.
 
 ## 4. After Plasma starts: View Settings and terminal ↔ desktop switching
 

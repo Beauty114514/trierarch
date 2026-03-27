@@ -20,24 +20,26 @@
 
 - 若首次启动时 `data_dir/arch` 下尚无可用的 rootfs，应用会从 [proot-distro](https://github.com/termux/proot-distro/releases) **自动下载并解压** Arch Linux aarch64 rootfs（约 156 MB），需联网。
 
-## 2. 启动桌面前：在 proot 内安装 Plasma（及常用组件）
+## 2. 启动桌面前：通过 Terminal（shortcut）进入终端并安装 Plasma（及常用组件）
 
-在应用内进入 **proot 里的 Arch** 终端后，**先更新再安装桌面**（示例；可按需增删包名）：
+长按应用图标显示 **shortcut**，点击 **Terminal** 进入 **proot 里的 Arch** 终端。
+
+![App shortcut](docs/images/shortcut.jpg)
+
+在终端内，**先更新再安装桌面**（示例；可按需增删包名）：
 
 ```bash
 pacman -Syu
 pacman -S plasma-desktop dolphin konsole
 ```
 
-## 3. 侧栏与 Display（呼出侧栏、开启 Wayland、运行 Display）
+## 3. 侧栏与 Display（呼出侧栏、设置启动脚本、启动桌面）
 
 - **侧栏**：用**双指**从**屏幕左侧边缘向右滑动**即可打开侧栏。下图分别为**终端 / Wayland 视图**下与**已进入桌面**后划出的侧栏。
 
-| 终端 / Wayland 视图下的侧栏 | 进入桌面后的侧栏 |
+| 终端下的侧栏 | 进入桌面后的侧栏 |
 |----------------------------|-----------------|
-| ![终端界面侧栏](docs/images/sidebarInConsole.jpg) | ![桌面侧栏](docs/images/sidebarInDesktop.jpg) |
-
-- 先在侧栏开启 **Wayland**。
+| ![终端界面侧栏](docs/images/sidebarInTerminal.jpg) | ![桌面侧栏](docs/images/sidebarInDesktop.jpg) |
 
 - **Display**：**长按**可编辑 **Display 启动脚本**；**短按**执行脚本以启动 Plasma。**若已有 Wayland 客户端连接，应用不会重复执行脚本。**
 
@@ -48,6 +50,12 @@ dbus-launch --exit-with-session startplasma-wayland > /dev/null 2>&1 &
 ```
 
 ![侧栏中的 Display](docs/images/display.jpg)
+
+## 4. 日常使用：点应用自动启动桌面
+
+当你设置好 Display 启动脚本后，后续**直接点击应用图标**即可进入桌面视图，应用会**自动注入并执行**该脚本（当已有桌面客户端连接时具备幂等保护，不会重复执行）。
+
+**Terminal shortcut** 主要用于初始化（例如安装桌面与终端应用），或当桌面环境里暂时没有可用终端时作为备用入口。
 
 ## 4. 进入桌面后：View Settings 与终端 / 桌面切换
 
