@@ -6,8 +6,15 @@ import android.view.KeyEvent
 import app.trierarch.WaylandBridge
 
 /**
- * Canonical hardware keyboard router.
- * Handles physical keyboard routing and Alt+CapsLock -> window switch mapping.
+ * Hardware keyboard router for Wayland clients.
+ *
+ * Contract:
+ * - Only routes events when the Wayland view is visible (see [InputRouteState.waylandVisible]).
+ * - Filters out virtual/soft keyboard sources so IME text injection remains handled by the IME sink.
+ * - Provides a convenience mapping: Alt + CapsLock -> Alt+Tab window switch sequence.
+ *
+ * Note: This class intentionally swallows exceptions from JNI calls; if the compositor
+ * library is missing or not ready we prefer to fall back to normal Android handling.
  */
 class HardwareKeyboardRouter {
     private fun isLockKey(keyCode: Int): Boolean {

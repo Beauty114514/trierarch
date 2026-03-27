@@ -1,4 +1,12 @@
-//! JNI bridge for Compose UI. Exposes proot, rootfs, and PTY I/O to Kotlin.
+//! JNI bridge used by the Android/Compose UI.
+//!
+//! This module is the ABI boundary between Kotlin and the native runtime:
+//! - proot process lifecycle (spawn)
+//! - rootfs acquisition (download/extract)
+//! - PTY I/O (read buffered lines, write stdin)
+//!
+//! Guideline: keep these functions thin and deterministic. Complex policy should live in
+//! the Rust modules and be tested there.
 
 use jni::objects::{JByteArray, JObject, JString, JValue};
 use jni::sys::{jboolean, jint, jobject, jstring};
@@ -10,8 +18,14 @@ use std::thread;
 use crate::android::rootfs_fetch;
 use crate::jni_context;
 
-/// Initialize native layer with app paths. Call from Kotlin before any other native method.
-/// external_storage_dir: optional path (e.g. from Environment.getExternalStorageDirectory()); when set, proot binds it as /android and /root/Android like LocalDesktop.
+/// Initialize native layer with app paths.
+///
+/// Contract:
+/// - Must be called before any other `NativeBridge.*` JNI method.
+/// - Safe to call again on activity recreation; it updates paths but preserves PTY buffers.
+///
+/// `external_storage_dir`: optional path (e.g. `/storage/emulated/0`). When set, the proot
+/// environment will bind it into the guest as `/android` and `/root/Android`.
 #[no_mangle]
 pub extern "system" fn Java_app_trierarch_NativeBridge_init(
     mut env: JNIEnv,
@@ -75,8 +89,14 @@ pub extern "system" fn Java_app_trierarch_NativeBridge_hasRootfs(
     jni_context::has_rootfs() as jboolean
 }
 
-/// Download Arch rootfs. Calls callback.onProgress(pct, msg) on a background thread.
-/// Callback must implement interface with method: void onProgress(int pct, String msg)
+/// Download and install the Arch rootfs.
+///
+/// Threading:
+/// - Runs on a Rust background thread (caller blocks waiting for completion).
+/// - Calls `callback.onProgress(pct, msg)` from that background thread via JNI attach.
+///
+/// Callback contract:
+/// - Kotlin must provide `onProgress(int pct, String msg)`.
 #[no_mangle]
 pub extern "system" fn Java_app_trierarch_NativeBridge_downloadRootfs(
     env: JNIEnv,
@@ -114,7 +134,9 @@ pub extern "system" fn Java_app_trierarch_NativeBridge_downloadRootfs(
     }
 }
 
-/// Spawn proot shell. Returns 1 on success, 0 on failure.
+/// Spawn the interactive proot shell under a PTY.
+///
+/// On failure, an error line is written into the terminal buffer so the UI can surface it.
 #[no_mangle]
 pub extern "system" fn Java_app_trierarch_NativeBridge_spawnProot(
     _env: JNIEnv,
@@ -133,7 +155,9 @@ pub extern "system" fn Java_app_trierarch_NativeBridge_spawnProot(
     }
 }
 
-/// Get terminal output lines. Returns Java ArrayList<String>.
+/// Get terminal output lines (completed lines only).
+///
+/// Returns a Java `ArrayList<String>` snapshot; callers typically poll periodically.
 #[no_mangle]
 pub extern "system" fn Java_app_trierarch_NativeBridge_getLines(
     mut env: JNIEnv,
@@ -181,7 +205,10 @@ pub extern "system" fn Java_app_trierarch_NativeBridge_getPartialLine(
         .unwrap_or(std::ptr::null_mut())
 }
 
-/// Write bytes to PTY stdin.
+/// Write raw bytes to the PTY stdin of the proot shell.
+///
+/// This is a low-level primitive. Higher-level UI behavior (Enter key, scripts, etc.) is
+/// implemented on the Kotlin side by writing UTF-8 bytes.
 #[no_mangle]
 pub extern "system" fn Java_app_trierarch_NativeBridge_writeInput(
     env: JNIEnv,

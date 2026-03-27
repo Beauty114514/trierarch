@@ -15,7 +15,9 @@ pub struct ApplicationContext {
     pub cache_dir: PathBuf,
     pub data_dir: PathBuf,
     pub native_library_dir: PathBuf,
-    /// Optional external storage path (e.g. /storage/emulated/0). When set, bound as /android and /root/Android like LocalDesktop.
+    /// Optional external storage path (e.g. `/storage/emulated/0`).
+    ///
+    /// When set, the proot environment will bind it into the guest as `/android` and `/root/Android`.
     pub external_storage_path: Option<PathBuf>,
 }
 

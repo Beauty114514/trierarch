@@ -3,6 +3,18 @@ use std::fs::File;
 use std::io::Read;
 use std::sync::Arc;
 
+//! PTY output buffering for the terminal UI.
+//!
+//! Contract:
+//! - Reads bytes from the PTY master and maintains:
+//!   - a bounded deque of completed lines (`lines`)
+//!   - the current in-progress line (`partial_line`)
+//! - Strips/ignores ANSI escape sequences (CSI/OSC) so the Compose terminal can render plain text.
+//!
+//! Performance/safety:
+//! - `MAX_LINES` bounds memory use; the UI is a live terminal, not a full scrollback archive.
+//! - The parser is intentionally minimal: it aims to keep prompts readable, not to emulate a full terminal.
+
 #[derive(Clone, Copy)]
 enum AnsiState {
     Normal,

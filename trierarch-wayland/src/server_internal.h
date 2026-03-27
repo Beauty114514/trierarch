@@ -1,4 +1,16 @@
-/* Shared internal types and cross-module declarations for the Wayland server. */
+/*
+ * Trierarch Wayland compositor internals (Trierarch-owned code).
+ *
+ * Concurrency/ownership contract:
+ * - The Wayland display/event loop is driven from native dispatch/render threads (see `jni_bridge.c`).
+ * - **libwayland-server is not thread-safe**: do not call wl_* send functions from arbitrary threads.
+ * - Structures below are generally accessed from the Wayland thread. The `surfaces` list and focus pointers
+ *   are protected by `surfaces_mutex` when accessed from code paths that may run concurrently.
+ *
+ * If you add new fields:
+ * - Document which thread owns them and which lock (if any) protects them.
+ * - Prefer queueing work onto the Wayland thread rather than writing shared state from JNI threads.
+ */
 #ifndef TRIERARCH_SERVER_INTERNAL_H
 #define TRIERARCH_SERVER_INTERNAL_H
 

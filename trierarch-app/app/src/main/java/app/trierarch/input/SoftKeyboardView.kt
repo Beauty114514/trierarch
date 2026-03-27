@@ -9,8 +9,18 @@ import app.trierarch.WaylandBridge
 import java.util.concurrent.Executors
 
 /**
- * Soft keyboard input sink (IME path).
- * This is the canonical implementation for virtual keyboard input.
+ * Soft keyboard input sink (IME path) for Wayland clients.
+ *
+ * Contract:
+ * - Android IME delivers either key events (hardware-like) or committed text.
+ * - We translate both into Wayland keyboard events via [WaylandBridge.nativeOnKeyEvent].
+ * - For non-ASCII text, we inject Unicode using the de-facto X11/GTK/Qt path:
+ *   Ctrl+Shift+U, then hex codepoint, then Space. This works broadly across toolkits
+ *   and avoids needing a dedicated text-input protocol implementation.
+ *
+ * Threading:
+ * - commitText() work is offloaded to a single background executor to keep IME/UI responsive.
+ * - Native code further handles any libwayland-server thread-safety constraints.
  */
 class SoftKeyboardView(context: android.content.Context) : View(context) {
     private val commitExecutor = Executors.newSingleThreadExecutor { r ->

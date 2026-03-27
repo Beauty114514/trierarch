@@ -24,6 +24,22 @@
 
 extern volatile const char *g_wayland_checkpoint;
 
+/*
+ * Threading/lifecycle contract (Trierarch-owned compositor):
+ *
+ * - libwayland-server is not thread-safe. JNI entrypoints may be called from arbitrary Java
+ *   threads (UI, IME, hardware keyboard). Those threads must NOT call wl_* send functions.
+ * - We maintain a key-event queue from JNI threads -> Wayland thread, drained from dispatch/render
+ *   loops with a strict per-tick budget to avoid starving rendering (prevents black screens on paste).
+ * - `nativeStartServer()` creates the Wayland display/socket and runs a lightweight dispatch thread.
+ * - `nativeSurfaceCreated()` switches into render mode: stops dispatch thread, (re)creates EGL context,
+ *   then runs the render loop which also dispatches Wayland events.
+ * - `nativeSurfaceDestroyed()` tears down render mode and resumes dispatch mode.
+ *
+ * When adding new JNI calls, prefer queueing work to the Wayland thread unless it is purely
+ * thread-safe state (and document why).
+ */
+
 static void crash_handler(int sig, siginfo_t *info, void *uctx) {
     (void)uctx;
     __android_log_print(ANDROID_LOG_FATAL, LOG_TAG, "CRASH signal %d addr=%p checkpoint=%s",

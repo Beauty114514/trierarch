@@ -1,14 +1,27 @@
 package app.trierarch
 
 /**
- * JNI bridge to trierarch. Load the library before calling any method.
+ * Kotlin/JNI bridge to the native runtime (`libtrierarch.so`).
+ *
+ * Contract:
+ * - The native library is loaded once when this object is initialized.
+ * - Call [init] exactly once early in app startup before calling any other method.
+ * - All methods are thin JNI wrappers; error handling/logging happens in native code.
  */
 object NativeBridge {
     init {
         System.loadLibrary("trierarch")
     }
 
-    /** Initialize with app paths. Call first. externalStorageDir: optional (e.g. Environment.getExternalStorageDirectory()?.absolutePath); when set, proot binds it as /android and /root/Android like LocalDesktop. */
+    /**
+     * Initialize native layer with app paths. Must be called before any other method.
+     *
+     * @param dataDir app internal files directory (e.g. `context.filesDir`)
+     * @param cacheDir app cache directory (e.g. `context.cacheDir`)
+     * @param nativeLibraryDir directory containing packaged `.so` files
+     * @param externalStorageDir optional external storage root (e.g. `/storage/emulated/0`).
+     * When set, the proot environment will bind it into the guest as `/android` and `/root/Android`.
+     */
     external fun init(dataDir: String, cacheDir: String, nativeLibraryDir: String, externalStorageDir: String?): Boolean
 
     /** True if Arch rootfs exists. */

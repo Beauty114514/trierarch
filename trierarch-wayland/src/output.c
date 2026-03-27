@@ -5,6 +5,15 @@
 #include "compositor.h"
 #include <stdlib.h>
 
+/*
+ * Output sizing contract:
+ * - Kotlin provides physical surface size and two tuning knobs:
+ *   - "Resolution%" lowers the logical output size to reduce compositor work.
+ *   - "Scale%" increases the logical size to keep UI readable while still rendering to the full surface.
+ * - The compositor publishes the resulting logical size via wl_output and xdg-shell configure,
+ *   and provides an output_scale for the renderer to map logical -> physical.
+ */
+
 static void output_resource_destroy(struct wl_listener *listener, void *data) {
     (void)data;
     struct output_resource_node *node = wl_container_of(listener, node, destroy_listener);

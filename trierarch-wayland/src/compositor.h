@@ -1,4 +1,13 @@
-/* Public API for the Wayland compositor. Display-only: no input delivery. */
+/*
+ * Public API for the Trierarch Wayland compositor.
+ *
+ * This header is consumed by `jni_bridge.c` and the renderer. Keep it focused on **contract**:
+ * - lifecycle (create/destroy)
+ * - how dispatch is driven (render thread vs background dispatch thread)
+ * - what "has client" means (desktop connected) for Display-script idempotency
+ *
+ * Do not document every implementation detail here; prefer `server_internal.h` for internals.
+ */
 #ifndef TRIERARCH_COMPOSITOR_H
 #define TRIERARCH_COMPOSITOR_H
 

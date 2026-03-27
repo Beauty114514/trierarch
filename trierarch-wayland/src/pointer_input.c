@@ -20,6 +20,15 @@
 #define WL_POINTER_BUTTON_STATE_PRESSED  1
 #define WL_POINTER_BUTTON_STATE_RELEASED 0
 
+/*
+ * Input model contract:
+ * - This compositor uses a "best fullscreen surface" heuristic for pointer focus because we target
+ *   a single-desktop session (Plasma/KWin) rather than multi-window stacking on Android.
+ * - In touchpad (relative) mode, the app reports absolute cursor coordinates via POINTER_MOVE (6),
+ *   and we also emit relative motion deltas for clients that use zwp_relative_pointer_v1.
+ * - In tablet (absolute) mode, the app reports touch coordinates directly as wl_pointer positions.
+ */
+
 static void input_resource_node_destroy(struct wl_listener *listener, void *data) {
     (void)data;
     struct input_resource_node *node = wl_container_of(listener, node, destroy_listener);

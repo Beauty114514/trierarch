@@ -1,3 +1,14 @@
+//! Spawn and supervise the proot shell under a PTY.
+//!
+//! Contract:
+//! - Spawns an interactive shell inside the installed rootfs using `forkpty` + `execve`.
+//! - Starts a background reader thread that streams PTY output into line buffers for the UI.
+//! - Returns a `Write` handle for PTY stdin; dropping the returned `ChildProcess` will SIGTERM the child.
+//!
+//! Threading:
+//! - The PTY reader runs on a dedicated Rust thread. UI polls buffered output via JNI.
+//! - Callers must not attempt to read from the PTY master directly; only via the provided buffers.
+//!
 use anyhow::{Context, Result};
 use nix::pty::{forkpty, ForkptyResult, Winsize};
 use nix::unistd::{dup, execve, Pid};

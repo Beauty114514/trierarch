@@ -2,6 +2,19 @@ use super::super::application_context::{get_application_context, has_rootfs};
 use anyhow::{Context, Result};
 use std::ffi::CString;
 
+//! Build the proot argv/env used to spawn the interactive shell.
+//!
+//! Contract:
+//! - If the rootfs is ready, we enter it with a set of binds to provide `/dev`, `/proc`, `/sys`,
+//!   Wayland runtime socket directory, and a few compatibility shims.
+//! - If the rootfs is not ready, we fall back to Android's `/system/bin/sh` for diagnostics.
+//! - Environment variables are chosen to make common desktop stacks work under proot + Wayland
+//!   (toolkits, runtime dir, and software rendering defaults).
+//!
+//! Notes:
+//! - Many binds map "fake" proc files created during rootfs extraction; this keeps proot happy
+//!   on Android where proc/sys are not fully writable or namespaced.
+
 fn proot_and_loader_paths() -> Result<(std::path::PathBuf, std::path::PathBuf)> {
     let ctx = get_application_context()?;
     let proot = ctx.native_library_dir.join("libproot.so");

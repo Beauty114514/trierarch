@@ -1,4 +1,14 @@
 //! Shared state for JNI bridge. Holds lines, partial_line, stdin for proot PTY.
+//!
+//! Contract:
+//! - `init()` sets application paths and initializes PTY buffers once per process.
+//! - Re-initialization (e.g. activity recreation) updates paths but intentionally preserves terminal buffers so
+//!   a running PTY reader thread is not orphaned and UI does not "blink" to empty.
+//! - `spawn_proot()` replaces any existing child process and stdin writer to avoid duplicated shells/writers.
+//!
+//! Threading:
+//! - PTY output is produced by the proot reader thread and consumed by Kotlin via JNI.
+//! - All shared state here is behind `Mutex`; keep critical sections small.
 
 use super::android::application_context;
 use super::android::proot;

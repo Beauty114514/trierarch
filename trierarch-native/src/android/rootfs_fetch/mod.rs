@@ -3,6 +3,18 @@ use anyhow::{Context, Result};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+//! Rootfs acquisition for the Android app.
+//!
+//! Contract:
+//! - Produces a usable Arch rootfs under the app data directory (e.g. `data_dir/arch`).
+//! - Uses a cache tarball with SHA-256 verification.
+//! - Extracts into a staging directory and performs an *atomic swap* into place.
+//! - On failure, attempts to keep the previously working rootfs intact (rollback when possible).
+//! - A sentinel file (`ROOTFS_READY_SENTINEL`) is written into the staging rootfs to mark completeness.
+//!
+//! This module is Trierarch-owned logic (not vendored) and should keep comments focused on
+//! invariants, failure semantics, and on-disk state transitions.
+
 mod download;
 mod extract;
 

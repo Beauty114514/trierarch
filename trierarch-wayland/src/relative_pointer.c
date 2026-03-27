@@ -1,6 +1,15 @@
 /*
  * zwp_relative_pointer_manager_v1: delta pointer motion events.
- * Required by KWin for nested compositor mouse handling.
+ *
+ * Why this exists:
+ * - Some compositors/clients (notably KWin) use `zwp_relative_pointer_v1` to receive high-resolution
+ *   relative mouse deltas even when the "absolute" pointer position is also available.
+ * - Trierarch’s Android input layer can operate in a relative (touchpad) mode. In that mode we emit
+ *   both wl_pointer motion (absolute cursor position) and relative motion deltas to satisfy clients.
+ *
+ * Contract:
+ * - This module only tracks per-client relative-pointer resources.
+ * - Actual motion delivery happens in `pointer_input.c` via `send_relative_motion(...)`.
  */
 #include "server_internal.h"
 #include "relative-pointer-unstable-v1-server-protocol.h"

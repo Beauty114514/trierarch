@@ -1,5 +1,15 @@
 /*
- * Wayland server lifecycle: create/destroy, dispatch, surface iteration, cursor view, frame callbacks.
+ * Wayland server core (Trierarch-owned compositor).
+ *
+ * Responsibilities:
+ * - Create/destroy the wl_display and global interfaces.
+ * - Maintain server-side state (surfaces, focus, output, cursor).
+ * - Drive dispatch from either a background thread or the render loop (see `jni_bridge.c`).
+ *
+ * Contract:
+ * - Socket name is fixed: `wayland-trierarch` under `XDG_RUNTIME_DIR` provided by the app.
+ * - This compositor targets a "single fullscreen desktop" model: focus/targeting heuristics
+ *   pick one best toplevel surface for input/render ordering.
  */
 #include "server_internal.h"
 #include <wayland-util.h>

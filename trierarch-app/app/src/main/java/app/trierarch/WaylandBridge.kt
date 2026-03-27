@@ -3,8 +3,14 @@ package app.trierarch
 import android.view.Surface
 
 /**
- * JNI bridge to the Wayland compositor (libwayland-compositor.so).
- * Load the library before calling any method.
+ * Kotlin/JNI bridge to the in-app Wayland compositor (`libwayland-compositor.so`).
+ *
+ * Contract:
+ * - The compositor runs inside the app process. Kotlin drives it via JNI.
+ * - Start order is important: spawn proot first (clients live there), then start the server,
+ *   then create/destroy the render surface as the UI shows/hides the Wayland view.
+ * - Input events may come from multiple Android sources (touch, mouse, IME, hardware keyboard);
+ *   native code is responsible for any cross-thread marshaling needed by libwayland-server.
  */
 object WaylandBridge {
 
@@ -22,11 +28,16 @@ object WaylandBridge {
         try {
             System.loadLibrary("wayland-compositor")
         } catch (e: UnsatisfiedLinkError) {
-            // Library not present or deps missing; methods will throw if called.
+            // Library not present or deps missing; callers should treat JNI methods as unavailable.
         }
     }
 
-    /** Start the Wayland server and dispatch thread. Call after proot is spawned. */
+    /**
+     * Start the Wayland server and its dispatch thread.
+     *
+     * Must be called after proot is spawned (Wayland clients live inside the proot environment),
+     * and before any Surface is created.
+     */
     external fun nativeStartServer(runtimeDir: String)
 
     /** Create EGL and render thread; call when showing the Wayland view with a valid Surface. */
@@ -65,7 +76,11 @@ object WaylandBridge {
     /** Show cursor in touchpad mode, hide in tablet mode (touch = finger, no cursor like phone). */
     external fun nativeSetCursorVisible(visible: Boolean)
 
-    /** Stop server and tear down. Call when turning Wayland off. */
+    /**
+     * Stop the Wayland server and tear down resources.
+     *
+     * Note: if the UI is currently rendering, callers should destroy the Surface first.
+     */
     external fun nativeStopWayland()
 
     /** True if EGL/render is ready. */

@@ -4,6 +4,14 @@ use std::fs::File;
 use std::io::{BufReader, Read, Write};
 use std::path::Path;
 
+//! Download helpers for the Arch rootfs tarball.
+//!
+//! Contract:
+//! - Writes to `tmp_path` while streaming, computing SHA-256 on the fly.
+//! - Verifies the digest before moving the file into `final_path`.
+//! - Uses a best-effort atomic move; falls back to copy+delete on filesystems where rename fails.
+//! - Progress reporting is intentionally coarse (percent changes) to keep overhead low.
+
 const TARBALL_URL: &str =
     "https://github.com/termux/proot-distro/releases/download/v4.34.2/archlinux-aarch64-pd-v4.34.2.tar.xz";
 const TARBALL_SHA256: &str = "dabc2382ddcb725969cf7b9e2f3b102ec862ea6e0294198a30c71e9a4b837f81";
