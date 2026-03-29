@@ -12,6 +12,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.2] — 2026-03-29
+
+### Added
+- Floating **menu orb**: draggable glass-style control with a dropdown menu; remembers position between sessions (replaces the side slide-out menu).
+
+### Changed
+- **View settings** uses the same glass surface and motion language as the menu; dialog sizing avoids stacked dimming so the backdrop is not overly dark.
+- Menu and view-settings titles use stronger emphasis (e.g. semi-bold **Menu** / **View settings**) with clearer label colors for actions.
+
+### Removed
+- Side **slide-out menu** (`SideMenu`); all primary navigation actions live on the floating orb menu.
+
 ## [0.2.1] — 2026-03-27
 
 ### Added
@@ -48,7 +60,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial public monorepo layout: Android app, Rust JNI, proot, Wayland compositor, optimize docs.
 
-[Unreleased]: https://github.com/Beauty114514/trierarch/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/Beauty114514/trierarch/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/Beauty114514/trierarch/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/Beauty114514/trierarch/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/Beauty114514/trierarch/releases/tag/v0.2.0
 [0.1.0]: https://github.com/Beauty114514/trierarch/releases/tag/v0.1.0

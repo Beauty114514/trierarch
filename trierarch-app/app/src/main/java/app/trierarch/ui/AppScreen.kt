@@ -29,10 +29,8 @@ import app.trierarch.input.InputRouteState
 import app.trierarch.ui.screens.DisplayScriptDialog
 import app.trierarch.ui.screens.InstallScreen
 import app.trierarch.ui.screens.MOUSE_MODE_TOUCHPAD
-import app.trierarch.ui.screens.SideMenu
 import app.trierarch.ui.screens.TerminalScreen
 import app.trierarch.ui.screens.ViewSettingsDialog
-import app.trierarch.ui.screens.twoFingerSwipeFromLeft
 import app.trierarch.wayland.WaylandSurfaceView
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -64,6 +62,8 @@ fun AppScreen(startInTerminal: Boolean = false) {
      * Entry modes:
      * - Default launcher entry: may auto-run Display script once, then switch to Wayland view.
      * - Terminal shortcut entry (`startInTerminal=true`): stays in terminal, never auto-runs Display.
+     *
+     * Menu: [FloatingMenuOrb] (tap) opens a frosted panel near the orb; placement adapts to screen edges (no sidebar).
      */
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -90,7 +90,7 @@ fun AppScreen(startInTerminal: Boolean = false) {
     val prefs = remember(context) { context.getSharedPreferences("trierarch_prefs", 0) }
 
     /**
-     * Display startup contract (shared by auto-start and the SideMenu "Display" entry):
+     * Display startup contract (shared by auto-start and the main menu "Display" entry):
      *
      * - **Idempotent**: once a Wayland toplevel client is connected, do not re-run the script.
      * - **Execution model**: script is injected into the running proot shell by writing UTF-8 bytes
@@ -281,7 +281,7 @@ fun AppScreen(startInTerminal: Boolean = false) {
         AlertDialog(
             onDismissRequest = { },
             title = { Text("Setup complete") },
-            text = { Text("Restart the app to start the Arch terminal.") },
+            text = { Text("Restart the app to open the terminal.") },
             confirmButton = {
                 TextButton(onClick = {
                     val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
@@ -302,13 +302,13 @@ fun AppScreen(startInTerminal: Boolean = false) {
 
     if (hasRootfs && !prootSpawned) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(AppStrings.STARTING_ARCH, color = MaterialTheme.colorScheme.onBackground)
+            Text(AppStrings.STARTING, color = MaterialTheme.colorScheme.onBackground)
         }
         return
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.fillMaxSize().twoFingerSwipeFromLeft(onSwipeRight = { menuOpen = true })) {
+        Box(modifier = Modifier.fillMaxSize()) {
             if (showWayland) {
                 WaylandSurfaceView(
                     runtimeDir = waylandRuntimeDir,
@@ -332,12 +332,20 @@ fun AppScreen(startInTerminal: Boolean = false) {
                 )
             }
         }
-        SideMenu(
-            visible = menuOpen,
-            onDismiss = { menuOpen = false },
+        FloatingMenuOrb(
+            prefs = prefs,
+            menuExpanded = menuOpen,
+            onMenuOpenRequest = { menuOpen = true },
+            onDismissMenu = { menuOpen = false },
             onDisplayClick = { triggerDisplayToggle() },
-            onDisplayLongPress = { displayScriptDialogOpen = true },
-            onViewClick = { settingsOpen = true },
+            onDisplayLongPress = {
+                menuOpen = false
+                displayScriptDialogOpen = true
+            },
+            onViewClick = {
+                menuOpen = false
+                settingsOpen = true
+            },
             onKeyboardClick = {
                 menuOpen = false
                 showKeyboardTrigger += 1

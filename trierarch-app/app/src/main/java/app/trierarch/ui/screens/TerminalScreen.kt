@@ -99,7 +99,7 @@ fun TerminalScreen(
                 ) {
                     if (lines.isEmpty() && partialLine.isEmpty()) {
                         item {
-                            Text(AppStrings.STARTING_ARCH, color = fgColor, fontSize = 14.sp, fontFamily = mono)
+                            Text(AppStrings.STARTING, color = fgColor, fontSize = 14.sp, fontFamily = mono)
                         }
                     }
                     if (partialLine.isNotEmpty()) {

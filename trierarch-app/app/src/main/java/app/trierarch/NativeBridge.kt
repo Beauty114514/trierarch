@@ -24,7 +24,7 @@ object NativeBridge {
      */
     external fun init(dataDir: String, cacheDir: String, nativeLibraryDir: String, externalStorageDir: String?): Boolean
 
-    /** True if Arch rootfs exists. */
+    /** True if the distro rootfs is present on disk. */
     external fun hasRootfs(): Boolean
 
     /** Download rootfs. Blocks until complete. Callback.onProgress(pct, msg). */
