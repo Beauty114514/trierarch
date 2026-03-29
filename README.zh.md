@@ -33,13 +33,15 @@ pacman -Syu
 pacman -S plasma-desktop dolphin konsole
 ```
 
-## 3. 侧栏与 Display（呼出侧栏、设置启动脚本、启动桌面）
+## 3. 悬浮菜单球与 Display（打开菜单、设置启动脚本、启动桌面）
 
-- **侧栏**：用**双指**从**屏幕左侧边缘向右滑动**即可打开侧栏。下图分别为**终端 / Wayland 视图**下与**已进入桌面**后划出的侧栏。
+- **悬浮菜单球**：屏幕上有一颗可拖动的**玻璃球**；**短按**打开**玻璃菜单**（Display、View Settings、Keyboard 等入口）。可拖动球到顺手的位置，位置会记忆。
 
-| 终端下的侧栏 | 进入桌面后的侧栏 |
+![悬浮菜单球](docs/images/floatingOrb.jpg)
+
+| 终端 / Wayland 视图下拉开菜单 | 已进入桌面后拉开菜单 |
 |----------------------------|-----------------|
-| ![终端界面侧栏](docs/images/sidebarInTerminal.jpg) | ![桌面侧栏](docs/images/sidebarInDesktop.jpg) |
+| ![终端界面下的球菜单](docs/images/floutMenuInTerminal.jpg) | ![桌面上的球菜单](docs/images/floutMenuInDesktop.jpg) |
 
 - **Display**：**长按**可编辑 **Display 启动脚本**；**短按**执行脚本以启动 Plasma。**若已有 Wayland 客户端连接，应用不会重复执行脚本。**
 
@@ -49,7 +51,7 @@ pacman -S plasma-desktop dolphin konsole
 dbus-launch --exit-with-session startplasma-wayland > /dev/null 2>&1 &
 ```
 
-![侧栏中的 Display](docs/images/display.jpg)
+![球菜单中的 Display](docs/images/displayScript.jpg)
 
 ## 4. 日常使用：点应用自动启动桌面
 
@@ -57,11 +59,11 @@ dbus-launch --exit-with-session startplasma-wayland > /dev/null 2>&1 &
 
 **Terminal shortcut** 主要用于初始化（例如安装桌面与终端应用），或当桌面环境里暂时没有可用终端时作为备用入口。
 
-## 4. 进入桌面后：View Settings 与终端 / 桌面切换
+## 5. 进入桌面后：View Settings 与终端 / 桌面切换
 
 ### View Settings（视图设置）
 
-在侧栏或相关入口打开 **View Settings**，可调整合成器画面与指针行为：
+在悬浮球菜单中打开 **View Settings**，可调整合成器画面与指针行为：
 
 ![View Settings](docs/images/viewSettings.jpg)
 
@@ -70,19 +72,19 @@ dbus-launch --exit-with-session startplasma-wayland > /dev/null 2>&1 &
 
 ### 用 Display 在终端与桌面之间切换
 
-**进入桌面（Plasma）后**，再点 **Display** 可回到**终端 / Wayland 界面**；**再双指从左侧划出侧栏**，再点 **Display** 即可**回到桌面画面**。侧栏与 Display 在终端界面与桌面中均可使用。
+**进入桌面（Plasma）后**，在球菜单中再点 **Display** 可回到**终端 / Wayland 界面**；**再打开球菜单**，点 **Display** 即可**回到桌面画面**。球菜单与 Display 在终端界面与桌面中均可使用。
 
-## 5. 键盘与输入（侧栏 Keyboard、GTK / Qt）
+## 6. 键盘与输入（球菜单 Keyboard、GTK / Qt）
 
-侧栏 **Keyboard** 可**唤起**软键盘。
+球菜单中的 **Keyboard** 可**唤起**软键盘。
 
-![侧栏 Keyboard](docs/images/keyboard.jpg)
+![球菜单中的 Keyboard](docs/images/keyboard.jpg)
 
 在 **GTK 类应用**中，可输入 **非 ASCII** 字符（如中文、Emoji、特殊字符等），软件将自动通过 **`Ctrl+Shift+U`** 路径完成输入。
 
 **Qt 类应用**对同一路径往往不完整：可先在 **GTK 应用**（推荐 **Mousepad**）里输入，再**复制粘贴**到 Qt 应用。**目前 Android 软键盘与 Plasma 桌面剪贴板未打通**，复制粘贴请在 Linux 侧通过鼠标或快捷键完成（如 `Ctrl+C`、`Ctrl+V`）。可用 [**Unexpected Keyboard**](https://play.google.com/store/apps/details?id=juloo.keyboard2) 等全键盘软键盘（[GitHub](https://github.com/Julow/Unexpected-Keyboard)）。
 
-## 6. 软件与体验优化（trierarch-optimize）与 Arch 文档
+## 7. 软件与体验优化（trierarch-optimize）与 Arch 文档
 
 在 **rootfs 桌面环境内**优化软件使用的**专题教程**见仓库内 **[`trierarch-optimize/README.zh.md`](trierarch-optimize/README.zh.md)**（[English](trierarch-optimize/README.md)），索引内链接各篇说明（如 Firefox、非 ASCII 输入与字体等）。
 

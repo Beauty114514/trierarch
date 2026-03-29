@@ -33,13 +33,15 @@ pacman -Syu
 pacman -S plasma-desktop dolphin konsole
 ```
 
-## 3. Side menu and Display (open menu, set Display script, start the desktop)
+## 3. Floating menu orb and Display (open menu, set Display script, start the desktop)
 
-- **Side menu** — **Two-finger** swipe **from the left edge of the screen toward the right** to open it. Below: side menu in the terminal view vs after entering the desktop.
+- **Floating menu orb** — A draggable **orb** on screen; **short tap** opens a **glass menu** (Display, View Settings, Keyboard, and other actions). Drag the orb to move it; position is remembered between sessions.
 
-| Side menu (terminal / Wayland view) | Side menu (desktop session) |
-|-------------------------------------|-----------------------------|
-| ![Side menu in terminal view](docs/images/sidebarInTerminal.jpg) | ![Side menu on desktop](docs/images/sidebarInDesktop.jpg) |
+![Floating menu orb](docs/images/floatingOrb.jpg)
+
+| Menu open (terminal / Wayland view) | Menu open (desktop session) |
+|--------------------------------------|-----------------------------|
+| ![Orb menu in terminal view](docs/images/floutMenuInTerminal.jpg) | ![Orb menu on desktop](docs/images/floutMenuInDesktop.jpg) |
 
 - **Display** — **Long-press** to edit the **Display startup script**; **short-press** to run it and start Plasma. **If a Wayland client is already connected, the app does not run the script again.**
 
@@ -49,7 +51,7 @@ pacman -S plasma-desktop dolphin konsole
 dbus-launch --exit-with-session startplasma-wayland > /dev/null 2>&1 &
 ```
 
-![Display in side menu](docs/images/display.jpg)
+![Display in orb menu](docs/images/displayScript.jpg)
 
 ## 4. Daily use: tap app to auto-start the desktop
 
@@ -57,11 +59,11 @@ After you have set a Display startup script, you can **tap the app icon normally
 
 The **Terminal** shortcut is mainly for initialization (installing a desktop + terminal app) or as a fallback when you don’t have a terminal available inside the desktop yet.
 
-## 4. After Plasma starts: View Settings and terminal ↔ desktop switching
+## 5. After Plasma starts: View Settings and terminal ↔ desktop switching
 
 ### View Settings
 
-Open **View Settings** from the side menu to tune the compositor and pointer behavior:
+Open **View Settings** from the orb menu to tune the compositor and pointer behavior:
 
 ![View Settings](docs/images/viewSettings.jpg)
 
@@ -70,19 +72,19 @@ Open **View Settings** from the side menu to tune the compositor and pointer beh
 
 ### Switching between terminal and desktop with Display
 
-After Plasma is running, tap **Display** again to return to the **terminal / Wayland** view; **swipe the side menu open from the left again → Display** to go back to the desktop. The side menu and Display work in both the shell view and on the desktop.
+After Plasma is running, tap **Display** in the orb menu again to return to the **terminal / Wayland** view; **open the orb menu → Display** to go back to the desktop. The orb menu and Display work in both the shell view and on the desktop.
 
-## 5. Keyboard and input (side menu Keyboard, GTK / Qt)
+## 6. Keyboard and input (orb menu Keyboard, GTK / Qt)
 
-The side **Keyboard** entry can **invoke** the soft keyboard.
+The **Keyboard** item in the orb menu can **invoke** the soft keyboard.
 
-![Keyboard in side menu](docs/images/keyboard.jpg)
+![Keyboard in orb menu](docs/images/keyboard.jpg)
 
 In **GTK** apps you can enter **non-ASCII** characters (Chinese, emoji, special characters, etc.); input is completed automatically via the **`Ctrl+Shift+U`** path.
 
 **Qt** apps often don’t support that path: type in a **GTK** app first (**Mousepad**), then **copy/paste** into Qt. The **Android soft keyboard** and **Plasma clipboard** are **not integrated**—copy/paste inside Linux using the mouse or shortcuts (e.g. `Ctrl+C`, `Ctrl+V`). You can use a full soft keyboard such as [**Unexpected Keyboard**](https://play.google.com/store/apps/details?id=juloo.keyboard2) ([GitHub](https://github.com/Julow/Unexpected-Keyboard)).
 
-## 6. In-rootfs tuning (`trierarch-optimize`) and Arch documentation
+## 7. In-rootfs tuning (`trierarch-optimize`) and Arch documentation
 
 Topic guides for **tuning apps inside the rootfs desktop** are in **[`trierarch-optimize/README.md`](trierarch-optimize/README.md)** ([中文](trierarch-optimize/README.zh.md)), with links to articles (Firefox, non-ASCII input and fonts, etc.).
 
