@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - _(fill when you ship the next change)_
 
+### Changed
+- **Display startup script** editor (long-press **Display** on the orb menu) now uses the same glass panel and scrim as view settings.
+
 ### Fixed
 - Soft keyboard now **auto-restores** after switching between keyboard apps (both desktop and terminal).
 - Avoid the **double cursor** effect when a physical mouse is active by hiding the Wayland cursor.
