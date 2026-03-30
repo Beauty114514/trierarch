@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - _(fill when you ship the next change)_
 
+### Fixed
+- Soft keyboard now auto-restores after switching between keyboard apps (both desktop and terminal).
+- Avoid the **double cursor** effect when a physical mouse is active by hiding the Wayland cursor.
+
 ---
 
 ## [0.2.2] — 2026-03-29
