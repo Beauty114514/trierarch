@@ -328,7 +328,9 @@ fun AppScreen(startInTerminal: Boolean = false) {
                     onInputSubmit = {
                         NativeBridge.writeInput((it + "\n").toByteArray(Charsets.UTF_8))
                         inputLine = ""
-                    }
+                    },
+                    showKeyboardTrigger = showKeyboardTrigger,
+                    onKeyboardTriggerConsumed = { showKeyboardTrigger = 0 }
                 )
             }
         }

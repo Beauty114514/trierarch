@@ -32,12 +32,20 @@ class SoftKeyboardView(context: android.content.Context) : View(context) {
         isFocusableInTouchMode = true
     }
 
+    override fun onCheckIsTextEditor(): Boolean = true
+
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         setMeasuredDimension(1, 1)
     }
 
     override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection {
-        outAttrs.inputType = EditorInfo.TYPE_NULL
+        /*
+         * Treat this view as a real text editor target for IMEs.
+         *
+         * Some keyboards (especially during IME switching) require a focused view to report itself
+         * as a text editor with a non-NULL inputType before they will show reliably.
+         */
+        outAttrs.inputType = EditorInfo.TYPE_CLASS_TEXT
         outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_FULLSCREEN
         return object : BaseInputConnection(this, true) {
             override fun sendKeyEvent(event: KeyEvent): Boolean {

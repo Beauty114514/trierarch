@@ -1,9 +1,11 @@
 package app.trierarch.wayland
 
 import android.content.Context
+import android.database.ContentObserver
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.provider.Settings
 import android.view.Gravity
 import android.view.InputDevice
 import android.view.MotionEvent
@@ -13,7 +15,10 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.FrameLayout
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import app.trierarch.WaylandBridge
 import app.trierarch.input.SoftKeyboardView
 import app.trierarch.ui.screens.MOUSE_MODE_TABLET
@@ -47,11 +52,13 @@ fun WaylandSurfaceView(
      */
     val rp = resolutionPercent.coerceIn(10, 100)
     val sp = scalePercent.coerceIn(10, 100)
+    val lifecycleOwner = LocalLifecycleOwner.current
     AndroidView(
         factory = { ctx ->
             val layout = WaylandTouchLayout(ctx)
             layout.resolutionPercent = rp
             layout.scalePercent = sp
+            layout.bindLifecycleOwner(lifecycleOwner)
             val surfaceView = SurfaceView(ctx).apply {
                 holder.addCallback(object : SurfaceHolder.Callback {
                     override fun surfaceCreated(h: SurfaceHolder) {
@@ -95,6 +102,7 @@ fun WaylandSurfaceView(
         },
         update = { view ->
             val layout = view as? WaylandTouchLayout
+            layout?.bindLifecycleOwner(lifecycleOwner)
             layout?.mouseMode = mouseMode
             layout?.resolutionPercent = rp
             layout?.scalePercent = sp
@@ -107,14 +115,9 @@ fun WaylandSurfaceView(
                 layout.lastAppliedScalePercent = sp
             }
             if (showKeyboardTrigger > 0) {
-                layout?.keyboardSinkView?.let { kv ->
-                    kv.post {
-                        kv.requestFocus()
-                        val imm = kv.context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-                        imm?.showSoftInput(kv, InputMethodManager.SHOW_IMPLICIT)
-                        onKeyboardTriggerConsumed()
-                    }
-                }
+                layout?.setKeyboardWanted(true)
+                layout?.ensureSoftKeyboardVisible()
+                onKeyboardTriggerConsumed()
             }
         },
         modifier = modifier
@@ -130,6 +133,13 @@ private class WaylandTouchLayout(context: Context) : FrameLayout(context) {
     var lastAppliedResolutionPercent: Int = -1
     var lastAppliedScalePercent: Int = -1
     var keyboardSinkView: SoftKeyboardView? = null
+    private var keyboardWanted: Boolean = false
+    private var lastShowSoftInputMs: Long = 0L
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var imeObserver: ContentObserver? = null
+    private var lifecycleObserver: DefaultLifecycleObserver? = null
+    private var boundLifecycleOwner: LifecycleOwner? = null
+    private var pendingImeReshow: Runnable? = null
     private var lastX = 0f
     private var lastY = 0f
     private var viewWidth = 0
@@ -173,6 +183,126 @@ private class WaylandTouchLayout(context: Context) : FrameLayout(context) {
         const val TWO_FINGER_TAP_THRESHOLD = 22f   // centroid movement threshold for two-finger tap
         const val TOUCHPAD_TAP_MAX_MS = 180L       // touchpad-mode tap click max duration
         const val TOUCHPAD_HOLD_DRAG_MS = 220L     // touchpad-mode hold -> begin drag (left button down)
+        const val SOFT_INPUT_RESHOW_DEBOUNCE_MS = 250L  // avoid IME show loops during focus/IME changes
+    }
+
+    /**
+     * Soft keyboard recovery policy ("scheme 1"):
+     *
+     * Once the user explicitly requests the keyboard, we keep it "wanted" while the Wayland view
+     * is on screen and re-issue `showSoftInput()` at key lifecycle boundaries:
+     * - app resumes / window regains focus
+     * - default IME changes (e.g. switching from one keyboard app to another)
+     *
+     * Rationale: some IMEs hide the current window during switching and the new IME does not
+     * automatically re-show unless the app requests it again.
+     */
+    fun setKeyboardWanted(wanted: Boolean) {
+        keyboardWanted = wanted
+    }
+
+    fun bindLifecycleOwner(owner: LifecycleOwner?) {
+        if (owner == boundLifecycleOwner) return
+
+        boundLifecycleOwner?.let { prev ->
+            lifecycleObserver?.let { obs ->
+                prev.lifecycle.removeObserver(obs)
+            }
+        }
+        boundLifecycleOwner = owner
+
+        if (lifecycleObserver == null) {
+            lifecycleObserver = object : DefaultLifecycleObserver {
+                override fun onResume(owner: LifecycleOwner) {
+                    ensureSoftKeyboardVisible()
+                }
+            }
+        }
+        if (owner != null && lifecycleObserver != null) {
+            owner.lifecycle.addObserver(lifecycleObserver!!)
+        }
+    }
+
+    fun ensureSoftKeyboardVisible() {
+        if (!keyboardWanted) return
+        val kv = keyboardSinkView ?: return
+        val now = SystemClock.uptimeMillis()
+        if (now - lastShowSoftInputMs < SOFT_INPUT_RESHOW_DEBOUNCE_MS) return
+        lastShowSoftInputMs = now
+        pendingImeReshow?.let { mainHandler.removeCallbacks(it) }
+        pendingImeReshow = null
+
+        fun attempt(delayMs: Long) {
+            val r = Runnable {
+                pendingImeReshow = null
+                try {
+                    kv.requestFocus()
+                    val imm = kv.context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                    if (imm != null) {
+                        /*
+                         * Some IMEs change process/connection during switching. Re-starting the input
+                         * connection improves reliability of a subsequent showSoftInput() call.
+                         */
+                        imm.restartInput(kv)
+                        val shown = imm.showSoftInput(kv, InputMethodManager.SHOW_IMPLICIT)
+                        if (!shown) {
+                            // Retry shortly: the IME switch can temporarily detach the window/token.
+                            attempt(180)
+                        }
+                    }
+                } catch (_: Throwable) {
+                }
+            }
+            pendingImeReshow = r
+            if (delayMs <= 0) mainHandler.post(r) else mainHandler.postDelayed(r, delayMs)
+        }
+
+        // First try immediately, then allow a short retry window for IME switches.
+        attempt(0)
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+
+        if (imeObserver == null) {
+            imeObserver = object : ContentObserver(mainHandler) {
+                override fun onChange(selfChange: Boolean) {
+                    // Default IME changed (e.g. switching between keyboard apps). Let the switch settle.
+                    pendingImeReshow?.let { mainHandler.removeCallbacks(it) }
+                    pendingImeReshow = Runnable { ensureSoftKeyboardVisible() }
+                    mainHandler.postDelayed(pendingImeReshow!!, 120)
+                }
+            }
+            try {
+                context.contentResolver.registerContentObserver(
+                    Settings.Secure.getUriFor(Settings.Secure.DEFAULT_INPUT_METHOD),
+                    false,
+                    imeObserver!!
+                )
+            } catch (_: Throwable) {
+            }
+        }
+
+        // Lifecycle binding is provided by Compose (LocalLifecycleOwner) via bindLifecycleOwner(...).
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+
+        bindLifecycleOwner(null)
+
+        imeObserver?.let { obs ->
+            try {
+                context.contentResolver.unregisterContentObserver(obs)
+            } catch (_: Throwable) {
+            }
+        }
+        imeObserver = null
+    }
+
+    override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
+        super.onWindowFocusChanged(hasWindowFocus)
+        if (hasWindowFocus) ensureSoftKeyboardVisible()
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
