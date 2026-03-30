@@ -52,6 +52,7 @@ void compositor_set_output_size(wayland_server_t *srv,
 void compositor_set_output_override(wayland_server_t *srv, int32_t w, int32_t h);
 void compositor_get_output_size(wayland_server_t *srv, int32_t *w, int32_t *h);
 int32_t compositor_get_output_scale(wayland_server_t *srv);
+void compositor_set_output_user_scale(wayland_server_t *srv, int32_t scale);
 
 /* Cursor: set position in physical/surface pixels (call from input when delivering pointer). */
 void compositor_set_cursor_physical(wayland_server_t *srv, float x, float y);

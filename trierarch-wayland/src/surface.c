@@ -3,6 +3,12 @@
  */
 #include "server_internal.h"
 #include <stdlib.h>
+#include <android/log.h>
+#include <wayland-server-protocol.h>
+#include "fractional-scale-v1-server-protocol.h"
+
+#define LOG_TAG "TrierarchSurface"
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
 static void xdg_surface_resource_destroy(struct wl_resource *resource);
 static void xdg_toplevel_resource_destroy(struct wl_resource *resource);
@@ -163,7 +169,11 @@ static void surface_set_buffer_transform(struct wl_client *c, struct wl_resource
 static void surface_set_buffer_scale(struct wl_client *c, struct wl_resource *r, int32_t scale) {
     (void)c;
     struct compositor_surface *surf = wl_resource_get_user_data(r);
-    if (surf && scale >= 1) surf->buffer_scale = scale;
+    if (surf && scale >= 1) {
+        surf->buffer_scale = scale;
+        /* Debug aid: confirms whether clients enter HiDPI (buffer_scale > 1). */
+        LOGI("surface=%p set_buffer_scale=%d", (void *)surf, (int)scale);
+    }
 }
 
 static void surface_commit(struct wl_client *client, struct wl_resource *resource) {
@@ -187,6 +197,13 @@ static void surface_commit(struct wl_client *client, struct wl_resource *resourc
     }
     pthread_mutex_unlock(&surf->srv->surfaces_mutex);
 
+    if (surf->current_buffer) {
+        int32_t bw = buffer_ref_width(surf->current_buffer);
+        int32_t bh = buffer_ref_height(surf->current_buffer);
+        int32_t bs = surf->buffer_scale > 0 ? surf->buffer_scale : 1;
+        LOGI("surface=%p commit buffer=%dx%d buffer_scale=%d", (void *)surf, (int)bw, (int)bh, (int)bs);
+    }
+
     /* Send wl_surface.enter(output) when surface gets a buffer and hasn't yet */
     if (surf->current_buffer && !surf->entered_output) {
         struct wl_client *cl = wl_resource_get_client(surf->resource);
@@ -194,11 +211,40 @@ static void surface_commit(struct wl_client *client, struct wl_resource *resourc
         wl_list_for_each(onode, &surf->srv->output_resources, link) {
             if (wl_resource_get_client(onode->resource) == cl) {
                 wl_surface_send_enter(surf->resource, onode->resource);
+                /* Encourage clients (esp. nested compositors) to allocate HiDPI buffers. */
+                uint32_t surf_ver = (uint32_t)wl_resource_get_version(surf->resource);
+                if (surf_ver >= 6) {
+                    int32_t preferred = surf->srv && surf->srv->output_user_scale > 0 ? surf->srv->output_user_scale : 1;
+                    if (preferred < 1) preferred = 1;
+                    wl_surface_send_preferred_buffer_scale(surf->resource, preferred);
+                }
                 break;
             }
         }
+        /* Also encourage fractional-scale clients (KWin) if bound. */
+        if (surf->fractional_scale_res && surf->srv) {
+            int32_t s = surf->srv->output_user_scale > 0 ? surf->srv->output_user_scale : 1;
+            if (s < 1) s = 1;
+            if (s > 4) s = 4;
+            wp_fractional_scale_v1_send_preferred_scale(surf->fractional_scale_res, (uint32_t)(s * 120));
+        }
         surf->entered_output = true;
     }
+}
+
+void surface_notify_preferred_buffer_scale_all(struct wayland_server *srv) {
+    if (!srv) return;
+    int32_t preferred = srv->output_user_scale > 0 ? srv->output_user_scale : 1;
+    if (preferred < 1) preferred = 1;
+    pthread_mutex_lock(&srv->surfaces_mutex);
+    struct compositor_surface *surf;
+    wl_list_for_each(surf, &srv->surfaces, link) {
+        if (!surf->resource) continue;
+        uint32_t ver = (uint32_t)wl_resource_get_version(surf->resource);
+        if (ver < 6) continue;
+        wl_surface_send_preferred_buffer_scale(surf->resource, preferred);
+    }
+    pthread_mutex_unlock(&srv->surfaces_mutex);
 }
 
 static const struct wl_surface_interface surface_impl = {
@@ -247,6 +293,15 @@ static void compositor_create_surface(struct wl_client *client,
     surf->buffer_offset_x = surf->buffer_offset_y = 0;
     surf->buffer_scale = 1;
     surf->entered_output = false;
+    surf->viewport_res = NULL;
+    surf->viewport_dst_set = false;
+    surf->viewport_dst_w = 0;
+    surf->viewport_dst_h = 0;
+    surf->viewport_src_set = false;
+    surf->viewport_src_x = 0;
+    surf->viewport_src_y = 0;
+    surf->viewport_src_w = 0;
+    surf->viewport_src_h = 0;
     surf->parent = NULL;
     surf->subsurface_res = NULL;
     wl_list_init(&surf->children);

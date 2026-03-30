@@ -18,6 +18,7 @@ fun WaylandSurfaceView(
     resolutionPercent: Int,
     scalePercent: Int,
     showKeyboardTrigger: Int,
+    keyboardWanted: Boolean,
     onKeyboardTriggerConsumed: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -32,7 +33,7 @@ fun WaylandSurfaceView(
      * - `WaylandCursorVisibilityPolicy.kt`
      */
     val rp = resolutionPercent.coerceIn(10, 100)
-    val sp = scalePercent.coerceIn(10, 100)
+    val sp = scalePercent.coerceIn(100, 1000)
     val lifecycleOwner = LocalLifecycleOwner.current
 
     AndroidView(
@@ -49,7 +50,7 @@ fun WaylandSurfaceView(
                         val surface = h.surface ?: return
                         val l = (this@apply.parent as? WaylandTouchLayout)
                         val r = l?.resolutionPercent?.coerceIn(10, 100) ?: 100
-                        val s = l?.scalePercent?.coerceIn(10, 100) ?: 100
+                        val s = l?.scalePercent?.coerceIn(100, 1000) ?: 100
                         WaylandBridge.nativeSurfaceCreated(surface, runtimeDir, r, s)
                         l?.applyCursorVisibilityPolicy()
                     }
@@ -59,8 +60,9 @@ fun WaylandSurfaceView(
                         val l = (this@apply.parent as? WaylandTouchLayout) ?: return
                         l.lastSurfaceWidth = width
                         l.lastSurfaceHeight = height
+                        l.onSurfaceSizeChanged(width, height)
                         val r = l.resolutionPercent.coerceIn(10, 100)
-                        val s = l.scalePercent.coerceIn(10, 100)
+                        val s = l.scalePercent.coerceIn(100, 1000)
                         WaylandBridge.nativeOutputSizeChanged(width, height, r, s)
                         l.lastAppliedResolutionPercent = r
                         l.lastAppliedScalePercent = s
@@ -95,18 +97,20 @@ fun WaylandSurfaceView(
             layout.mouseMode = mouseMode
             layout.resolutionPercent = rp
             layout.scalePercent = sp
+            layout.setKeyboardWanted(keyboardWanted)
             layout.applyCursorVisibilityPolicy()
 
             if (layout.lastSurfaceWidth > 0 && layout.lastSurfaceHeight > 0 &&
                 (layout.lastAppliedResolutionPercent != rp || layout.lastAppliedScalePercent != sp)
             ) {
+                layout.onSurfaceSizeChanged(layout.lastSurfaceWidth, layout.lastSurfaceHeight)
                 WaylandBridge.nativeOutputSizeChanged(layout.lastSurfaceWidth, layout.lastSurfaceHeight, rp, sp)
                 layout.lastAppliedResolutionPercent = rp
                 layout.lastAppliedScalePercent = sp
             }
 
             if (showKeyboardTrigger > 0) {
-                layout.setKeyboardWanted(true)
+                // Keyboard menu click: set wanted=true at the App level, then call show once here.
                 layout.ensureSoftKeyboardVisible()
                 onKeyboardTriggerConsumed()
             }

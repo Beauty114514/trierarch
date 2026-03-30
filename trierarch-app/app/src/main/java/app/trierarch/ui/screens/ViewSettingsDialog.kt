@@ -55,6 +55,7 @@ const val MOUSE_MODE_TABLET = 0 /* 平板：触摸=光标位置，长按右键 *
 const val MOUSE_MODE_TOUCHPAD = 1 /* 触摸板：相对移动，整块=左键 */
 
 private val PERCENT_OPTIONS = (10..100 step 10).toList()
+private val SCALE_OPTIONS = (100..1000 step 100).toList()
 
 private val LabelColor = Color.White
 
@@ -223,7 +224,7 @@ fun ViewSettingsDialog(
                     Box(modifier = Modifier.padding(bottom = 12.dp)) {
                         TextButton(onClick = { scaleExpanded = true }) {
                             Text(
-                                "${scalePercent.coerceIn(10, 100)}%",
+                                "${scalePercent.coerceIn(100, 1000)}%",
                                 color = linkColor
                             )
                         }
@@ -231,7 +232,7 @@ fun ViewSettingsDialog(
                             expanded = scaleExpanded,
                             onDismissRequest = { scaleExpanded = false }
                         ) {
-                            PERCENT_OPTIONS.forEach { pct ->
+                            SCALE_OPTIONS.forEach { pct ->
                                 DropdownMenuItem(
                                     text = { Text("$pct%", color = linkColor) },
                                     onClick = {

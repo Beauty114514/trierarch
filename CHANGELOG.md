@@ -11,8 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - _(fill when you ship the next change)_
 
 ### Fixed
-- Soft keyboard now auto-restores after switching between keyboard apps (both desktop and terminal).
+- Soft keyboard now **auto-restores** after switching between keyboard apps (both desktop and terminal).
 - Avoid the **double cursor** effect when a physical mouse is active by hiding the Wayland cursor.
+- Fixed physical mouse pointer **position desync** after output size/scale changes by keeping Surface size in sync with coordinate mapping.
+- Cursor is now rendered at a **stable physical pixel size** (not affected by resolution/scale), and hotspot scaling avoids visible jumps.
+- Splash background bitmap filtering disabled to reduce **flash/blur** during launch scaling.
 
 ---
 

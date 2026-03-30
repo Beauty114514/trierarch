@@ -4,6 +4,7 @@
     <item>
         <bitmap
             android:gravity="center"
+            android:filter="false"
             android:src="@drawable/ic_splash_logo" />
     </item>
 </layer-list>

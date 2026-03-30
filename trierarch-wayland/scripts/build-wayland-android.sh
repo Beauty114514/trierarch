@@ -120,12 +120,18 @@ cp -a "$OUT_DIR/lib"/libwayland-server.so "$OUT_DIR/lib"/libffi.so* "$OUT_UNIFIE
 
 # 4. Generate xdg-shell server protocol (used by this compositor)
 XDG_XML="$PROTOCOLS_SRC/stable/xdg-shell/xdg-shell.xml"
+FRACTIONAL_XML="$PROTOCOLS_SRC/staging/fractional-scale/fractional-scale-v1.xml"
 PROTO_DIR="$PROJECT_DIR/protocol"
 mkdir -p "$PROTO_DIR"
 if [ -f "$XDG_XML" ]; then
     "$WAYLAND_SCANNER" server-header "$XDG_XML" "$PROTO_DIR/xdg-shell-server-protocol.h"
     "$WAYLAND_SCANNER" private-code "$XDG_XML" "$PROTO_DIR/xdg-shell-server-protocol.c"
     echo "Generated xdg-shell protocol in $PROTO_DIR"
+fi
+if [ -f "$FRACTIONAL_XML" ]; then
+    "$WAYLAND_SCANNER" server-header "$FRACTIONAL_XML" "$PROTO_DIR/fractional-scale-v1-server-protocol.h"
+    "$WAYLAND_SCANNER" private-code "$FRACTIONAL_XML" "$PROTO_DIR/fractional-scale-v1-server-protocol.c"
+    echo "Generated fractional-scale-v1 protocol in $PROTO_DIR"
 fi
 
 # 5. Build compositor and copy to unified output (use same NDK as above)

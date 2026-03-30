@@ -77,6 +77,16 @@ struct compositor_surface {
     int32_t buffer_scale;
     bool entered_output;
     struct wl_resource *viewport_res;  /* wp_viewport (viewporter.c) */
+    struct wl_resource *fractional_scale_res; /* wp_fractional_scale_v1 (fractional_scale.c) */
+    /* wp_viewporter state (viewporter.c). */
+    bool viewport_dst_set;
+    int32_t viewport_dst_w;
+    int32_t viewport_dst_h;
+    bool viewport_src_set;
+    wl_fixed_t viewport_src_x;
+    wl_fixed_t viewport_src_y;
+    wl_fixed_t viewport_src_w;
+    wl_fixed_t viewport_src_h;
     /* Subsurface support (subcompositor.c) */
     struct compositor_surface *parent;
     struct wl_resource *subsurface_res;
@@ -103,9 +113,11 @@ struct wayland_server {
     pthread_mutex_t surfaces_mutex;
     bool valid;
     int32_t output_width, output_height;
-    int32_t output_scale;
+    int32_t output_scale;       /* wl_output.scale + renderer logical->physical integer scale */
+    int32_t output_user_scale;  /* legacy: requested UI scale (may be overridden by output_scale) */
     int32_t output_override_w, output_override_h;
     struct wl_list output_resources;  /* list of output_resource_node */
+    struct wl_list xdg_output_resources; /* list of output_resource_node (zxdg_output_v1) */
     bool egl_buffer_supported;
     /* Pointer input (touch → wl_pointer / relative_pointer) */
     struct wl_list pointer_resources;
@@ -192,6 +204,14 @@ void xdg_decoration_manager_bind(struct wl_client *client, void *data, uint32_t 
 
 /* xdg_output.c */
 void xdg_output_manager_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id);
+void xdg_output_notify_all(struct wayland_server *srv);
+
+/* surface.c */
+void surface_notify_preferred_buffer_scale_all(struct wayland_server *srv);
+
+/* fractional_scale.c */
+void fractional_scale_manager_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id);
+void fractional_scale_notify_all(struct wayland_server *srv);
 
 /* pointer_constraints.c */
 void pointer_constraints_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id);

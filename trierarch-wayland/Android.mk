@@ -25,6 +25,7 @@ LOCAL_SRC_FILES := \
     src/compositor.c src/buffer.c src/surface.c src/subcompositor.c \
     src/xdg_shell.c src/output.c src/seat.c src/pointer_input.c src/keyboard_input.c src/data_device.c \
     src/single_pixel_buffer.c src/viewporter.c src/xdg_decoration.c src/xdg_output.c \
+    src/fractional_scale.c \
     src/pointer_constraints.c src/relative_pointer.c src/presentation.c \
     src/renderer.c src/jni_bridge.c src/keycode_map.c \
     protocol/xdg-shell-server-protocol.c \
@@ -32,6 +33,7 @@ LOCAL_SRC_FILES := \
     protocol/viewporter-server-protocol.c \
     protocol/xdg-decoration-unstable-v1-server-protocol.c \
     protocol/xdg-output-unstable-v1-server-protocol.c \
+    protocol/fractional-scale-v1-server-protocol.c \
     protocol/pointer-constraints-unstable-v1-server-protocol.c \
     protocol/relative-pointer-unstable-v1-server-protocol.c \
     protocol/presentation-time-server-protocol.c

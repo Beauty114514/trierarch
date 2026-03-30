@@ -190,11 +190,11 @@ static int draw_surface_cb(const compositor_surface_view_t *view, void *user) {
     int32_t out_h = ru->out_h > 0 ? ru->out_h : ctx->height;
     float x0, y0, x1, y1;
     if (view->position_in_physical) {
-        /* Cursor: position in physical px; size scaled by output_scale (logical→physical fill) */
+        /* Cursor: position and size are already in physical pixels. */
         x0 = (float)view->x;
         y0 = (float)view->y;
-        x1 = (float)(view->x + view->width * scale);
-        y1 = (float)(view->y + view->height * scale);
+        x1 = (float)(view->x + view->width);
+        y1 = (float)(view->y + view->height);
     } else {
         x0 = (float)(view->x * scale);
         y0 = (float)(view->y * scale);

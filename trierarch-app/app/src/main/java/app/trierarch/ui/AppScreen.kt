@@ -86,6 +86,7 @@ fun AppScreen(startInTerminal: Boolean = false) {
     var resolutionPercent by remember { mutableStateOf(100) }
     var scalePercent by remember { mutableStateOf(100) }
     var showKeyboardTrigger by remember { mutableStateOf(0) }
+    var keyboardWanted by remember { mutableStateOf(false) }
     var autoDisplayTriggered by remember { mutableStateOf(false) }
     val prefs = remember(context) { context.getSharedPreferences("trierarch_prefs", 0) }
 
@@ -135,7 +136,9 @@ fun AppScreen(startInTerminal: Boolean = false) {
     LaunchedEffect(Unit) {
         mouseMode = prefs.getInt("mouse_mode", MOUSE_MODE_TOUCHPAD)
         resolutionPercent = prefs.getInt("resolution_percent", 100).coerceIn(10, 100)
-        scalePercent = prefs.getInt("scale_percent", 100).coerceIn(10, 100)
+        scalePercent = prefs.getInt("scale_percent", 100)
+            .coerceIn(100, 1000)
+            .let { v -> ((v + 50) / 100) * 100 }
     }
 
     fun persistMouseMode(mode: Int) {
@@ -149,7 +152,7 @@ fun AppScreen(startInTerminal: Boolean = false) {
     }
 
     fun persistScalePercent(pct: Int) {
-        scalePercent = pct.coerceIn(10, 100)
+        scalePercent = pct.coerceIn(100, 1000).let { v -> ((v + 50) / 100) * 100 }
         prefs.edit().putInt("scale_percent", scalePercent).apply()
     }
 
@@ -204,6 +207,13 @@ fun AppScreen(startInTerminal: Boolean = false) {
     LaunchedEffect(showWayland) {
         InputRouteState.waylandVisible = showWayland
         setImmersiveMode(context as? Activity, showWayland)
+    }
+
+    LaunchedEffect(menuOpen, settingsOpen, displayScriptDialogOpen) {
+        // Don't auto-pop the IME while the user is interacting with menus/dialogs.
+        if (menuOpen || settingsOpen || displayScriptDialogOpen) {
+            keyboardWanted = false
+        }
     }
 
     LaunchedEffect(prootSpawned, startInTerminal) {
@@ -316,6 +326,7 @@ fun AppScreen(startInTerminal: Boolean = false) {
                     resolutionPercent = resolutionPercent,
                     scalePercent = scalePercent,
                     showKeyboardTrigger = showKeyboardTrigger,
+                    keyboardWanted = keyboardWanted,
                     onKeyboardTriggerConsumed = { showKeyboardTrigger = 0 },
                     modifier = Modifier.fillMaxSize()
                 )
@@ -350,6 +361,7 @@ fun AppScreen(startInTerminal: Boolean = false) {
             },
             onKeyboardClick = {
                 menuOpen = false
+                keyboardWanted = true
                 showKeyboardTrigger += 1
             }
         )

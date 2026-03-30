@@ -9,7 +9,8 @@
  * Output sizing contract:
  * - Kotlin provides physical surface size and two tuning knobs:
  *   - "Resolution%" lowers the logical output size to reduce compositor work.
- *   - "Scale%" increases the logical size to keep UI readable while still rendering to the full surface.
+ *   - "Scale%" enlarges UI by reducing the logical coordinate space, and also hints clients to
+ *     render denser buffers for crispness (fractional-scale + viewporter).
  * - The compositor publishes the resulting logical size via wl_output and xdg-shell configure,
  *   and provides an output_scale for the renderer to map logical -> physical.
  */
@@ -42,7 +43,7 @@ static void output_send_state(struct wayland_server *srv, struct wl_resource *re
             WL_OUTPUT_SUBPIXEL_UNKNOWN, "Trierarch", "Wayland", WL_OUTPUT_TRANSFORM_NORMAL);
     wl_output_send_mode(resource, WL_OUTPUT_MODE_CURRENT | WL_OUTPUT_MODE_PREFERRED, w, h, 60000);
     if (ver >= 2) {
-        int32_t scale = srv->output_scale > 0 ? srv->output_scale : 1;
+        int32_t scale = srv->output_user_scale > 0 ? srv->output_user_scale : 1;
         wl_output_send_scale(resource, (uint32_t)scale);
     }
     if (send_done && ver >= 2)
@@ -100,7 +101,7 @@ void compositor_set_output_size(wayland_server_t *srv_opaque,
     if (physical_w > 0 && physical_h > 0 && srv->output_width > 0 && srv->output_height > 0) {
         int32_t scale_w = physical_w / srv->output_width;
         int32_t scale_h = physical_h / srv->output_height;
-        srv->output_scale = (scale_w > scale_h) ? scale_w : scale_h;
+        srv->output_scale = (scale_w < scale_h) ? scale_w : scale_h;
         if (srv->output_scale < 1) srv->output_scale = 1;
     }
     pthread_mutex_lock(&srv->surfaces_mutex);
@@ -112,6 +113,9 @@ void compositor_set_output_size(wayland_server_t *srv_opaque,
     pthread_mutex_unlock(&srv->surfaces_mutex);
     /* Notify already-bound wl_output resources so Resolution takes effect without reconnecting. */
     output_notify_all(srv);
+    xdg_output_notify_all(srv);
+    surface_notify_preferred_buffer_scale_all(srv);
+    fractional_scale_notify_all(srv);
 }
 
 void compositor_set_output_override(wayland_server_t *srv_opaque, int32_t w, int32_t h) {
@@ -132,5 +136,24 @@ int32_t compositor_get_output_scale(wayland_server_t *srv_opaque) {
     if (!srv_opaque) return 1;
     struct wayland_server *srv = (struct wayland_server *)srv_opaque;
     return srv->output_scale > 0 ? srv->output_scale : 1;
+}
+
+void compositor_set_output_user_scale(wayland_server_t *srv_opaque, int32_t scale) {
+    if (!srv_opaque) return;
+    struct wayland_server *srv = (struct wayland_server *)srv_opaque;
+    if (scale < 1) scale = 1;
+    if (scale > 10) scale = 10;
+    srv->output_user_scale = scale;
+    pthread_mutex_lock(&srv->surfaces_mutex);
+    struct compositor_surface *surf;
+    wl_list_for_each(surf, &srv->surfaces, link) {
+        if (surf->xdg_toplevel_res)
+            send_toplevel_configure(surf);
+    }
+    pthread_mutex_unlock(&srv->surfaces_mutex);
+    output_notify_all(srv);
+    xdg_output_notify_all(srv);
+    surface_notify_preferred_buffer_scale_all(srv);
+    fractional_scale_notify_all(srv);
 }
 

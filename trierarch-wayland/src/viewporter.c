@@ -17,12 +17,41 @@ static void viewport_destroy(struct wl_client *client, struct wl_resource *resou
 
 static void viewport_set_source(struct wl_client *client, struct wl_resource *resource,
         wl_fixed_t x, wl_fixed_t y, wl_fixed_t width, wl_fixed_t height) {
-    (void)client; (void)resource; (void)x; (void)y; (void)width; (void)height;
+    (void)client;
+    struct compositor_surface *surf = wl_resource_get_user_data(resource);
+    if (!surf) return;
+    /* Unset: (-1, -1, -1, -1) per protocol. */
+    if (x == wl_fixed_from_int(-1) && y == wl_fixed_from_int(-1)
+            && width == wl_fixed_from_int(-1) && height == wl_fixed_from_int(-1)) {
+        surf->viewport_src_set = false;
+        surf->viewport_src_x = 0;
+        surf->viewport_src_y = 0;
+        surf->viewport_src_w = 0;
+        surf->viewport_src_h = 0;
+        return;
+    }
+    surf->viewport_src_set = true;
+    surf->viewport_src_x = x;
+    surf->viewport_src_y = y;
+    surf->viewport_src_w = width;
+    surf->viewport_src_h = height;
 }
 
 static void viewport_set_destination(struct wl_client *client, struct wl_resource *resource,
         int32_t width, int32_t height) {
-    (void)client; (void)resource; (void)width; (void)height;
+    (void)client;
+    struct compositor_surface *surf = wl_resource_get_user_data(resource);
+    if (!surf) return;
+    /* Unset: (-1, -1) per protocol. */
+    if (width == -1 && height == -1) {
+        surf->viewport_dst_set = false;
+        surf->viewport_dst_w = 0;
+        surf->viewport_dst_h = 0;
+        return;
+    }
+    surf->viewport_dst_set = true;
+    surf->viewport_dst_w = width;
+    surf->viewport_dst_h = height;
 }
 
 static const struct wp_viewport_interface viewport_impl = {

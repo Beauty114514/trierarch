@@ -260,14 +260,31 @@ JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeSurfaceCreated(JNI
     int pw = 0, ph = 0;
     renderer_get_size(g_renderer, &pw, &ph);
     int rp = (resolution_percent >= 10 && resolution_percent <= 100) ? (int)resolution_percent : 100;
-    int sp = (scale_percent >= 10 && scale_percent <= 100) ? (int)scale_percent : 100;
-    /* Logical size = physical * resolution% * scale%; client draws for that, we render to full screen */
-    int32_t lw = (pw > 0 && rp > 0 && sp > 0) ? (pw * rp * sp + 5000) / 10000 : pw;
-    int32_t lh = (ph > 0 && rp > 0 && sp > 0) ? (ph * rp * sp + 5000) / 10000 : ph;
+    int sp = (scale_percent >= 100 && scale_percent <= 1000 && (scale_percent % 100) == 0)
+        ? (int)scale_percent
+        : 100;
+    /*
+     * Output contract:
+     * - Resolution% changes logical size (performance/work reduction).
+     * - Scale% is UI scale (wl_output.scale): it changes the logical coordinate space while
+     *   keeping the physical surface resolution intact (larger UI at the same physical pixels).
+     */
+    int user_scale = sp / 100;
+    if (user_scale < 1) user_scale = 1;
+    if (user_scale > 10) user_scale = 10;
+
+    int32_t lw = (pw > 0 && rp > 0) ? (pw * rp + 50) / 100 : pw;
+    int32_t lh = (ph > 0 && rp > 0) ? (ph * rp + 50) / 100 : ph;
+    /* Scale% enlarges UI by reducing the logical coordinate space. */
+    if (user_scale > 1) {
+        lw = (lw + (user_scale / 2)) / user_scale;
+        lh = (lh + (user_scale / 2)) / user_scale;
+    }
     if (lw < 1) lw = 1;
     if (lh < 1) lh = 1;
     compositor_set_output_override(g_server, lw, lh);
     if (pw > 0 && ph > 0) compositor_set_output_size(g_server, lw, lh, pw, ph);
+    compositor_set_output_user_scale(g_server, user_scale);
     g_running = 1;
     g_render_created = (pthread_create(&g_render_thread, NULL, render_loop, NULL) == 0);
 }
@@ -285,13 +302,25 @@ JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeOutputSizeChanged(
     (void)env;(void)thiz;
     if (!g_server || width <= 0 || height <= 0) return;
     int rp = (resolution_percent >= 10 && resolution_percent <= 100) ? (int)resolution_percent : 100;
-    int sp = (scale_percent >= 10 && scale_percent <= 100) ? (int)scale_percent : 100;
-    int32_t lw = (width * rp * sp + 5000) / 10000;
-    int32_t lh = (height * rp * sp + 5000) / 10000;
+    int sp = (scale_percent >= 100 && scale_percent <= 1000 && (scale_percent % 100) == 0)
+        ? (int)scale_percent
+        : 100;
+    int user_scale = sp / 100;
+    if (user_scale < 1) user_scale = 1;
+    if (user_scale > 10) user_scale = 10;
+
+    int32_t lw = (width * rp + 50) / 100;
+    int32_t lh = (height * rp + 50) / 100;
+    /* Scale% enlarges UI by reducing the logical coordinate space. */
+    if (user_scale > 1) {
+        lw = (lw + (user_scale / 2)) / user_scale;
+        lh = (lh + (user_scale / 2)) / user_scale;
+    }
     if (lw < 1) lw = 1;
     if (lh < 1) lh = 1;
     compositor_set_output_override(g_server, lw, lh);
     compositor_set_output_size(g_server, lw, lh, (int32_t)width, (int32_t)height);
+    compositor_set_output_user_scale(g_server, user_scale);
 }
 
 JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeOnPointerEvent(JNIEnv *env, jobject thiz, jfloat x, jfloat y, jint action, jint timeMs) {

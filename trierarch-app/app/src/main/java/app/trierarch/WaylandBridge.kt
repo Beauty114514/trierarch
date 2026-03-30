@@ -40,13 +40,21 @@ object WaylandBridge {
      */
     external fun nativeStartServer(runtimeDir: String)
 
-    /** Create EGL and render thread; call when showing the Wayland view with a valid Surface. */
+    /**
+     * Create EGL and render thread; call when showing the Wayland view with a valid Surface.
+     * @param resolutionPercent 10..100
+     * @param scalePercent 100..1000 (step 100) UI scale
+     */
     external fun nativeSurfaceCreated(surface: Surface, runtimeDir: String, resolutionPercent: Int, scalePercent: Int)
 
     /** Stop render thread, resume dispatch thread. Call when leaving the Wayland view. */
     external fun nativeSurfaceDestroyed()
 
-    /** Update compositor output size (e.g. on fold/unfold). Call from SurfaceHolder.Callback.surfaceChanged. */
+    /**
+     * Update compositor output size (e.g. on fold/unfold). Call from SurfaceHolder.Callback.surfaceChanged.
+     * @param resolutionPercent 10..100
+     * @param scalePercent 100..1000 (step 100) UI scale
+     */
     external fun nativeOutputSizeChanged(width: Int, height: Int, resolutionPercent: Int, scalePercent: Int)
 
     /**

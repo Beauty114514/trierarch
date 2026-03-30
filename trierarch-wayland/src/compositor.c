@@ -18,6 +18,7 @@
 #include "viewporter-server-protocol.h"
 #include "xdg-decoration-unstable-v1-server-protocol.h"
 #include "xdg-output-unstable-v1-server-protocol.h"
+#include "fractional-scale-v1-server-protocol.h"
 #include "pointer-constraints-unstable-v1-server-protocol.h"
 #include "relative-pointer-unstable-v1-server-protocol.h"
 #include "presentation-time-server-protocol.h"
@@ -86,7 +87,9 @@ wayland_server_t *compositor_create(const char *runtime_dir) {
     srv->output_width = 1080;
     srv->output_height = 1920;
     srv->output_scale = 1;
+    srv->output_user_scale = 1;
     srv->output_override_w = srv->output_override_h = 0;
+    wl_list_init(&srv->xdg_output_resources);
     srv->egl_buffer_supported = false;
     srv->valid = true;
 
@@ -117,6 +120,7 @@ wayland_server_t *compositor_create(const char *runtime_dir) {
     wl_global_create(srv->display, &wp_viewporter_interface, 1, srv, viewporter_bind);
     wl_global_create(srv->display, &zxdg_decoration_manager_v1_interface, 1, srv, xdg_decoration_manager_bind);
     wl_global_create(srv->display, &zxdg_output_manager_v1_interface, 3, srv, xdg_output_manager_bind);
+    wl_global_create(srv->display, &wp_fractional_scale_manager_v1_interface, 1, srv, fractional_scale_manager_bind);
     wl_global_create(srv->display, &zwp_pointer_constraints_v1_interface, 1, srv, pointer_constraints_bind);
     wl_global_create(srv->display, &zwp_relative_pointer_manager_v1_interface, 1, srv, relative_pointer_manager_bind);
     wl_global_create(srv->display, &wp_presentation_interface, 2, srv, presentation_bind);
@@ -197,6 +201,11 @@ static void fill_surface_view(const struct compositor_surface *surf,
     view->height = buf_h / s;
     if (view->width <= 0) view->width = buf_w;
     if (view->height <= 0) view->height = buf_h;
+    /* Apply wp_viewporter destination size (logical size after scaling). */
+    if (surf->viewport_dst_set && surf->viewport_dst_w > 0 && surf->viewport_dst_h > 0) {
+        view->width = surf->viewport_dst_w;
+        view->height = surf->viewport_dst_h;
+    }
     view->stride = buffer_ref_stride(surf->current_buffer);
     view->format = buffer_ref_format(surf->current_buffer);
     view->x = 0;
@@ -207,6 +216,25 @@ static void fill_surface_view(const struct compositor_surface *surf,
     view->src_y = 0.f;
     view->src_w = 1.f;
     view->src_h = 1.f;
+    /* Apply wp_viewporter source rectangle (buffer-space crop). */
+    if (surf->viewport_src_set && buf_w > 0 && buf_h > 0) {
+        float sx = (float)wl_fixed_to_double(surf->viewport_src_x);
+        float sy = (float)wl_fixed_to_double(surf->viewport_src_y);
+        float sw = (float)wl_fixed_to_double(surf->viewport_src_w);
+        float sh = (float)wl_fixed_to_double(surf->viewport_src_h);
+        if (sw > 0.f && sh > 0.f) {
+            view->src_x = sx / (float)buf_w;
+            view->src_y = sy / (float)buf_h;
+            view->src_w = sw / (float)buf_w;
+            view->src_h = sh / (float)buf_h;
+            if (view->src_x < 0.f) view->src_x = 0.f;
+            if (view->src_y < 0.f) view->src_y = 0.f;
+            if (view->src_w < 0.f) view->src_w = 0.f;
+            if (view->src_h < 0.f) view->src_h = 0.f;
+            if (view->src_x + view->src_w > 1.f) view->src_w = 1.f - view->src_x;
+            if (view->src_y + view->src_h > 1.f) view->src_h = 1.f - view->src_y;
+        }
+    }
     view->position_in_physical = false;
 }
 
@@ -293,8 +321,24 @@ bool compositor_get_cursor_view(wayland_server_t *srv_opaque, compositor_surface
     out->pixels = buffer_ref_get_data(cs->current_buffer);
     out->egl_buffer = buffer_ref_get_egl_resource(cs->current_buffer);
     if (!out->pixels && !out->egl_buffer) return false;
-    out->width = buf_w;
-    out->height = buf_h;
+    /* Keep cursor size stable in physical pixels across output scale changes:
+     * clients may choose a larger cursor buffer when scale increases. We intentionally ignore
+     * output scaling here and draw a fixed-size cursor in physical pixels. */
+    const int32_t target_px = 80; /* tweakable: visual cursor size in physical pixels */
+    int32_t draw_w = target_px;
+    int32_t draw_h = target_px;
+    if (buf_w > 0 && buf_h > 0) {
+        /* Preserve aspect ratio for non-square cursor buffers. */
+        if (buf_w >= buf_h) {
+            draw_h = (int32_t)((int64_t)target_px * buf_h / buf_w);
+        } else {
+            draw_w = (int32_t)((int64_t)target_px * buf_w / buf_h);
+        }
+    }
+    if (draw_w < 16) draw_w = 16;
+    if (draw_h < 16) draw_h = 16;
+    out->width = draw_w;
+    out->height = draw_h;
     out->stride = buffer_ref_stride(cs->current_buffer);
     out->format = buffer_ref_format(cs->current_buffer);
     out->buf_width = buf_w;
@@ -303,8 +347,13 @@ bool compositor_get_cursor_view(wayland_server_t *srv_opaque, compositor_surface
     out->src_y = 0.f;
     out->src_w = 1.f;
     out->src_h = 1.f;
-    out->x = (int32_t)(cx - (float)hx);
-    out->y = (int32_t)(cy - (float)hy);
+    /* Scale hotspot with the same factor as the drawn cursor size to avoid "jump". */
+    float sx = (buf_w > 0) ? ((float)draw_w / (float)buf_w) : 1.0f;
+    float sy = (buf_h > 0) ? ((float)draw_h / (float)buf_h) : 1.0f;
+    int32_t hx_draw = (int32_t)((float)hx * sx + 0.5f);
+    int32_t hy_draw = (int32_t)((float)hy * sy + 0.5f);
+    out->x = (int32_t)(cx - (float)hx_draw);
+    out->y = (int32_t)(cy - (float)hy_draw);
     out->position_in_physical = true;
     return true;
 }

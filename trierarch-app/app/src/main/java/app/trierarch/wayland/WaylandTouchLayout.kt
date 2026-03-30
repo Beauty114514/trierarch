@@ -79,6 +79,10 @@ internal class WaylandTouchLayout(context: Context) : FrameLayout(context) {
         cursorPolicy.apply(mouseMode)
     }
 
+    fun onSurfaceSizeChanged(w: Int, h: Int) {
+        coordMapper.setSurfaceSize(w, h)
+    }
+
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         imeRecovery.onAttachedToWindow()
