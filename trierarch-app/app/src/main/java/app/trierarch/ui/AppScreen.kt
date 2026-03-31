@@ -88,6 +88,7 @@ fun AppScreen(startInTerminal: Boolean = false) {
     var showKeyboardTrigger by remember { mutableStateOf(0) }
     var keyboardWanted by remember { mutableStateOf(false) }
     var autoDisplayTriggered by remember { mutableStateOf(false) }
+    var pendingAutoShowWayland by remember { mutableStateOf(false) }
     val prefs = remember(context) { context.getSharedPreferences("trierarch_prefs", 0) }
 
     /**
@@ -120,7 +121,7 @@ fun AppScreen(startInTerminal: Boolean = false) {
             showWayland = false
         } else {
             runDisplayStartupScriptIfNeeded()
-            showWayland = true
+            pendingAutoShowWayland = true
         }
         menuOpen = false
     }
@@ -128,6 +129,7 @@ fun AppScreen(startInTerminal: Boolean = false) {
     LaunchedEffect(startInTerminal) {
         if (startInTerminal) {
             showWayland = false
+            pendingAutoShowWayland = false
         } else {
             autoDisplayTriggered = false
         }
@@ -216,6 +218,28 @@ fun AppScreen(startInTerminal: Boolean = false) {
         }
     }
 
+    LaunchedEffect(pendingAutoShowWayland) {
+        if (!pendingAutoShowWayland) return@LaunchedEffect
+        // Wait until a desktop toplevel client is connected before switching to the Wayland view.
+        while (pendingAutoShowWayland && !showWayland) {
+            val ready = try {
+                WaylandBridge.nativeHasActiveClients()
+            } catch (_: Throwable) {
+                false
+            }
+            if (ready) {
+                // Give the desktop a short extra moment to finish its first frames
+                // so that frantic tapping during the very first instant is less likely
+                // to leave the user on a black screen.
+                delay(350)
+                showWayland = true
+                pendingAutoShowWayland = false
+                break
+            }
+            delay(100)
+        }
+    }
+
     LaunchedEffect(prootSpawned, startInTerminal) {
         if (!prootSpawned) return@LaunchedEffect
 
@@ -237,18 +261,15 @@ fun AppScreen(startInTerminal: Boolean = false) {
 
         if (startInTerminal) return@LaunchedEffect
 
-        // Default launch behavior (MAIN/LAUNCHER): enter Wayland view.
-        // Only auto-run Display startup script when it is explicitly configured.
+        // Default launch behavior (MAIN/LAUNCHER): may auto-run Display script, then wait for desktop.
         if (!autoDisplayTriggered) {
             autoDisplayTriggered = true
-
             val script = prefs.getString("display_startup_script", "")?.trim()
             if (!script.isNullOrEmpty()) {
                 runDisplayStartupScriptIfNeeded()
             }
         }
-
-        showWayland = true
+        pendingAutoShowWayland = true
     }
 
     LaunchedEffect(prootSpawned) {
@@ -311,38 +332,42 @@ fun AppScreen(startInTerminal: Boolean = false) {
     }
 
     if (hasRootfs && !prootSpawned) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(AppStrings.STARTING, color = MaterialTheme.colorScheme.onBackground)
-        }
+        Box(modifier = Modifier.fillMaxSize())
         return
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.fillMaxSize()) {
-            if (showWayland) {
-                WaylandSurfaceView(
-                    runtimeDir = waylandRuntimeDir,
-                    mouseMode = mouseMode,
-                    resolutionPercent = resolutionPercent,
-                    scalePercent = scalePercent,
-                    showKeyboardTrigger = showKeyboardTrigger,
-                    keyboardWanted = keyboardWanted,
-                    onKeyboardTriggerConsumed = { showKeyboardTrigger = 0 },
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                TerminalScreen(
-                    lines = lines,
-                    partialLine = partialLine,
-                    inputLine = inputLine,
-                    onInputChange = { inputLine = it },
-                    onInputSubmit = {
-                        NativeBridge.writeInput((it + "\n").toByteArray(Charsets.UTF_8))
-                        inputLine = ""
-                    },
-                    showKeyboardTrigger = showKeyboardTrigger,
-                    onKeyboardTriggerConsumed = { showKeyboardTrigger = 0 }
-                )
+            when {
+                showWayland -> {
+                    WaylandSurfaceView(
+                        runtimeDir = waylandRuntimeDir,
+                        mouseMode = mouseMode,
+                        resolutionPercent = resolutionPercent,
+                        scalePercent = scalePercent,
+                        showKeyboardTrigger = showKeyboardTrigger,
+                        keyboardWanted = keyboardWanted,
+                        onKeyboardTriggerConsumed = { showKeyboardTrigger = 0 },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+                prootSpawned && pendingAutoShowWayland -> {
+                    Box(modifier = Modifier.fillMaxSize())
+                }
+                else -> {
+                    TerminalScreen(
+                        lines = lines,
+                        partialLine = partialLine,
+                        inputLine = inputLine,
+                        onInputChange = { inputLine = it },
+                        onInputSubmit = {
+                            NativeBridge.writeInput((it + "\n").toByteArray(Charsets.UTF_8))
+                            inputLine = ""
+                        },
+                        showKeyboardTrigger = showKeyboardTrigger,
+                        onKeyboardTriggerConsumed = { showKeyboardTrigger = 0 }
+                    )
+                }
             }
         }
         FloatingMenuOrb(

@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed physical mouse pointer **position desync** after output size/scale changes by keeping Surface size in sync with coordinate mapping.
 - Cursor is now rendered at a **stable physical pixel size** (not affected by resolution/scale), and hotspot scaling avoids visible jumps.
 - Splash background bitmap filtering disabled to reduce **flash/blur** during launch scaling.
+- Prevent rare **black-screen** cases when frantically tapping during KDE startup by delaying entry into the Wayland view until a desktop client is present.
 
 ---
 
