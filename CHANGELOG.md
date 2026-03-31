@@ -11,7 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - _(fill when you ship the next change)_
 
 ### Changed
+
+### Fixed
+
+---
+
+## [0.2.3] — 2026-03-31
+
+### Changed
 - **Display startup script** editor (long-press **Display** on the orb menu) now uses the same glass panel and scrim as view settings.
+- **View settings** now opens compact glass single-choice dialogs for mouse mode, resolution, and scale instead of inline dropdowns.
 
 ### Fixed
 - Soft keyboard now **auto-restores** after switching between keyboard apps (both desktop and terminal).
@@ -20,8 +29,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cursor is now rendered at a **stable physical pixel size** (not affected by resolution/scale), and hotspot scaling avoids visible jumps.
 - Splash background bitmap filtering disabled to reduce **flash/blur** during launch scaling.
 - Prevent rare **black-screen** cases when frantically tapping during KDE startup by delaying entry into the Wayland view until a desktop client is present.
-
----
 
 ## [0.2.2] — 2026-03-29
 
@@ -71,7 +78,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial public monorepo layout: Android app, Rust JNI, proot, Wayland compositor, optimize docs.
 
-[Unreleased]: https://github.com/Beauty114514/trierarch/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/Beauty114514/trierarch/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/Beauty114514/trierarch/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/Beauty114514/trierarch/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/Beauty114514/trierarch/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/Beauty114514/trierarch/releases/tag/v0.2.0
