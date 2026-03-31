@@ -18,8 +18,6 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -63,6 +61,106 @@ private val LabelColor = Color.White
 private fun interactiveLabelColor(): Color = MaterialTheme.colorScheme.primary
 
 @Composable
+private fun SingleChoiceGlassDialog(
+    options: List<String>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        val view = LocalView.current
+        SideEffect {
+            (view.parent as? DialogWindowProvider)?.window?.setDimAmount(0f)
+        }
+        val scrimSource = remember { MutableInteractionSource() }
+        val panelConsume = remember { MutableInteractionSource() }
+        val shape = RoundedCornerShape(FloatingGlassCornerDp)
+        val overlayShown = remember { MutableTransitionState(false) }
+        LaunchedEffect(Unit) { overlayShown.targetState = true }
+
+        Box(modifier = Modifier.fillMaxSize()) {
+            AnimatedVisibility(
+                visibleState = overlayShown,
+                enter = glassScrimEnter(),
+                exit = glassScrimExit()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(floatingOverlayScrimColor())
+                        .clickable(
+                            interactionSource = scrimSource,
+                            indication = null,
+                            onClick = onDismiss
+                        )
+                )
+            }
+            AnimatedVisibility(
+                visibleState = overlayShown,
+                enter = glassPanelEnter(),
+                exit = glassPanelExit()
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .widthIn(min = 120.dp, max = 180.dp)
+                            .height(IntrinsicSize.Min)
+                            .clip(shape)
+                            .border(
+                                width = FloatingGlassRimDp,
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = FloatingGlassRimAlpha),
+                                shape = shape
+                            )
+                            .clickable(
+                                interactionSource = panelConsume,
+                                indication = null,
+                                onClick = { }
+                            )
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .fillMaxHeight()
+                                .then(glassBlurModifier())
+                                .background(brush = floatingGlassBrush(), shape = shape)
+                        )
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            options.forEachIndexed { index, label ->
+                                val isSelected = index == selectedIndex
+                                TextButton(
+                                    onClick = {
+                                        onSelect(index)
+                                        onDismiss()
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        label,
+                                        color = if (isSelected) interactiveLabelColor() else LabelColor,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun ViewSettingsDialog(
     onDismiss: () -> Unit,
     mouseMode: Int,
@@ -73,9 +171,9 @@ fun ViewSettingsDialog(
     onScalePercentChange: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var mouseExpanded by remember { mutableStateOf(false) }
-    var resolutionExpanded by remember { mutableStateOf(false) }
-    var scaleExpanded by remember { mutableStateOf(false) }
+    var mousePickerOpen by remember { mutableStateOf(false) }
+    var resolutionPickerOpen by remember { mutableStateOf(false) }
+    var scalePickerOpen by remember { mutableStateOf(false) }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -158,32 +256,14 @@ fun ViewSettingsDialog(
                         color = LabelColor,
                         modifier = Modifier.padding(bottom = 4.dp)
                     )
-                    Box(modifier = Modifier.padding(bottom = 12.dp)) {
-                        TextButton(onClick = { mouseExpanded = true }) {
-                            Text(
-                                if (mouseMode == MOUSE_MODE_TABLET) "Tablet" else "Touchpad",
-                                color = linkColor
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = mouseExpanded,
-                            onDismissRequest = { mouseExpanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Touchpad", color = linkColor) },
-                                onClick = {
-                                    onMouseModeChange(MOUSE_MODE_TOUCHPAD)
-                                    mouseExpanded = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Tablet", color = linkColor) },
-                                onClick = {
-                                    onMouseModeChange(MOUSE_MODE_TABLET)
-                                    mouseExpanded = false
-                                }
-                            )
-                        }
+                    TextButton(
+                        onClick = { mousePickerOpen = true },
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    ) {
+                        Text(
+                            if (mouseMode == MOUSE_MODE_TABLET) "Tablet" else "Touchpad",
+                            color = interactiveLabelColor()
+                        )
                     }
 
                     Text(
@@ -192,27 +272,14 @@ fun ViewSettingsDialog(
                         color = LabelColor,
                         modifier = Modifier.padding(bottom = 4.dp)
                     )
-                    Box(modifier = Modifier.padding(bottom = 12.dp)) {
-                        TextButton(onClick = { resolutionExpanded = true }) {
-                            Text(
-                                "${resolutionPercent.coerceIn(10, 100)}%",
-                                color = linkColor
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = resolutionExpanded,
-                            onDismissRequest = { resolutionExpanded = false }
-                        ) {
-                            PERCENT_OPTIONS.forEach { pct ->
-                                DropdownMenuItem(
-                                    text = { Text("$pct%", color = linkColor) },
-                                    onClick = {
-                                        onResolutionPercentChange(pct)
-                                        resolutionExpanded = false
-                                    }
-                                )
-                            }
-                        }
+                    TextButton(
+                        onClick = { resolutionPickerOpen = true },
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    ) {
+                        Text(
+                            "${resolutionPercent.coerceIn(10, 100)}%",
+                            color = interactiveLabelColor()
+                        )
                     }
 
                     Text(
@@ -221,27 +288,14 @@ fun ViewSettingsDialog(
                         color = LabelColor,
                         modifier = Modifier.padding(bottom = 4.dp)
                     )
-                    Box(modifier = Modifier.padding(bottom = 12.dp)) {
-                        TextButton(onClick = { scaleExpanded = true }) {
-                            Text(
-                                "${scalePercent.coerceIn(100, 1000)}%",
-                                color = linkColor
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = scaleExpanded,
-                            onDismissRequest = { scaleExpanded = false }
-                        ) {
-                            SCALE_OPTIONS.forEach { pct ->
-                                DropdownMenuItem(
-                                    text = { Text("$pct%", color = linkColor) },
-                                    onClick = {
-                                        onScalePercentChange(pct)
-                                        scaleExpanded = false
-                                    }
-                                )
-                            }
-                        }
+                    TextButton(
+                        onClick = { scalePickerOpen = true },
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    ) {
+                        Text(
+                            "${scalePercent.coerceIn(100, 1000)}%",
+                            color = interactiveLabelColor()
+                        )
                     }
 
                     Row(
@@ -251,6 +305,36 @@ fun ViewSettingsDialog(
                         TextButton(onClick = onDismiss) {
                             Text("Done", color = linkColor)
                         }
+                    }
+                    if (mousePickerOpen) {
+                        SingleChoiceGlassDialog(
+                            options = listOf("Touchpad", "Tablet"),
+                            selectedIndex = if (mouseMode == MOUSE_MODE_TOUCHPAD) 0 else 1,
+                            onSelect = { index ->
+                                val mode = if (index == 0) MOUSE_MODE_TOUCHPAD else MOUSE_MODE_TABLET
+                                onMouseModeChange(mode)
+                            },
+                            onDismiss = { mousePickerOpen = false }
+                        )
+                    }
+                    if (resolutionPickerOpen) {
+                        SingleChoiceGlassDialog(
+                            options = PERCENT_OPTIONS.map { "$it%" },
+                            selectedIndex = PERCENT_OPTIONS.indexOf(resolutionPercent.coerceIn(10, 100))
+                                .takeIf { it >= 0 } ?: 0,
+                            onSelect = { idx -> onResolutionPercentChange(PERCENT_OPTIONS[idx]) },
+                            onDismiss = { resolutionPickerOpen = false }
+                        )
+                    }
+                    if (scalePickerOpen) {
+                        SingleChoiceGlassDialog(
+                            options = SCALE_OPTIONS.map { "$it%" },
+                            selectedIndex = SCALE_OPTIONS.indexOf(
+                                scalePercent.coerceIn(100, 1000)
+                            ).takeIf { it >= 0 } ?: 0,
+                            onSelect = { idx -> onScalePercentChange(SCALE_OPTIONS[idx]) },
+                            onDismiss = { scalePickerOpen = false }
+                        )
                     }
                 }
                     }
