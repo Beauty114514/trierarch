@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.wrapContentSize
@@ -22,6 +23,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import app.trierarch.NativeBridge
@@ -100,6 +102,10 @@ fun AppScreen(startInTerminal: Boolean = false) {
     var keyboardWanted by remember { mutableStateOf(false) }
     var autoDisplayTriggered by remember { mutableStateOf(false) }
     var pendingAutoShowWayland by remember { mutableStateOf(false) }
+    /** Full-screen cover during default desktop launch or Display toggle so the terminal flash is hidden. */
+    var desktopLaunchBlackout by remember(startInTerminal) {
+        mutableStateOf(!startInTerminal)
+    }
     var terminalFontKey by remember { mutableStateOf(ShellFonts.DEFAULT_ID) }
     val prefs = remember(context) { context.getSharedPreferences("trierarch_prefs", 0) }
     val waylandRuntimeDir = remember(context) {
@@ -172,11 +178,13 @@ fun AppScreen(startInTerminal: Boolean = false) {
     fun triggerDisplayToggle() {
         if (showWayland) {
             showWayland = false
+            desktopLaunchBlackout = false
         } else {
             if (!prepareWaylandRuntimeAndStartServer()) {
                 menuOpen = false
                 return
             }
+            desktopLaunchBlackout = true
             runDisplayStartupScriptIfNeeded()
             pendingAutoShowWayland = true
         }
@@ -187,6 +195,7 @@ fun AppScreen(startInTerminal: Boolean = false) {
         if (startInTerminal) {
             showWayland = false
             pendingAutoShowWayland = false
+            desktopLaunchBlackout = false
         } else {
             autoDisplayTriggered = false
         }
@@ -263,6 +272,9 @@ fun AppScreen(startInTerminal: Boolean = false) {
     LaunchedEffect(showWayland) {
         setImmersiveMode(context as? Activity, immersive = showWayland)
         InputRouteState.waylandVisible = showWayland
+        if (showWayland) {
+            desktopLaunchBlackout = false
+        }
     }
 
     LaunchedEffect(menuOpen, settingsOpen, appearanceOpen, displayScriptDialogOpen, sessionsDialogOpen) {
@@ -301,16 +313,22 @@ fun AppScreen(startInTerminal: Boolean = false) {
             delay(32)
             waited++
         }
-        if (!NativeBridge.isSessionAlive(TerminalSessionIds.FIRST_TERMINAL)) return@LaunchedEffect
+        if (!NativeBridge.isSessionAlive(TerminalSessionIds.FIRST_TERMINAL)) {
+            desktopLaunchBlackout = false
+            return@LaunchedEffect
+        }
 
         // Terminal shortcut: do not start the in-process Wayland compositor until the user taps **Display**
         // (see [prepareWaylandRuntimeAndStartServer] in [triggerDisplayToggle]). Avoids native crashes while
         // only the PTY terminal is needed and matches "shortcut = terminal first" UX.
         if (startInTerminal) return@LaunchedEffect
 
-        if (!prepareWaylandRuntimeAndStartServer()) return@LaunchedEffect
+        if (!prepareWaylandRuntimeAndStartServer()) {
+            desktopLaunchBlackout = false
+            return@LaunchedEffect
+        }
 
-        // Default launcher: may auto-run Display script, then wait for desktop (terminal stays visible underneath).
+        // Default launcher: may auto-run Display script, then wait for desktop (ShellScreen stays under [desktopLaunchBlackout]).
         if (!autoDisplayTriggered) {
             autoDisplayTriggered = true
             val script = prefs.getString("display_startup_script", "")?.trim()
@@ -388,6 +406,13 @@ fun AppScreen(startInTerminal: Boolean = false) {
                         modifier = Modifier.fillMaxSize()
                     )
                 }
+            }
+            if (desktopLaunchBlackout) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black)
+                )
             }
         }
         FloatingMenuOrb(

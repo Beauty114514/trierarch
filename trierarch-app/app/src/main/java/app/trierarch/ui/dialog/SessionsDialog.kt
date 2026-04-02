@@ -142,7 +142,7 @@ fun SessionsDialog(
                                 ) {
                                     Text(
                                         text = if (isActive) "Session $id (active)" else "Session $id",
-                                        color = if (isActive) LabelColor else accent,
+                                        color = if (isActive) accent else LabelColor,
                                         style = MaterialTheme.typography.bodyLarge,
                                         modifier = Modifier
                                             .weight(1f)
