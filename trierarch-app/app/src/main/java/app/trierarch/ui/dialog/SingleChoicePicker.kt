@@ -137,7 +137,7 @@ fun SingleChoicePicker(
                                     Text(
                                         label,
                                         color = if (isSelected) pickerAccent() else PickerLabelColor,
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        style = MaterialTheme.typography.bodyLarge,
                                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
                                     )
                                 }

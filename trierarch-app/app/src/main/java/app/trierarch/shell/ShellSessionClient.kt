@@ -13,7 +13,8 @@ import com.termux.view.TerminalView
 /** [TerminalSessionClient] for the emulator behind [app.trierarch.RustPtySession]. */
 class ShellSessionClient(
     private val context: Context,
-    private val terminalView: TerminalView
+    private val terminalView: TerminalView,
+    private val sessionId: Int
 ) : TerminalSessionClient {
 
     override fun onTextChanged(changedSession: TerminalSession) {
@@ -35,7 +36,7 @@ class ShellSessionClient(
     override fun onPasteTextFromClipboard(session: TerminalSession?) {
         val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip = cm.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() ?: return
-        NativeBridge.writeInput(clip.toByteArray(Charsets.UTF_8))
+        NativeBridge.writeInput(sessionId, clip.toByteArray(Charsets.UTF_8))
     }
 
     override fun onBell(session: TerminalSession) {}

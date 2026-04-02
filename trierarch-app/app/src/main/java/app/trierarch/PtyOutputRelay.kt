@@ -3,31 +3,35 @@ package app.trierarch
 import android.os.Handler
 import android.os.Looper
 import com.termux.view.TerminalView
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 
 /**
- * Delivers PTY output from [NativeBridge] to the UI [TerminalEmulator] on the main thread.
- * Bytes are queued until [bind] attaches a session, then consumed in order.
+ * Delivers PTY output from native code to the UI [TerminalEmulator] on the main thread.
+ * Each [sessionId] has its own byte queue; only the bound session drains into the view.
  */
 object PtyOutputRelay {
     private const val MAX_PENDING_CHUNKS = 256
 
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val pending = ConcurrentLinkedQueue<ByteArray>()
+    private val pendingBySession = ConcurrentHashMap<Int, ConcurrentLinkedQueue<ByteArray>>()
     private var boundSession: RustPtySession? = null
     private var terminalView: TerminalView? = null
 
+    private fun queueFor(sessionId: Int): ConcurrentLinkedQueue<ByteArray> =
+        pendingBySession.computeIfAbsent(sessionId) { ConcurrentLinkedQueue() }
+
     @JvmStatic
-    fun onPtyOutputChunk(data: ByteArray) {
+    fun onPtyOutputChunk(sessionId: Int, data: ByteArray) {
         if (data.isEmpty()) return
         mainHandler.post {
-            pending.add(data)
-            while (pending.size > MAX_PENDING_CHUNKS) {
-                pending.poll()
+            val q = queueFor(sessionId)
+            q.add(data)
+            while (q.size > MAX_PENDING_CHUNKS) {
+                q.poll()
             }
-            val em = boundSession?.emulatorOrNull()
-            if (em != null) {
-                drainPending()
+            if (boundSession?.sessionId == sessionId) {
+                drainPendingFor(sessionId)
                 terminalView?.invalidate()
             }
         }
@@ -37,7 +41,7 @@ object PtyOutputRelay {
         boundSession = session
         terminalView = view
         val flush = {
-            drainPending()
+            drainPendingFor(session.sessionId)
             view.invalidate()
         }
         if (Looper.myLooper() == mainHandler.looper) {
@@ -50,13 +54,17 @@ object PtyOutputRelay {
     fun unbind() {
         boundSession = null
         terminalView = null
-        pending.clear()
     }
 
-    private fun drainPending() {
-        val em = boundSession?.emulatorOrNull() ?: return
+    fun discardSessionQueue(sessionId: Int) {
+        pendingBySession.remove(sessionId)
+    }
+
+    private fun drainPendingFor(sessionId: Int) {
+        val em = boundSession?.takeIf { it.sessionId == sessionId }?.emulatorOrNull() ?: return
+        val q = pendingBySession[sessionId] ?: return
         while (true) {
-            val b = pending.poll() ?: break
+            val b = q.poll() ?: break
             em.append(b, b.size)
         }
     }

@@ -2,15 +2,15 @@
 //!
 //! Contract:
 //! - Spawns an interactive shell inside the installed rootfs using `forkpty` + `execve`.
-//! - Streams raw PTY master output to the UI via JNI (Termux TerminalEmulator).
-//! - Returns a `Write` handle for PTY stdin; dropping the returned `ChildProcess` will SIGTERM the child.
+//! - Each call creates one independent proot+PTY+shell (one "session"). Output is delivered with a session id.
+//! - Returns handles for the parent: child PID (for supervision), PTY read end, PTY write end, master fd for ioctl.
 
 use anyhow::{Context, Result};
 use nix::pty::{forkpty, ForkptyResult, Winsize};
 use nix::unistd::{dup, execve, Pid};
 use std::io::Write;
 use std::os::fd::IntoRawFd;
-use std::os::unix::io::FromRawFd;
+use std::os::unix::io::{FromRawFd, RawFd};
 
 mod args;
 
@@ -24,18 +24,22 @@ impl Drop for ChildProcess {
     }
 }
 
-pub fn spawn_sh_with_pty_reader(
+/// One interactive proot shell on a new PTY. Does not register JNI state — caller owns read/write/fd lifecycle.
+pub fn fork_pty_shell(
     initial_rows: u16,
     initial_cols: u16,
-) -> Result<(ChildProcess, Option<Box<dyn Write + Send>>)> {
+) -> Result<(
+    ChildProcess,
+    std::fs::File,
+    Box<dyn Write + Send>,
+    RawFd,
+)> {
     let rootfs = super::application_context::rootfs_dir()?;
     let (argv, env) = args::build_exec_args(&rootfs)?;
 
     let argv_refs: Vec<&std::ffi::CStr> = argv.iter().map(|s| s.as_c_str()).collect();
     let env_refs: Vec<&std::ffi::CStr> = env.iter().map(|s| s.as_c_str()).collect();
 
-    // Must match the first Java [TerminalView] grid; a 80×24 PTY here causes bash to paint a prompt
-    // before TIOCSWINSZ, then SIGWINCH redraws and can leave two PS1 fragments on one line.
     let winsize = Winsize {
         ws_row: initial_rows.max(1),
         ws_col: initial_cols.max(1),
@@ -56,13 +60,13 @@ pub fn spawn_sh_with_pty_reader(
             let master_write_fd = master.into_raw_fd();
             let master_read = unsafe { std::fs::File::from_raw_fd(master_read_fd) };
             let master_write = unsafe { std::fs::File::from_raw_fd(master_write_fd) };
-
-            crate::jni_context::register_pty_master_fd(master_write_fd)?;
-            std::thread::spawn(move || {
-                crate::jni_context::pty_master_reader_loop(master_read);
-            });
-
-            Ok((ChildProcess { pid: child }, Some(Box::new(master_write))))
+            let stdin: Box<dyn Write + Send> = Box::new(master_write);
+            Ok((
+                ChildProcess { pid: child },
+                master_read,
+                stdin,
+                master_write_fd,
+            ))
         }
     }
 }

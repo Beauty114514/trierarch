@@ -26,11 +26,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import app.trierarch.NativeBridge
 import app.trierarch.ProgressCallback
+import app.trierarch.TerminalSessionIds
 import app.trierarch.WaylandBridge
 import app.trierarch.input.InputRouteState
 import app.trierarch.shell.ShellFonts
 import app.trierarch.ui.dialog.AppearanceDialog
 import app.trierarch.ui.dialog.DisplayScriptDialog
+import app.trierarch.ui.dialog.SessionsDialog
 import app.trierarch.ui.dialog.MOUSE_MODE_TOUCHPAD
 import app.trierarch.ui.dialog.ViewSettingsDialog
 import app.trierarch.ui.orb.FloatingMenuOrb
@@ -60,9 +62,9 @@ fun AppScreen(startInTerminal: Boolean = false) {
      * Invariants / ordering constraints:
      * - proot must be spawned before starting the Wayland server because Wayland clients live inside
      *   the proot environment and rely on the socket under XDG_RUNTIME_DIR.
-     * - Display startup script is injected via PTY stdin (i.e. typed into the proot shell).
-     *   It is guarded by nativeHasActiveClients() so we don’t re-run the script once a desktop client
-     *   is already connected.
+     * - Display startup script is injected via PTY stdin on **session 0** (headless shell), not the
+     *   visible terminal tabs (1+). It is guarded by nativeHasActiveClients() so we don’t re-run the
+     *   script once a desktop client is already connected.
      *
      * Entry modes:
      * - Default launcher entry: may auto-run Display script once, then switch to Wayland view.
@@ -84,6 +86,13 @@ fun AppScreen(startInTerminal: Boolean = false) {
     var settingsOpen by remember { mutableStateOf(false) }
     var appearanceOpen by remember { mutableStateOf(false) }
     var displayScriptDialogOpen by remember { mutableStateOf(false) }
+    var sessionsDialogOpen by remember { mutableStateOf(false) }
+    var terminalSessionIds by remember {
+        mutableStateOf(listOf(TerminalSessionIds.FIRST_TERMINAL))
+    }
+    var activeTerminalSessionId by remember {
+        mutableStateOf(TerminalSessionIds.FIRST_TERMINAL)
+    }
     var mouseMode by remember { mutableStateOf(MOUSE_MODE_TOUCHPAD) }
     var resolutionPercent by remember { mutableStateOf(100) }
     var scalePercent by remember { mutableStateOf(100) }
@@ -136,6 +145,12 @@ fun AppScreen(startInTerminal: Boolean = false) {
      * - proot is spawned (PTY stdin exists)
      * - Wayland server is started (socket exists under runtimeDir; clients can connect)
      */
+    fun ensureDisplaySession() {
+        if (!NativeBridge.isSessionAlive(TerminalSessionIds.DISPLAY)) {
+            NativeBridge.spawnSession(TerminalSessionIds.DISPLAY, 24, 80)
+        }
+    }
+
     fun runDisplayStartupScriptIfNeeded() {
         val hasClients = try {
             WaylandBridge.nativeHasActiveClients()
@@ -145,7 +160,11 @@ fun AppScreen(startInTerminal: Boolean = false) {
         if (!hasClients) {
             val script = prefs.getString("display_startup_script", "")?.trim()
             if (!script.isNullOrEmpty()) {
-                NativeBridge.writeInput((script + "\n").toByteArray(Charsets.UTF_8))
+                ensureDisplaySession()
+                NativeBridge.writeInput(
+                    TerminalSessionIds.DISPLAY,
+                    (script + "\n").toByteArray(Charsets.UTF_8)
+                )
             }
         }
     }
@@ -246,9 +265,9 @@ fun AppScreen(startInTerminal: Boolean = false) {
         InputRouteState.waylandVisible = showWayland
     }
 
-    LaunchedEffect(menuOpen, settingsOpen, appearanceOpen, displayScriptDialogOpen) {
+    LaunchedEffect(menuOpen, settingsOpen, appearanceOpen, displayScriptDialogOpen, sessionsDialogOpen) {
         // Don't auto-pop the IME while the user is interacting with menus/dialogs.
-        if (menuOpen || settingsOpen || appearanceOpen || displayScriptDialogOpen) {
+        if (menuOpen || settingsOpen || appearanceOpen || displayScriptDialogOpen || sessionsDialogOpen) {
             keyboardWanted = false
         }
     }
@@ -278,11 +297,11 @@ fun AppScreen(startInTerminal: Boolean = false) {
     LaunchedEffect(hasRootfs, startInTerminal) {
         if (!hasRootfs) return@LaunchedEffect
         var waited = 0
-        while (!NativeBridge.isProotSpawned() && waited < 256) {
+        while (!NativeBridge.isSessionAlive(TerminalSessionIds.FIRST_TERMINAL) && waited < 256) {
             delay(32)
             waited++
         }
-        if (!NativeBridge.isProotSpawned()) return@LaunchedEffect
+        if (!NativeBridge.isSessionAlive(TerminalSessionIds.FIRST_TERMINAL)) return@LaunchedEffect
 
         // Terminal shortcut: do not start the in-process Wayland compositor until the user taps **Display**
         // (see [prepareWaylandRuntimeAndStartServer] in [triggerDisplayToggle]). Avoids native crashes while
@@ -362,6 +381,8 @@ fun AppScreen(startInTerminal: Boolean = false) {
                 else -> {
                     ShellScreen(
                         terminalFontKey = terminalFontKey,
+                        activeSessionId = activeTerminalSessionId,
+                        terminalSessionIds = terminalSessionIds,
                         showKeyboardTrigger = showKeyboardTrigger,
                         onKeyboardTriggerConsumed = { showKeyboardTrigger = 0 },
                         modifier = Modifier.fillMaxSize()
@@ -386,6 +407,10 @@ fun AppScreen(startInTerminal: Boolean = false) {
             onAppearanceClick = {
                 menuOpen = false
                 appearanceOpen = true
+            },
+            onSessionClick = {
+                menuOpen = false
+                sessionsDialogOpen = true
             },
             onKeyboardClick = {
                 menuOpen = false
@@ -423,6 +448,31 @@ fun AppScreen(startInTerminal: Boolean = false) {
                     prefs.edit().putString("display_startup_script", script).apply()
                     displayScriptDialogOpen = false
                 }
+            )
+        }
+        if (sessionsDialogOpen) {
+            SessionsDialog(
+                sessionIds = terminalSessionIds,
+                activeSessionId = activeTerminalSessionId,
+                onSelectSession = { id ->
+                    activeTerminalSessionId = id
+                    sessionsDialogOpen = false
+                },
+                onAddSession = {
+                    val next = (terminalSessionIds.maxOrNull() ?: 0) + 1
+                    terminalSessionIds = terminalSessionIds + next
+                    activeTerminalSessionId = next
+                },
+                onCloseSession = { id ->
+                    if (terminalSessionIds.size > 1) {
+                        val newList = terminalSessionIds.filter { it != id }
+                        terminalSessionIds = newList
+                        if (activeTerminalSessionId == id) {
+                            activeTerminalSessionId = newList.first()
+                        }
+                    }
+                },
+                onDismiss = { sessionsDialogOpen = false }
             )
         }
     }

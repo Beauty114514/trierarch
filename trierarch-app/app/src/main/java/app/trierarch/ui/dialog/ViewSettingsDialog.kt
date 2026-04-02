@@ -146,7 +146,7 @@ fun ViewSettingsDialog(
                             )
                             Text(
                                 "Mouse mode",
-                                style = MaterialTheme.typography.titleSmall,
+                                style = MaterialTheme.typography.titleMedium,
                                 color = LabelColor,
                                 modifier = Modifier.padding(bottom = 4.dp)
                             )
@@ -161,7 +161,7 @@ fun ViewSettingsDialog(
                             }
                             Text(
                                 "Resolution",
-                                style = MaterialTheme.typography.titleSmall,
+                                style = MaterialTheme.typography.titleMedium,
                                 color = LabelColor,
                                 modifier = Modifier.padding(bottom = 4.dp)
                             )
@@ -176,7 +176,7 @@ fun ViewSettingsDialog(
                             }
                             Text(
                                 "Scale",
-                                style = MaterialTheme.typography.titleSmall,
+                                style = MaterialTheme.typography.titleMedium,
                                 color = LabelColor,
                                 modifier = Modifier.padding(bottom = 4.dp)
                             )

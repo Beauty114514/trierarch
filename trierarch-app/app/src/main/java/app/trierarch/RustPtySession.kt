@@ -16,7 +16,8 @@ import com.termux.view.TerminalView
 class RustPtySession(
     private val context: Context,
     sessionClient: TerminalSessionClient,
-    private val terminalView: TerminalView
+    private val terminalView: TerminalView,
+    val sessionId: Int
 ) : TerminalOutput(), DisplayableTermSession {
 
     private val sessionClient: TerminalSessionClient = sessionClient
@@ -31,12 +32,12 @@ class RustPtySession(
         if (rows == appliedPtyRows && cols == appliedPtyCols) return
         appliedPtyRows = rows
         appliedPtyCols = cols
-        NativeBridge.setPtyWindowSize(rows, cols)
+        NativeBridge.setPtyWindowSize(sessionId, rows, cols)
     }
 
     override fun updateSize(columns: Int, rows: Int) {
-        if (!NativeBridge.spawnProot(rows, columns)) {
-            Log.e(TAG, "spawnProot failed")
+        if (!NativeBridge.spawnSession(sessionId, rows, columns)) {
+            Log.e(TAG, "spawnSession failed ($sessionId)")
             return
         }
         syncPtyKernelWindowSize(rows, columns)
@@ -65,7 +66,7 @@ class RustPtySession(
 
     override fun write(data: ByteArray, offset: Int, count: Int) {
         if (count <= 0) return
-        NativeBridge.writeInput(data.copyOfRange(offset, offset + count))
+        NativeBridge.writeInput(sessionId, data.copyOfRange(offset, offset + count))
     }
 
     override fun writeCodePoint(prependEscape: Boolean, codePoint: Int) {
@@ -108,7 +109,7 @@ class RustPtySession(
     override fun onPasteTextFromClipboard() {
         val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip = cm.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() ?: return
-        NativeBridge.writeInput(clip.toByteArray(Charsets.UTF_8))
+        NativeBridge.writeInput(sessionId, clip.toByteArray(Charsets.UTF_8))
     }
 
     override fun onBell() {

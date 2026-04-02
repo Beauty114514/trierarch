@@ -1,8 +1,4 @@
-//! Shared state for JNI bridge: PTY stdin, child process, Java PTY relay, winsize.
-//!
-//! - `init()` sets application paths and stdin Arc once per process.
-//! - `spawn_proot(rows, cols)` creates the child + PTY once (idempotent); a background thread streams PTY output to Java.
-//! - `init_pty_output_jni()` must run on the JNI main thread after `init()` so PTY chunks can be delivered.
+//! Shared state for JNI bridge: per-session PTY stdin, child process, master fd for winsize.
 
 use super::android::application_context;
 use super::android::proot;
@@ -12,14 +8,19 @@ use jni::objects::JClass;
 use jni::objects::JValue;
 use jni::JNIEnv;
 use jni::JavaVM;
+use std::collections::BTreeMap;
 use std::io::{Read, Write};
 use std::os::unix::io::RawFd;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Mutex, OnceLock};
 
-static STDIN: Mutex<Option<Arc<Mutex<Option<Box<dyn Write + Send>>>>>> = Mutex::new(None);
-static CHILD: Mutex<Option<proot::ChildProcess>> = Mutex::new(None);
-static PTY_MASTER_FD: Mutex<Option<RawFd>> = Mutex::new(None);
+struct PtySession {
+    _child: proot::ChildProcess,
+    stdin: Box<dyn Write + Send>,
+    master_fd: RawFd,
+}
+
+static SESSIONS: Mutex<BTreeMap<i32, PtySession>> = Mutex::new(BTreeMap::new());
 
 static JAVA_VM: OnceLock<JavaVM> = OnceLock::new();
 static PTY_RELAY_CLASS: OnceLock<GlobalRef> = OnceLock::new();
@@ -36,13 +37,6 @@ pub fn init(
         native_library_dir,
         external_storage_path,
     )?;
-    let mut stdin_guard = STDIN
-        .lock()
-        .map_err(|e| anyhow::anyhow!("STDIN lock: {:?}", e))?;
-    if stdin_guard.is_none() {
-        let stdin = Arc::new(Mutex::new(None));
-        *stdin_guard = Some(stdin);
-    }
     Ok(())
 }
 
@@ -67,59 +61,76 @@ pub fn has_rootfs() -> bool {
         .unwrap_or(false)
 }
 
-pub fn spawn_proot(initial_rows: u16, initial_cols: u16) -> Result<()> {
-    if CHILD
+pub fn spawn_session(session_id: i32, initial_rows: u16, initial_cols: u16) -> Result<()> {
+    let mut map = SESSIONS
         .lock()
-        .map_err(|e| anyhow::anyhow!("CHILD lock: {:?}", e))?
-        .is_some()
-    {
+        .map_err(|e| anyhow::anyhow!("SESSIONS lock: {:?}", e))?;
+    if map.contains_key(&session_id) {
         return Ok(());
     }
-    let stdin_holder = STDIN
-        .lock()
-        .map_err(|e| anyhow::anyhow!("STDIN lock: {:?}", e))?
-        .clone()
-        .ok_or_else(|| anyhow::anyhow!("jni_context not initialized"))?;
-
-    let (child, writer) = proot::spawn_sh_with_pty_reader(initial_rows, initial_cols)?;
-    *stdin_holder
-        .lock()
-        .map_err(|e| anyhow::anyhow!("stdin lock: {:?}", e))? = writer;
-    *CHILD
-        .lock()
-        .map_err(|e| anyhow::anyhow!("CHILD lock: {:?}", e))? = Some(child);
+    let (child, read_file, stdin, master_fd) =
+        proot::fork_pty_shell(initial_rows, initial_cols)?;
+    map.insert(
+        session_id,
+        PtySession {
+            _child: child,
+            stdin,
+            master_fd,
+        },
+    );
+    drop(map);
+    std::thread::spawn(move || {
+        pty_master_reader_loop(session_id, read_file);
+    });
     Ok(())
 }
 
-pub fn is_proot_spawned() -> bool {
-    CHILD
+pub fn close_session(session_id: i32) -> Result<()> {
+    let mut map = SESSIONS
+        .lock()
+        .map_err(|e| anyhow::anyhow!("SESSIONS lock: {:?}", e))?;
+    map.remove(&session_id);
+    Ok(())
+}
+
+pub fn is_session_alive(session_id: i32) -> bool {
+    SESSIONS
         .lock()
         .ok()
-        .map(|g| g.is_some())
+        .map(|m| m.contains_key(&session_id))
         .unwrap_or(false)
 }
 
-pub fn stdin() -> Arc<Mutex<Option<Box<dyn Write + Send>>>> {
-    STDIN
+pub fn any_session_alive() -> bool {
+    SESSIONS
         .lock()
         .ok()
-        .and_then(|g| g.clone())
-        .unwrap_or_else(|| Arc::new(Mutex::new(None)))
+        .map(|m| !m.is_empty())
+        .unwrap_or(false)
 }
 
-pub fn register_pty_master_fd(fd: RawFd) -> Result<()> {
-    let mut g = PTY_MASTER_FD
+pub fn write_input(session_id: i32, bytes: &[u8]) -> Result<()> {
+    let mut map = SESSIONS
         .lock()
-        .map_err(|e| anyhow::anyhow!("PTY_MASTER_FD: {:?}", e))?;
-    *g = Some(fd);
+        .map_err(|e| anyhow::anyhow!("SESSIONS lock: {:?}", e))?;
+    let s = map
+        .get_mut(&session_id)
+        .ok_or_else(|| anyhow::anyhow!("no session {}", session_id))?;
+    s.stdin
+        .write_all(bytes)
+        .map_err(|e| anyhow::anyhow!("stdin write: {}", e))?;
+    s.stdin.flush().map_err(|e| anyhow::anyhow!("stdin flush: {}", e))?;
     Ok(())
 }
 
-pub fn set_pty_window_size(rows: u16, cols: u16) -> Result<()> {
-    let fd = PTY_MASTER_FD
+pub fn set_pty_window_size(session_id: i32, rows: u16, cols: u16) -> Result<()> {
+    let map = SESSIONS
         .lock()
-        .map_err(|e| anyhow::anyhow!("PTY_MASTER_FD: {:?}", e))?
-        .ok_or_else(|| anyhow::anyhow!("no pty fd"))?;
+        .map_err(|e| anyhow::anyhow!("SESSIONS lock: {:?}", e))?;
+    let fd = map
+        .get(&session_id)
+        .map(|s| s.master_fd)
+        .ok_or_else(|| anyhow::anyhow!("no session {}", session_id))?;
     let ws = libc::winsize {
         ws_row: rows,
         ws_col: cols,
@@ -135,25 +146,25 @@ pub fn set_pty_window_size(rows: u16, cols: u16) -> Result<()> {
     Ok(())
 }
 
-pub fn pty_master_reader_loop(mut master_read: std::fs::File) {
+pub fn pty_master_reader_loop(session_id: i32, mut master_read: std::fs::File) {
     let mut buf = [0u8; 4096];
     loop {
         match master_read.read(&mut buf) {
             Ok(0) => break,
             Ok(n) => {
-                post_pty_chunk_to_java(&buf[..n]);
+                post_pty_chunk_to_java(session_id, &buf[..n]);
             }
             Err(_) => break,
         }
     }
 }
 
-fn post_pty_chunk_to_java(bytes: &[u8]) {
+fn post_pty_chunk_to_java(session_id: i32, bytes: &[u8]) {
     let Some(vm) = JAVA_VM.get() else {
         return;
     };
     let Some(class_ref) = PTY_RELAY_CLASS.get() else {
-       return;
+        return;
     };
     let Ok(mut env) = vm.attach_current_thread_as_daemon() else {
         return;
@@ -168,8 +179,8 @@ fn post_pty_chunk_to_java(bytes: &[u8]) {
     if let Err(e) = env.call_static_method(
         cls,
         "onPtyOutputChunk",
-        "([B)V",
-        &[JValue::Object(arr.as_ref())],
+        "(I[B)V",
+        &[JValue::Int(session_id), JValue::Object(arr.as_ref())],
     ) {
         log::warn!("onPtyOutputChunk: {:?}", e);
     }

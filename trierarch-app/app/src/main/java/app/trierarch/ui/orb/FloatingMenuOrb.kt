@@ -70,6 +70,7 @@ fun FloatingMenuOrb(
     onDisplayLongPress: () -> Unit,
     onViewClick: () -> Unit,
     onAppearanceClick: () -> Unit,
+    onSessionClick: () -> Unit,
     onKeyboardClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -81,6 +82,7 @@ fun FloatingMenuOrb(
     val onDisplayLong by rememberUpdatedState(onDisplayLongPress)
     val onView by rememberUpdatedState(onViewClick)
     val onAppearance by rememberUpdatedState(onAppearanceClick)
+    val onSession by rememberUpdatedState(onSessionClick)
     val onKeyboard by rememberUpdatedState(onKeyboardClick)
 
     BoxWithConstraints(modifier.graphicsLayer { clip = false }) {
@@ -292,6 +294,12 @@ fun FloatingMenuOrb(
                         color = Color.White,
                         modifier = Modifier.padding(bottom = 4.dp)
                     )
+                    Text(
+                        "Common",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = Color.White.copy(alpha = 0.85f),
+                        modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+                    )
                     Box(
                         modifier = Modifier
                             .pointerInput(Unit) {
@@ -308,10 +316,16 @@ fun FloatingMenuOrb(
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
+                    Text(
+                        "Desktop",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = Color.White.copy(alpha = 0.85f),
+                        modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+                    )
                     Box(
                         modifier = Modifier
                             .clickable { onView() }
-                            .padding(vertical = 12.dp)
+                            .padding(vertical = 10.dp)
                     ) {
                         Text(
                             "View",
@@ -319,6 +333,25 @@ fun FloatingMenuOrb(
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
+                    Box(
+                        modifier = Modifier
+                            .pointerInput(Unit) {
+                                detectTapGestures(onTap = { onKeyboard() })
+                            }
+                            .padding(vertical = 10.dp)
+                    ) {
+                        Text(
+                            "Keyboard",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Text(
+                        "Terminal",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = Color.White.copy(alpha = 0.85f),
+                        modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+                    )
                     Box(
                         modifier = Modifier
                             .clickable { onAppearance() }
@@ -332,13 +365,11 @@ fun FloatingMenuOrb(
                     }
                     Box(
                         modifier = Modifier
-                            .pointerInput(Unit) {
-                                detectTapGestures(onTap = { onKeyboard() })
-                            }
+                            .clickable { onSession() }
                             .padding(vertical = 12.dp)
                     ) {
                         Text(
-                            "Keyboard",
+                            "Session",
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -353,7 +384,7 @@ private val ORB_SIZE_DP = 48.dp
 private val ORB_LOGO_INSET_DP = 0.dp
 private const val EDIT_TO_TAP_GAP_MS = 24L
 private val MENU_PANEL_MAX_WIDTH = 280.dp
-private val MENU_PANEL_ESTIMATED_HEIGHT_DP = 288.dp
+private val MENU_PANEL_ESTIMATED_HEIGHT_DP = 356.dp
 private val ORB_PANEL_GAP_DP = 8.dp
 private val HORIZONTAL_MARGIN_DP = 8.dp
 private const val PREF_ORB_CENTER_X_FRAC = "menu_orb_center_x_frac"

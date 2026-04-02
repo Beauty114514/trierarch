@@ -9,7 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Multi-session terminal:** native **per-session PTY** (spawn/close, per-session stdin and PTY output relay) with Kotlin **Session** UI (orb menu → list, switch, add, remove tabs). Terminal sessions use ids **1, 2, …**.
+- **Display session separation:** **Display startup script** is injected on **session 0** (dedicated shell), independent of interactive terminal sessions, so desktop bootstrap and terminal tabs no longer share one stdin/PTY.
+
 ### Changed
+
+- **Floating menu orb:** grouped items under **Common**, **Desktop**, and **Terminal** section labels; slightly larger typography for those section headers and matching settings subtitles (e.g. View settings, Appearance).
 
 ### Fixed
 

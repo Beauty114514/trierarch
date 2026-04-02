@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import app.trierarch.NativeBridge
 import app.trierarch.PtyOutputRelay
 import app.trierarch.R
 import app.trierarch.RustPtySession
@@ -30,6 +31,8 @@ import com.termux.view.TerminalView
 @Composable
 fun ShellScreen(
     terminalFontKey: String,
+    activeSessionId: Int,
+    terminalSessionIds: List<Int>,
     showKeyboardTrigger: Int,
     onKeyboardTriggerConsumed: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -62,8 +65,8 @@ fun ShellScreen(
                 )
             }
             val tv = TerminalView(ctx, null)
-            val sessionClient = ShellSessionClient(ctx, tv)
-            val session = RustPtySession(ctx, sessionClient, tv)
+            val controller = ShellSessionController(ctx, tv)
+            root.setTag(R.id.trierarch_shell_controller, controller)
             tv.setTerminalViewClient(ShellViewClient(tv))
             val textSizePx = TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_SP,
@@ -72,7 +75,6 @@ fun ShellScreen(
             ).toInt().coerceAtLeast(1)
             tv.setTextSize(textSizePx)
             tv.setTypeface(ShellFonts.typefaceForPref(ctx, terminalFontKey))
-            tv.attachSession(session)
             InputRouteState.shellTerminalView = tv
             tv.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
                 tv.post { tv.updateSize() }
@@ -92,6 +94,9 @@ fun ShellScreen(
             root
         },
         update = { root ->
+            val controller = root.getTag(R.id.trierarch_shell_controller) as ShellSessionController
+            controller.pruneSessionsExcept(terminalSessionIds.toSet())
+            controller.attachSessionIfNeeded(activeSessionId)
             val tv = root.getChildAt(0) as TerminalView
             val applied = root.getTag(R.id.trierarch_terminal_font_applied) as? String
             if (applied != terminalFontKey) {
@@ -107,4 +112,42 @@ fun ShellScreen(
             }
         }
     )
+}
+
+private class ShellSessionController(
+    private val context: Context,
+    private val terminalView: TerminalView
+) {
+    private val clients = mutableMapOf<Int, ShellSessionClient>()
+    private val sessions = mutableMapOf<Int, RustPtySession>()
+    private var attachedId: Int = -1
+
+    fun sessionFor(id: Int): RustPtySession {
+        return sessions.getOrPut(id) {
+            val client = clients.getOrPut(id) { ShellSessionClient(context, terminalView, id) }
+            RustPtySession(context, client, terminalView, id)
+        }
+    }
+
+    fun attachSessionIfNeeded(id: Int) {
+        if (id == attachedId) return
+        attachedId = id
+        val s = sessionFor(id)
+        terminalView.attachSession(s)
+        PtyOutputRelay.bind(s, terminalView)
+        terminalView.post { terminalView.updateSize() }
+    }
+
+    fun pruneSessionsExcept(keep: Set<Int>) {
+        val removed = sessions.keys.filter { it !in keep }
+        for (id in removed) {
+            NativeBridge.closeSession(id)
+            sessions.remove(id)
+            clients.remove(id)
+            PtyOutputRelay.discardSessionQueue(id)
+        }
+        if (attachedId !in keep) {
+            attachedId = -1
+        }
+    }
 }

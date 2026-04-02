@@ -1,6 +1,5 @@
 package app.trierarch.ui.dialog
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -9,12 +8,12 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,10 +23,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,7 +34,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
-import app.trierarch.shell.ShellFonts
 import app.trierarch.ui.glass.FloatingGlassCornerDp
 import app.trierarch.ui.glass.FloatingGlassRimAlpha
 import app.trierarch.ui.glass.FloatingGlassRimDp
@@ -49,23 +44,20 @@ import app.trierarch.ui.glass.glassPanelEnter
 import app.trierarch.ui.glass.glassPanelExit
 import app.trierarch.ui.glass.glassScrimEnter
 import app.trierarch.ui.glass.glassScrimExit
+import androidx.compose.animation.AnimatedVisibility
 
-private val TitleColor = Color.White
-
-@Composable
-private fun accent(): Color = MaterialTheme.colorScheme.primary
+private val LabelColor = Color.White
 
 @Composable
-fun AppearanceDialog(
-    terminalFontPrefKey: String,
-    onTerminalFontPrefChange: (String) -> Unit,
+fun SessionsDialog(
+    sessionIds: List<Int>,
+    activeSessionId: Int,
+    onSelectSession: (Int) -> Unit,
+    onAddSession: () -> Unit,
+    onCloseSession: (Int) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var fontPickerOpen by remember { mutableStateOf(false) }
-    val fontIndex = ShellFonts.indexForPref(terminalFontPrefKey)
-    val fontLabel = ShellFonts.options[fontIndex].label
-
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -77,7 +69,7 @@ fun AppearanceDialog(
         val scrimSource = remember { MutableInteractionSource() }
         val panelConsume = remember { MutableInteractionSource() }
         val shape = RoundedCornerShape(FloatingGlassCornerDp)
-        val link = accent()
+        val accent = MaterialTheme.colorScheme.primary
         val overlayShown = remember { MutableTransitionState(false) }
         LaunchedEffect(Unit) { overlayShown.targetState = true }
 
@@ -134,40 +126,53 @@ fun AppearanceDialog(
                                 .padding(horizontal = 20.dp, vertical = 16.dp)
                         ) {
                             Text(
-                                "Appearance",
+                                "Session",
                                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-                                color = TitleColor,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-                            Text(
-                                "Font",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = TitleColor,
-                                modifier = Modifier.padding(bottom = 4.dp)
-                            )
-                            TextButton(
-                                onClick = { fontPickerOpen = true },
+                                color = LabelColor,
                                 modifier = Modifier.padding(bottom = 12.dp)
-                            ) {
-                                Text(fontLabel, color = link)
-                            }
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End
-                            ) {
-                                TextButton(onClick = onDismiss) {
-                                    Text("Done", color = link)
+                            )
+                            sessionIds.sorted().forEach { id ->
+                                val isActive = id == activeSessionId
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 6.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = if (isActive) "Session $id (active)" else "Session $id",
+                                        color = if (isActive) LabelColor else accent,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clickable { onSelectSession(id) }
+                                            .padding(vertical = 8.dp)
+                                    )
+                                    val canClose = sessionIds.size > 1
+                                    Text(
+                                        text = "−",
+                                        color = if (canClose) accent else accent.copy(alpha = 0.35f),
+                                        style = MaterialTheme.typography.titleLarge,
+                                        modifier = Modifier
+                                            .clickable(enabled = canClose) { onCloseSession(id) }
+                                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                                    )
                                 }
                             }
-                            if (fontPickerOpen) {
-                                SingleChoicePicker(
-                                    options = ShellFonts.options.map { it.label },
-                                    selectedIndex = fontIndex,
-                                    onSelect = { idx ->
-                                        onTerminalFontPrefChange(ShellFonts.options[idx].id)
-                                    },
-                                    onDismiss = { fontPickerOpen = false }
-                                )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TextButton(onClick = onAddSession) {
+                                    Text("+ New session", color = accent)
+                                }
+                                TextButton(onClick = onDismiss) {
+                                    Text("Done", color = accent)
+                                }
                             }
                         }
                     }
