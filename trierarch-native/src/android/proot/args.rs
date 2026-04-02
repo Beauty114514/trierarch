@@ -1,7 +1,3 @@
-use super::super::application_context::{get_application_context, has_rootfs};
-use anyhow::{Context, Result};
-use std::ffi::CString;
-
 //! Build the proot argv/env used to spawn the interactive shell.
 //!
 //! Contract:
@@ -14,6 +10,10 @@ use std::ffi::CString;
 //! Notes:
 //! - Many binds map "fake" proc files created during rootfs extraction; this keeps proot happy
 //!   on Android where proc/sys are not fully writable or namespaced.
+
+use super::super::application_context::{get_application_context, has_rootfs};
+use anyhow::{Context, Result};
+use std::ffi::CString;
 
 fn proot_and_loader_paths() -> Result<(std::path::PathBuf, std::path::PathBuf)> {
     let ctx = get_application_context()?;
@@ -79,8 +79,7 @@ pub(super) fn build_exec_args(rootfs: &std::path::Path) -> Result<(Vec<CString>,
         argv.push(CString::new(format!("--bind={}/proc/.sysctl_inotify_max_user_watches:/proc/sys/fs/inotify/max_user_watches", rootfs.display())).unwrap());
         argv.push(CString::new(format!("--bind={}/sys/.empty:/sys/fs/selinux", rootfs.display())).unwrap());
         argv.push(CString::new("/bin/bash").unwrap());
-        argv.push(CString::new("-c").unwrap());
-        argv.push(CString::new("echo; export PS1='[\\u@\\h \\W]\\$ '; exec /bin/bash -i").unwrap());
+        argv.push(CString::new("-i").unwrap());
     } else {
         argv.push(CString::new("-0").unwrap());
         argv.push(CString::new("/system/bin/sh").unwrap());
@@ -88,7 +87,7 @@ pub(super) fn build_exec_args(rootfs: &std::path::Path) -> Result<(Vec<CString>,
         argv.push(CString::new("export PS1='[root@android \\W]# '; exec sh -i").unwrap());
     }
 
-    let env: Vec<CString> = vec![
+    let mut env: Vec<CString> = vec![
         CString::new(format!("PROOT_LOADER={}", loader_str)).unwrap(),
         CString::new(format!("PROOT_TMP_DIR={}", ctx.cache_dir.display())).unwrap(),
         CString::new("HOME=/root").unwrap(),
@@ -107,6 +106,9 @@ pub(super) fn build_exec_args(rootfs: &std::path::Path) -> Result<(Vec<CString>,
         CString::new("USER=root").unwrap(),
         CString::new("LOGNAME=root").unwrap(),
     ];
+    if has_rootfs(rootfs) {
+        env.insert(3, CString::new("PS1=[\\u@\\h \\W]\\$ ").unwrap());
+    }
 
     Ok((argv, env))
 }

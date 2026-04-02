@@ -1212,6 +1212,7 @@ dependencies = [
  "android_logger",
  "anyhow",
  "jni",
+ "libc",
  "log",
  "nix",
  "reqwest",

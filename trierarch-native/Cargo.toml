@@ -10,6 +10,7 @@ crate-type = ["cdylib"]
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"
 android_logger = { version = "0.14", default-features = false }
+libc = "0.2"
 
 [dependencies]
 anyhow = "1.0"

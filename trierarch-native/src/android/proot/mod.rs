@@ -2,24 +2,17 @@
 //!
 //! Contract:
 //! - Spawns an interactive shell inside the installed rootfs using `forkpty` + `execve`.
-//! - Starts a background reader thread that streams PTY output into line buffers for the UI.
+//! - Streams raw PTY master output to the UI via JNI (Termux TerminalEmulator).
 //! - Returns a `Write` handle for PTY stdin; dropping the returned `ChildProcess` will SIGTERM the child.
-//!
-//! Threading:
-//! - The PTY reader runs on a dedicated Rust thread. UI polls buffered output via JNI.
-//! - Callers must not attempt to read from the PTY master directly; only via the provided buffers.
-//!
+
 use anyhow::{Context, Result};
 use nix::pty::{forkpty, ForkptyResult, Winsize};
 use nix::unistd::{dup, execve, Pid};
-use std::collections::VecDeque;
 use std::io::Write;
 use std::os::fd::IntoRawFd;
 use std::os::unix::io::FromRawFd;
-use std::sync::Arc;
 
 mod args;
-mod pty_output;
 
 pub struct ChildProcess {
     pub pid: Pid,
@@ -31,9 +24,9 @@ impl Drop for ChildProcess {
     }
 }
 
-pub fn spawn_sh_with_output(
-    lines: Arc<std::sync::Mutex<VecDeque<String>>>,
-    partial_line: Arc<std::sync::Mutex<String>>,
+pub fn spawn_sh_with_pty_reader(
+    initial_rows: u16,
+    initial_cols: u16,
 ) -> Result<(ChildProcess, Option<Box<dyn Write + Send>>)> {
     let rootfs = super::application_context::rootfs_dir()?;
     let (argv, env) = args::build_exec_args(&rootfs)?;
@@ -41,9 +34,11 @@ pub fn spawn_sh_with_output(
     let argv_refs: Vec<&std::ffi::CStr> = argv.iter().map(|s| s.as_c_str()).collect();
     let env_refs: Vec<&std::ffi::CStr> = env.iter().map(|s| s.as_c_str()).collect();
 
+    // Must match the first Java [TerminalView] grid; a 80×24 PTY here causes bash to paint a prompt
+    // before TIOCSWINSZ, then SIGWINCH redraws and can leave two PS1 fragments on one line.
     let winsize = Winsize {
-        ws_row: 24,
-        ws_col: 80,
+        ws_row: initial_rows.max(1),
+        ws_col: initial_cols.max(1),
         ws_xpixel: 0,
         ws_ypixel: 0,
     };
@@ -62,9 +57,10 @@ pub fn spawn_sh_with_output(
             let master_read = unsafe { std::fs::File::from_raw_fd(master_read_fd) };
             let master_write = unsafe { std::fs::File::from_raw_fd(master_write_fd) };
 
-            let lines_out = Arc::clone(&lines);
-            let partial_out = Arc::clone(&partial_line);
-            std::thread::spawn(move || pty_output::read_pty_to_lines(master_read, lines_out, partial_out));
+            crate::jni_context::register_pty_master_fd(master_write_fd)?;
+            std::thread::spawn(move || {
+                crate::jni_context::pty_master_reader_loop(master_read);
+            });
 
             Ok((ChildProcess { pid: child }, Some(Box::new(master_write))))
         }

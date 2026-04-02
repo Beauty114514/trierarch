@@ -3,13 +3,13 @@
 //! This module is the ABI boundary between Kotlin and the native runtime:
 //! - proot process lifecycle (spawn)
 //! - rootfs acquisition (download/extract)
-//! - PTY I/O (read buffered lines, write stdin)
+//! - PTY stdin (write) and raw output relay to Java (Termux TerminalEmulator)
 //!
 //! Guideline: keep these functions thin and deterministic. Complex policy should live in
 //! the Rust modules and be tested there.
 
 use jni::objects::{JByteArray, JObject, JString, JValue};
-use jni::sys::{jboolean, jint, jobject, jstring};
+use jni::sys::{jboolean, jint};
 use jni::JNIEnv;
 use std::io::Write;
 use std::path::PathBuf;
@@ -22,7 +22,7 @@ use crate::jni_context;
 ///
 /// Contract:
 /// - Must be called before any other `NativeBridge.*` JNI method.
-/// - Safe to call again on activity recreation; it updates paths but preserves PTY buffers.
+/// - Safe to call again on activity recreation; it updates paths but preserves PTY/stdin handles.
 ///
 /// `external_storage_dir`: optional path (e.g. `/storage/emulated/0`). When set, the proot
 /// environment will bind it into the guest as `/android` and `/root/Android`.
@@ -33,7 +33,7 @@ pub extern "system" fn Java_app_trierarch_NativeBridge_init(
     data_dir: JString,
     cache_dir: JString,
     native_library_dir: JString,
-    external_storage_dir: jstring,
+    external_storage_dir: jni::sys::jstring,
 ) -> jboolean {
     android_logger::init_once(
         android_logger::Config::default()
@@ -72,20 +72,24 @@ pub extern "system" fn Java_app_trierarch_NativeBridge_init(
         PathBuf::from(native_library_dir),
         external_storage_path,
     ) {
-        Ok(()) => 1,
+        Ok(()) => {}
         Err(e) => {
             log::error!("NativeBridge.init failed: {:?}", e);
-            0
+            return 0;
         }
     }
+
+    if let Err(e) = jni_context::init_pty_output_jni(&mut env) {
+        log::error!("init_pty_output_jni: {:?}", e);
+        return 0;
+    }
+
+    1
 }
 
 /// Returns 1 if Arch rootfs exists, 0 otherwise.
 #[no_mangle]
-pub extern "system" fn Java_app_trierarch_NativeBridge_hasRootfs(
-    _env: JNIEnv,
-    _: JObject,
-) -> jboolean {
+pub extern "system" fn Java_app_trierarch_NativeBridge_hasRootfs(_env: JNIEnv, _: JObject) -> jboolean {
     jni_context::has_rootfs() as jboolean
 }
 
@@ -94,9 +98,6 @@ pub extern "system" fn Java_app_trierarch_NativeBridge_hasRootfs(
 /// Threading:
 /// - Runs on a Rust background thread (caller blocks waiting for completion).
 /// - Calls `callback.onProgress(pct, msg)` from that background thread via JNI attach.
-///
-/// Callback contract:
-/// - Kotlin must provide `onProgress(int pct, String msg)`.
 #[no_mangle]
 pub extern "system" fn Java_app_trierarch_NativeBridge_downloadRootfs(
     env: JNIEnv,
@@ -134,87 +135,48 @@ pub extern "system" fn Java_app_trierarch_NativeBridge_downloadRootfs(
     }
 }
 
-/// Spawn the interactive proot shell under a PTY.
-///
-/// On failure, an error line is written into the terminal buffer so the UI can surface it.
+/// Spawn the interactive proot shell under a PTY (idempotent). Pass the same rows/columns as the Termux terminal grid.
 #[no_mangle]
 pub extern "system" fn Java_app_trierarch_NativeBridge_spawnProot(
     _env: JNIEnv,
     _: JObject,
+    rows: jint,
+    cols: jint,
 ) -> jboolean {
-    match jni_context::spawn_proot() {
+    let r = rows.max(1).min(i32::from(u16::MAX)) as u16;
+    let c = cols.max(1).min(i32::from(u16::MAX)) as u16;
+    match jni_context::spawn_proot(r, c) {
         Ok(()) => 1,
         Err(e) => {
             log::error!("spawnProot failed: {:?}", e);
-            if let Ok(mut lines) = jni_context::lines().lock() {
-                lines.clear();
-                lines.push_back(format!("Error: {}", e));
-            }
             0
         }
     }
 }
 
-/// Get terminal output lines (completed lines only).
-///
-/// Returns a Java `ArrayList<String>` snapshot; callers typically poll periodically.
 #[no_mangle]
-pub extern "system" fn Java_app_trierarch_NativeBridge_getLines(
-    mut env: JNIEnv,
-    _: JObject,
-) -> jobject {
-    let lines = jni_context::lines()
-        .lock()
-        .map(|l| l.clone())
-        .unwrap_or_default();
-    let list = env
-        .new_object(
-            "java/util/ArrayList",
-            "(I)V",
-            &[JValue::Int(lines.len() as jint)],
-        )
-        .unwrap_or_else(|_| {
-            env.new_object("java/util/ArrayList", "()V", &[])
-                .expect("ArrayList")
-        });
-    for line in lines {
-        let jstr = env.new_string(&line).expect("new string");
-        let jstr_obj: JObject = jstr.into();
-        let _ = env.call_method(
-            &list,
-            "add",
-            "(Ljava/lang/Object;)Z",
-            &[JValue::Object(&jstr_obj)],
-        );
-    }
-    list.into_raw()
+pub extern "system" fn Java_app_trierarch_NativeBridge_isProotSpawned(_env: JNIEnv, _: JObject) -> jboolean {
+    jni_context::is_proot_spawned() as jboolean
 }
 
-/// Current line buffer (prompt + echoed input) without trailing newline.
+/// Update kernel PTY window size seen by the proot shell (TIOCSWINSIZE).
 #[no_mangle]
-pub extern "system" fn Java_app_trierarch_NativeBridge_getPartialLine(
-    env: JNIEnv,
+pub extern "system" fn Java_app_trierarch_NativeBridge_setPtyWindowSize(
+    _env: JNIEnv,
     _: JObject,
-) -> jstring {
-    let partial = jni_context::partial_line()
-        .lock()
-        .map(|p| p.clone())
-        .unwrap_or_default();
-    env.new_string(&partial)
-        .map(|s| s.into_raw())
-        .unwrap_or(std::ptr::null_mut())
+    rows: jint,
+    cols: jint,
+) {
+    let r = rows.max(1).min(i32::from(u16::MAX)) as u16;
+    let c = cols.max(1).min(i32::from(u16::MAX)) as u16;
+    if let Err(e) = jni_context::set_pty_window_size(r, c) {
+        log::warn!("setPtyWindowSize: {:?}", e);
+    }
 }
 
 /// Write raw bytes to the PTY stdin of the proot shell.
-///
-/// This is a low-level primitive. Higher-level UI behavior (Enter key, scripts, etc.) is
-/// implemented on the Kotlin side by writing UTF-8 bytes.
 #[no_mangle]
-pub extern "system" fn Java_app_trierarch_NativeBridge_writeInput(
-    env: JNIEnv,
-    _: JObject,
-    bytes: JByteArray,
-) {
+pub extern "system" fn Java_app_trierarch_NativeBridge_writeInput(env: JNIEnv, _: JObject, bytes: JByteArray) {
     if let Ok(mut stdin_guard) = jni_context::stdin().lock() {
         if let Some(ref mut stdin) = *stdin_guard {
             if let Ok(arr) = env.convert_byte_array(&bytes) {

@@ -1,8 +1,3 @@
-use anyhow::{Context, Result};
-use std::fs::File;
-use std::io::BufReader;
-use std::path::Path;
-
 //! Extraction helpers for the Arch rootfs tarball.
 //!
 //! Contract:
@@ -10,6 +5,11 @@ use std::path::Path;
 //! - Renames that directory into `dest` (caller provides staging paths).
 //! - Populates minimal `/proc` and `/sys` placeholders required by proot binds and common tooling.
 //! - Validates the extracted structure with a few hard requirements (shell, os-release, etc.).
+
+use anyhow::{Context, Result};
+use std::fs::File;
+use std::io::BufReader;
+use std::path::Path;
 
 pub(super) fn validate_rootfs_structure(rootfs_path: &Path) -> Result<()> {
     let has_sh = rootfs_path.join("bin/sh").exists() || rootfs_path.join("usr/bin/sh").exists();

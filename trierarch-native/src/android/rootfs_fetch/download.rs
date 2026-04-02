@@ -1,9 +1,3 @@
-use anyhow::{Context, Result};
-use sha2::{Digest, Sha256};
-use std::fs::File;
-use std::io::{BufReader, Read, Write};
-use std::path::Path;
-
 //! Download helpers for the Arch rootfs tarball.
 //!
 //! Contract:
@@ -11,6 +5,12 @@ use std::path::Path;
 //! - Verifies the digest before moving the file into `final_path`.
 //! - Uses a best-effort atomic move; falls back to copy+delete on filesystems where rename fails.
 //! - Progress reporting is intentionally coarse (percent changes) to keep overhead low.
+
+use anyhow::{Context, Result};
+use sha2::{Digest, Sha256};
+use std::fs::File;
+use std::io::{BufReader, Read, Write};
+use std::path::Path;
 
 const TARBALL_URL: &str =
     "https://github.com/termux/proot-distro/releases/download/v4.34.2/archlinux-aarch64-pd-v4.34.2.tar.xz";

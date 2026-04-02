@@ -1,4 +1,4 @@
-package app.trierarch.ui.screens
+package app.trierarch.ui.dialog
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
@@ -10,17 +10,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -33,34 +31,40 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
-import app.trierarch.ui.FloatingGlassCornerDp
-import app.trierarch.ui.FloatingGlassRimAlpha
-import app.trierarch.ui.FloatingGlassRimDp
-import app.trierarch.ui.floatingGlassBrush
-import app.trierarch.ui.floatingOverlayScrimColor
-import app.trierarch.ui.glassBlurModifier
-import app.trierarch.ui.glassPanelEnter
-import app.trierarch.ui.glassPanelExit
-import app.trierarch.ui.glassScrimEnter
-import app.trierarch.ui.glassScrimExit
+import app.trierarch.shell.ShellFonts
+import app.trierarch.ui.glass.FloatingGlassCornerDp
+import app.trierarch.ui.glass.FloatingGlassRimAlpha
+import app.trierarch.ui.glass.FloatingGlassRimDp
+import app.trierarch.ui.glass.floatingGlassBrush
+import app.trierarch.ui.glass.floatingOverlayScrimColor
+import app.trierarch.ui.glass.glassBlurModifier
+import app.trierarch.ui.glass.glassPanelEnter
+import app.trierarch.ui.glass.glassPanelExit
+import app.trierarch.ui.glass.glassScrimEnter
+import app.trierarch.ui.glass.glassScrimExit
+
+private val TitleColor = Color.White
 
 @Composable
-fun DisplayScriptDialog(
-    initialScript: String,
+private fun accent(): Color = MaterialTheme.colorScheme.primary
+
+@Composable
+fun AppearanceDialog(
+    terminalFontPrefKey: String,
+    onTerminalFontPrefChange: (String) -> Unit,
     onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var script by remember { mutableStateOf(initialScript) }
-    LaunchedEffect(initialScript) {
-        script = initialScript
-    }
+    var fontPickerOpen by remember { mutableStateOf(false) }
+    val fontIndex = ShellFonts.indexForPref(terminalFontPrefKey)
+    val fontLabel = ShellFonts.options[fontIndex].label
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -73,10 +77,9 @@ fun DisplayScriptDialog(
         val scrimSource = remember { MutableInteractionSource() }
         val panelConsume = remember { MutableInteractionSource() }
         val shape = RoundedCornerShape(FloatingGlassCornerDp)
+        val link = accent()
         val overlayShown = remember { MutableTransitionState(false) }
-        LaunchedEffect(Unit) {
-            overlayShown.targetState = true
-        }
+        LaunchedEffect(Unit) { overlayShown.targetState = true }
 
         Box(modifier = Modifier.fillMaxSize()) {
             AnimatedVisibility(
@@ -103,9 +106,9 @@ fun DisplayScriptDialog(
                 ) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(0.92f)
-                            .widthIn(max = 520.dp)
-                            .height(360.dp)
+                            .fillMaxWidth(0.9f)
+                            .widthIn(max = 400.dp)
+                            .height(IntrinsicSize.Min)
                             .clip(shape)
                             .border(
                                 width = FloatingGlassRimDp,
@@ -115,52 +118,56 @@ fun DisplayScriptDialog(
                             .clickable(
                                 interactionSource = panelConsume,
                                 indication = null,
-                                onClick = { /* consume */ }
+                                onClick = { }
                             )
                     ) {
                         Box(
                             modifier = Modifier
-                                .fillMaxSize()
+                                .fillMaxWidth()
+                                .fillMaxHeight()
                                 .then(glassBlurModifier())
                                 .background(brush = floatingGlassBrush(), shape = shape)
                         )
                         Column(
                             modifier = modifier
-                                .fillMaxSize()
+                                .fillMaxWidth()
                                 .padding(horizontal = 20.dp, vertical = 16.dp)
                         ) {
                             Text(
-                                "Display startup script",
+                                "Appearance",
                                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = TitleColor,
+                                modifier = Modifier.padding(bottom = 8.dp)
                             )
-                            SelectionContainer(
-                                modifier = Modifier
-                                    .padding(top = 10.dp)
-                                    .weight(1f)
-                                    .verticalScroll(rememberScrollState())
+                            Text(
+                                "Font",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = TitleColor,
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            )
+                            TextButton(
+                                onClick = { fontPickerOpen = true },
+                                modifier = Modifier.padding(bottom = 12.dp)
                             ) {
-                                OutlinedTextField(
-                                    value = script,
-                                    onValueChange = { script = it },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    minLines = 6,
-                                    maxLines = 14,
-                                    singleLine = false
-                                )
+                                Text(fontLabel, color = link)
                             }
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 8.dp),
+                                modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.End
                             ) {
                                 TextButton(onClick = onDismiss) {
-                                    Text("Cancel")
+                                    Text("Done", color = link)
                                 }
-                                TextButton(onClick = { onConfirm(script) }) {
-                                    Text("Done")
-                                }
+                            }
+                            if (fontPickerOpen) {
+                                SingleChoicePicker(
+                                    options = ShellFonts.options.map { it.label },
+                                    selectedIndex = fontIndex,
+                                    onSelect = { idx ->
+                                        onTerminalFontPrefChange(ShellFonts.options[idx].id)
+                                    },
+                                    onDismiss = { fontPickerOpen = false }
+                                )
                             }
                         }
                     }

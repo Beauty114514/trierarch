@@ -6,7 +6,7 @@ Part of the [Trierarch monorepo](https://github.com/Beauty114514/trierarch).
 
 ## Role and what’s implemented
 
-- **Jetpack Compose** UI: install flow, terminal, floating menu orb, Display startup script editor, view settings, settings.
+- **Jetpack Compose** UI: install flow, terminal, floating menu orb, Display startup script editor, view settings, Appearance, settings.
 - **Assets:** proot launcher script, keymap, bundled JNI names; **`jniLibs/arm64-v8a/`** loads `.so` files built in other directories (Rust JNI, proot, Wayland stack).
 - **Bridges:** Kotlin `NativeBridge` / `WaylandBridge` call into native code.
 

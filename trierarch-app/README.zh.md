@@ -6,7 +6,7 @@
 
 ## 作用与已实现能力
 
-- **Jetpack Compose** 界面：安装流程、终端、悬浮菜单球、Display 启动脚本编辑、视图设置、设置等。
+- **Jetpack Compose** 界面：安装流程、终端、悬浮菜单球、Display 启动脚本编辑、视图设置、外观（Appearance）、设置等。
 - **资源与集成：** proot 启动脚本、键位表、JNI 库名等；**`jniLibs/arm64-v8a/`** 加载由其它目录构建的 `.so`（Rust JNI、proot、Wayland 等）。
 - **桥接：** Kotlin `NativeBridge` / `WaylandBridge` 调用 native 层。
 

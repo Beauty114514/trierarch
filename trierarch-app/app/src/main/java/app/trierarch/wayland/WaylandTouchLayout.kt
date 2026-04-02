@@ -10,8 +10,8 @@ import android.widget.FrameLayout
 import androidx.lifecycle.LifecycleOwner
 import app.trierarch.WaylandBridge
 import app.trierarch.input.SoftKeyboardView
-import app.trierarch.ui.screens.MOUSE_MODE_TABLET
-import app.trierarch.ui.screens.MOUSE_MODE_TOUCHPAD
+import app.trierarch.ui.dialog.MOUSE_MODE_TABLET
+import app.trierarch.ui.dialog.MOUSE_MODE_TOUCHPAD
 
 /**
  * Touch + mouse input router and glue for the embedded Wayland compositor.

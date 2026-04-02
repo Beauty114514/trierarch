@@ -35,7 +35,7 @@ pacman -S plasma-desktop dolphin konsole
 
 ## 3. 悬浮菜单球与 Display（打开菜单、设置启动脚本、启动桌面）
 
-- **悬浮菜单球**：屏幕上有一颗可拖动的**玻璃球**；**短按**打开**玻璃菜单**（Display、View Settings、Keyboard 等入口）。可拖动球到顺手的位置，位置会记忆。
+- **悬浮菜单球**：屏幕上有一颗可拖动的**玻璃球**；**短按**打开**玻璃菜单**（**Display**、**View Settings**、**外观（Appearance）**、**Keyboard** 等入口）。可拖动球到顺手的位置，位置会记忆。
 
 ![悬浮菜单球](docs/images/floatingOrb.jpg)
 
@@ -92,14 +92,41 @@ dbus-launch --exit-with-session startplasma-wayland > /dev/null 2>&1 &
 
 如需从源码构建应用，见 [`README_DEV.zh.md`](README_DEV.zh.md)。**贡献与安全：** [`CONTRIBUTING.zh.md`](CONTRIBUTING.zh.md)、[`SECURITY.zh.md`](SECURITY.zh.md)；变更见 [`CHANGELOG.md`](CHANGELOG.md)；发版见 [`docs/RELEASING.zh.md`](docs/RELEASING.zh.md)。
 
-## 致谢
+## 致谢与许可证
 
-Trierarch 依赖大量开源软件，向相关项目作者与社区致谢（**列举不全**）：
+本节汇总：**开源致谢**、**内置终端字体许可证**、**其余随包代码**（各目录内 `COPYING` / `LICENSE`）。
 
-- **[PRoot](https://github.com/termux/proot)** 与 **Termux** 生态；Arch rootfs 来自 **[proot-distro](https://github.com/termux/proot-distro)** 发布包
-- **[Wayland](https://wayland.freedesktop.org/)** 与 **wayland-protocols**（参考源码位于 `trierarch-wayland/` 下）
-- **[libffi](https://github.com/libffi/libffi)** · **Rust** · **Kotlin** · **Jetpack Compose** · **Android** / **NDK**
-- **KDE Plasma** 与 **Arch Linux** 社区
-- 本文档提及的第三方软键盘 **[Unexpected Keyboard](https://github.com/Julow/Unexpected-Keyboard)**
+### 致谢
 
-随仓库打包的上游代码在各自目录中保留许可证文件（如 `COPYING`、`LICENSE` 等）。本小节为致谢与指路，**不构成**完整法律声明；以仓库内实际文件与上游条款为准。
+| 致谢对象 |
+|---------|
+| **[PRoot](https://github.com/termux/proot)**；随应用构建的 loader / 集成见 `trierarch-proot/` |
+| **Termux** 生态：**[proot-distro](https://github.com/termux/proot-distro)**（Arch rootfs 来源）、**[terminal-emulator](https://github.com/termux/termux-app/tree/master/terminal-emulator)**（VT / 屏幕缓冲 Maven 依赖）、应用内 `com.termux.view` **TerminalView** 实现参考自 Termux |
+| **[Wayland](https://wayland.freedesktop.org/)**、**wayland-protocols**；应用内合成器与原生库见 **`trierarch-wayland/`** |
+| **[libffi](https://github.com/libffi/libffi)**（Wayland 栈依赖）；**[Rust](https://www.rust-lang.org/)**、**Kotlin**、**Android NDK / JNI**；宿主侧原生逻辑见 **`trierarch-native/`** |
+| **Jetpack Compose**、**Material 3**、**AndroidX**、**Kotlin Coroutines** 等 Google 开源 Android UI 与异步组件 |
+| **GNU/Linux** 用户态与 **[Arch Linux](https://archlinux.org/)** 软件仓库、打包与文档（**[ArchWiki](https://wiki.archlinux.org/)** 等） |
+| **[KDE](https://kde.org/)**、**Plasma** 与相关自由软件社区 |
+| **AOSP** 平台与 **Droid Sans Mono** 等随系统常见资源 |
+| **[Unexpected Keyboard](https://github.com/Julow/Unexpected-Keyboard)**（本文档提及的第三方键盘，须单独安装） |
+| 下一节 **内置终端字体** 表中列出的各上游字体项目 |
+
+### 内置终端字体
+
+应用内 shell 字体：在悬浮球菜单中打开 **外观（Appearance）** 进行选择。**System monospace** 不打包进 `res/font/`。
+
+| 文件（`trierarch-app/app/src/main/res/font/`） | 上游 | 许可证 |
+|-----------------------------------------------|------|--------|
+| `jetbrains_mono_regular.ttf` | [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) | [SIL OFL 1.1](https://openfontlicense.org) |
+| `ibm_plex_mono_regular.ttf` | [IBM Plex Mono](https://github.com/googlefonts/ibm-plex) | [SIL OFL 1.1](https://openfontlicense.org) |
+| `source_code_pro_regular.ttf` | [Source Code Pro](https://github.com/adobe-fonts/source-code-pro) | [SIL OFL 1.1](https://openfontlicense.org) |
+| `noto_sans_mono_regular.ttf` | [Noto Sans Mono](https://github.com/googlefonts/noto-fonts) | [SIL OFL 1.1](https://openfontlicense.org) |
+| `droid_sans_mono.ttf` | [Droid Sans Mono](https://cs.android.com/android/platform/frameworks/base/+/master:data/fonts)（AOSP） | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) |
+
+**JetBrains Mono**（上游版权声明摘录）：
+
+> Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
+>
+> This Font Software is licensed under the SIL Open Font License, Version 1.1.
+
+上表其余 SIL 字体同属 OFL，完整条项以各上游仓库为准。**随 APK 打包的完整许可正文**见 **`assets/licenses/FONT_LICENSES.txt`**（源码：`trierarch-app/app/src/main/assets/licenses/FONT_LICENSES.txt`）。

@@ -1,7 +1,17 @@
-package app.trierarch.ui
+package app.trierarch.ui.orb
 
 import android.content.SharedPreferences
 import app.trierarch.R
+import app.trierarch.ui.glass.FloatingGlassCornerDp
+import app.trierarch.ui.glass.FloatingGlassRimAlpha
+import app.trierarch.ui.glass.FloatingGlassRimDp
+import app.trierarch.ui.glass.floatingGlassBrush
+import app.trierarch.ui.glass.floatingOverlayScrimColor
+import app.trierarch.ui.glass.glassBlurModifier
+import app.trierarch.ui.glass.glassPanelEnter
+import app.trierarch.ui.glass.glassPanelExit
+import app.trierarch.ui.glass.glassScrimEnter
+import app.trierarch.ui.glass.glassScrimExit
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -37,42 +47,19 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/**
- * In-app floating orb with a **glass menu panel** (no sidebar). Opens via **short tap** on the orb.
- *
- * **Gestures (orb)**
- * - Tap: requests menu ([onMenuOpenRequest]) or dismisses when [menuExpanded] ([onDismissMenu]).
- * - Drag: repositions the orb; position is persisted on release ([prefs] keys [PREF_ORB_CENTER_X_FRAC] / [PREF_ORB_CENTER_Y_FRAC]).
- *
- * **Note**: “Pull down to open” was removed: it is indistinguishable from “drag downward to move” and caused false opens
- * and snap-back. [clickable] is disabled briefly after a drag so the same gesture is not treated as a tap.
- *
- * **When expanded**
- * - Full-screen scrim dismisses on tap ([onDismissMenu]).
- * - Orb and panel share [glassBlurModifier] / [floatingGlassBrush] and rim ([FloatingGlassRimDp]).
- * - Panel position picks the first that fits: **below** orb, else **above**, else **left or right** (more horizontal space wins if both fit), else clamped below.
- *
- * **Z-order**: scrim (bottom), orb, menu panel (top). Compose after main content so the overlay sits above
- * terminal / Wayland.
- *
- * **Layout**: orb uses [offset] on a wrapper [Box] so hit-testing matches the painted position ([graphicsLayer]
- * alone can leave the touch target at the origin and block drags).
- *
- * **Performance**: menu geometry is computed only while [menuExpanded].
- *
- * **Look**: circular frosted glass behind the mark, [R.drawable.ic_launcher_foreground] on top, rim above all ([FloatingGlassRimDp]).
- */
+/** Draggable launcher orb: tap toggles frosted menu; drag persists anchor in [prefs]. */
 @Composable
 fun FloatingMenuOrb(
     prefs: SharedPreferences,
@@ -82,6 +69,7 @@ fun FloatingMenuOrb(
     onDisplayClick: () -> Unit,
     onDisplayLongPress: () -> Unit,
     onViewClick: () -> Unit,
+    onAppearanceClick: () -> Unit,
     onKeyboardClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -92,9 +80,10 @@ fun FloatingMenuOrb(
     val onDisplayTap by rememberUpdatedState(onDisplayClick)
     val onDisplayLong by rememberUpdatedState(onDisplayLongPress)
     val onView by rememberUpdatedState(onViewClick)
+    val onAppearance by rememberUpdatedState(onAppearanceClick)
     val onKeyboard by rememberUpdatedState(onKeyboardClick)
 
-    BoxWithConstraints(modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier.graphicsLayer { clip = false }) {
         val maxWpx = with(density) { maxWidth.toPx() }
         val maxHpx = with(density) { maxHeight.toPx() }
         val orbPx = with(density) { ORB_SIZE_DP.toPx() }
@@ -281,7 +270,7 @@ fun FloatingMenuOrb(
                     .clickable(
                         interactionSource = panelConsume,
                         indication = null,
-                        onClick = { /* consume; rows handle actions */ }
+                        onClick = { }
                     )
             ) {
                 Box(
@@ -332,6 +321,17 @@ fun FloatingMenuOrb(
                     }
                     Box(
                         modifier = Modifier
+                            .clickable { onAppearance() }
+                            .padding(vertical = 12.dp)
+                    ) {
+                        Text(
+                            "Appearance",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
                             .pointerInput(Unit) {
                                 detectTapGestures(onTap = { onKeyboard() })
                             }
@@ -349,31 +349,14 @@ fun FloatingMenuOrb(
     }
 }
 
-/** Tap/drag target; logo inside [ORB_LOGO_INSET_DP]; glass + rim match the menu panel. */
 private val ORB_SIZE_DP = 48.dp
-
-/** Inset around [R.drawable.ic_launcher_foreground] inside [ORB_SIZE_DP]. */
 private val ORB_LOGO_INSET_DP = 0.dp
-
-/** After a drag ends, suppress [clickable] briefly so release is not handled as a tap (menu false open). */
-/** Short gap after a drag so finger-up is not treated as a tap; keep small for responsive taps. */
 private const val EDIT_TO_TAP_GAP_MS = 24L
-
 private val MENU_PANEL_MAX_WIDTH = 280.dp
-
-/**
- * Rough height for placement (below/above/left/right). Slightly over content so the panel rarely clips;
- * tweak if menu rows change.
- */
-private val MENU_PANEL_ESTIMATED_HEIGHT_DP = 236.dp
-
-/** Gap between orb and menu panel (all sides). */
+private val MENU_PANEL_ESTIMATED_HEIGHT_DP = 288.dp
 private val ORB_PANEL_GAP_DP = 8.dp
-
 private val HORIZONTAL_MARGIN_DP = 8.dp
-
 private const val PREF_ORB_CENTER_X_FRAC = "menu_orb_center_x_frac"
 private const val PREF_ORB_CENTER_Y_FRAC = "menu_orb_center_y_frac"
-
 private const val DEFAULT_CENTER_X_FRAC = 0.88f
 private const val DEFAULT_CENTER_Y_FRAC = 0.42f

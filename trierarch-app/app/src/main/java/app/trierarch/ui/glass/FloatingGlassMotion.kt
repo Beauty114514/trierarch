@@ -1,4 +1,4 @@
-package app.trierarch.ui
+package app.trierarch.ui.glass
 
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -20,7 +20,6 @@ fun glassScrimEnter(): EnterTransition =
 fun glassScrimExit(): ExitTransition =
     fadeOut(animationSpec = tween(ScrimExitMs, easing = FastOutSlowInEasing))
 
-/** Panel pop-in: short tween + small scale delta so it reads as snappy, not sluggish. */
 fun glassPanelEnter(): EnterTransition =
     fadeIn(animationSpec = tween(PanelEnterMs, easing = FastOutSlowInEasing)) +
         scaleIn(

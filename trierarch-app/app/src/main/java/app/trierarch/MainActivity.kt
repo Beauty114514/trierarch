@@ -7,7 +7,9 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import app.trierarch.input.HardwareKeyEventPolicy
 import app.trierarch.input.HardwareKeyboardRouter
+import app.trierarch.input.InputRouteState
 import app.trierarch.ui.AppScreen
 import app.trierarch.ui.theme.TrierarchTheme
 
@@ -37,11 +39,28 @@ class MainActivity : ComponentActivity() {
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (hardwareKeyboardRouter.handleHardwareKeyboardEvent(event)) return true
+        if (!InputRouteState.waylandVisible) {
+            val tv = InputRouteState.shellTerminalView
+            if (tv != null &&
+                (event.action == KeyEvent.ACTION_DOWN || event.action == KeyEvent.ACTION_UP) &&
+                HardwareKeyEventPolicy.isLikelyFromHardwareKeyboard(event)
+            ) {
+                tv.requestFocus()
+                if (tv.dispatchKeyEvent(event)) return true
+            }
+        }
         return super.dispatchKeyEvent(event)
     }
 
     override fun dispatchKeyShortcutEvent(event: KeyEvent): Boolean {
         if (hardwareKeyboardRouter.handleHardwareKeyboardEvent(event)) return true
+        if (!InputRouteState.waylandVisible) {
+            val tv = InputRouteState.shellTerminalView
+            if (tv != null && HardwareKeyEventPolicy.isLikelyFromHardwareKeyboard(event)) {
+                tv.requestFocus()
+                if (tv.dispatchKeyShortcutEvent(event)) return true
+            }
+        }
         return super.dispatchKeyShortcutEvent(event)
     }
 }

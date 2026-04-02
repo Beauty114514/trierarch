@@ -2,7 +2,7 @@ package app.trierarch.wayland
 
 import android.view.MotionEvent
 import app.trierarch.WaylandBridge
-import app.trierarch.ui.screens.MOUSE_MODE_TOUCHPAD
+import app.trierarch.ui.dialog.MOUSE_MODE_TOUCHPAD
 
 /**
  * Handles two-finger scroll and two-finger tap -> right click in touchpad mode.

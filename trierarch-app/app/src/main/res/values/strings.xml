@@ -2,4 +2,8 @@
     <string name="app_name">Trierarch</string>
     <string name="shortcut_terminal_short">Terminal</string>
     <string name="shortcut_terminal_long">Terminal</string>
+    <!-- Text selection action mode (terminal-view) -->
+    <string name="paste_text">Paste</string>
+    <string name="copy_text">Copy</string>
+    <string name="text_selection_more">More…</string>
 </resources>

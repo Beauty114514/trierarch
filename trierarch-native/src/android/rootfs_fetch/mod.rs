@@ -1,8 +1,3 @@
-use super::application_context::{get_application_context, has_rootfs, rootfs_dir, ROOTFS_READY_SENTINEL};
-use anyhow::{Context, Result};
-use std::sync::Mutex;
-use std::time::{SystemTime, UNIX_EPOCH};
-
 //! Rootfs acquisition for the Android app.
 //!
 //! Contract:
@@ -14,6 +9,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 //!
 //! This module is Trierarch-owned logic (not vendored) and should keep comments focused on
 //! invariants, failure semantics, and on-disk state transitions.
+
+use super::application_context::{get_application_context, has_rootfs, rootfs_dir, ROOTFS_READY_SENTINEL};
+use anyhow::{Context, Result};
+use std::sync::Mutex;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 mod download;
 mod extract;

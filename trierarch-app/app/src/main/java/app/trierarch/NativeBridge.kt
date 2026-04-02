@@ -30,17 +30,17 @@ object NativeBridge {
     /** Download rootfs. Blocks until complete. Callback.onProgress(pct, msg). */
     external fun downloadRootfs(callback: ProgressCallback): Boolean
 
-    /** Spawn proot shell. */
-    external fun spawnProot(): Boolean
+    /** Spawn proot shell under a PTY with initial terminal size (idempotent). Same row/column count as Termux TerminalView. */
+    external fun spawnProot(rows: Int, cols: Int): Boolean
 
-    /** Get terminal output lines. */
-    external fun getLines(): List<String>
-
-    /** Current line buffer (prompt + echoed input) without trailing newline. */
-    external fun getPartialLine(): String
+    /** True after the first successful [spawnProot]. */
+    external fun isProotSpawned(): Boolean
 
     /** Write bytes to PTY stdin. */
     external fun writeInput(bytes: ByteArray)
+
+    /** Propagate terminal size to the kernel PTY (TIOCSWINSIZE). */
+    external fun setPtyWindowSize(rows: Int, cols: Int)
 }
 
 interface ProgressCallback {

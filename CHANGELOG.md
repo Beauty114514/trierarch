@@ -15,6 +15,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.0] — 2026-04-02 (source-only milestone)
+
+### Added
+- In-app **terminal emulator** (Termux `TerminalView`) for the proot shell, with bundled **monospace fonts**, **Appearance** selection, and **`assets/licenses/FONT_LICENSES.txt`** (SIL OFL 1.1 and Apache 2.0).
+
+### Changed
+- **Terminal** screen respects **status bar** and **soft keyboard** insets.
+- **UI codebase** reorganized into **orb**, **glass**, **dialogs**, **shell**, and **setup** modules, with matching **native** updates.
+
+### Removed
+- Older **placeholder terminal** UI and superseded **monolithic** glass/menu sources.
+
+---
+
 ## [0.2.3] — 2026-03-31
 
 ### Changed
@@ -77,7 +91,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial public monorepo layout: Android app, Rust JNI, proot, Wayland compositor, optimize docs.
 
-[Unreleased]: https://github.com/Beauty114514/trierarch/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/Beauty114514/trierarch/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Beauty114514/trierarch/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/Beauty114514/trierarch/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/Beauty114514/trierarch/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/Beauty114514/trierarch/compare/v0.2.0...v0.2.1

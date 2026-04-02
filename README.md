@@ -35,7 +35,7 @@ pacman -S plasma-desktop dolphin konsole
 
 ## 3. Floating menu orb and Display (open menu, set Display script, start the desktop)
 
-- **Floating menu orb** — A draggable **orb** on screen; **short tap** opens a **glass menu** (Display, View Settings, Keyboard, and other actions). Drag the orb to move it; position is remembered between sessions.
+- **Floating menu orb** — A draggable **orb** on screen; **short tap** opens a **glass menu** (**Display**, **View Settings**, **Appearance**, **Keyboard**, and related actions). Drag the orb to move it; position is remembered between sessions.
 
 ![Floating menu orb](docs/images/floatingOrb.jpg)
 
@@ -92,14 +92,41 @@ For **general Arch Linux** setup, packages, and troubleshooting, use **[ArchWiki
 
 To build from source, see [`README_DEV.md`](README_DEV.md). **Contributing & security:** [`CONTRIBUTING.md`](CONTRIBUTING.md), [`SECURITY.md`](SECURITY.md); changes in [`CHANGELOG.md`](CHANGELOG.md); releases: [`docs/RELEASING.md`](docs/RELEASING.md).
 
-## Acknowledgments
+## Acknowledgments and licenses
 
-Trierarch stands on many open-source projects. Thanks to their authors and communities, including (non-exhaustively):
+This section covers: **thanks to upstreams**, **bundled terminal font licenses**, and **other in-tree code** (see each tree’s `COPYING` / `LICENSE`).
 
-- **[PRoot](https://github.com/termux/proot)** and the **Termux** ecosystem; Arch rootfs from **[proot-distro](https://github.com/termux/proot-distro)** releases
-- **[Wayland](https://wayland.freedesktop.org/)** and **wayland-protocols** (under `trierarch-wayland/`)
-- **[libffi](https://github.com/libffi/libffi)** · **Rust** · **Kotlin** · **Jetpack Compose** · **Android** / **NDK**
-- The **KDE Plasma** and **Arch Linux** communities
-- **[Unexpected Keyboard](https://github.com/Julow/Unexpected-Keyboard)** (third-party keyboard mentioned in this README)
+### Thanks
 
-Bundled third-party code includes its own license files in-tree (e.g. `COPYING`, `LICENSE` under vendored paths). This section is a thank-you, not a complete legal notice.
+| Thanks to |
+|-----------|
+| **[PRoot](https://github.com/termux/proot)**; Android build and loader integration under `trierarch-proot/` |
+| **Termux**: **[proot-distro](https://github.com/termux/proot-distro)** (Arch rootfs), **[terminal-emulator](https://github.com/termux/termux-app/tree/master/terminal-emulator)** (VT / screen buffer dependency), and the **TerminalView** code under `com.termux.view` derived from Termux |
+| **[Wayland](https://wayland.freedesktop.org/)**, **wayland-protocols**; in-app compositor native code under **`trierarch-wayland/`** |
+| **[libffi](https://github.com/libffi/libffi)** (Wayland stack), **Rust**, **Kotlin**, **Android NDK / JNI**; host native glue in **`trierarch-native/`** |
+| **Jetpack Compose**, **Material 3**, **AndroidX**, **Kotlin Coroutines**, and related Google open-source Android components |
+| **GNU/Linux** userland, **[Arch Linux](https://archlinux.org/)** packages and docs (**[ArchWiki](https://wiki.archlinux.org/)**, etc.) |
+| **[KDE](https://kde.org/)**, **Plasma**, and sibling free-software communities |
+| **AOSP** and fonts such as **Droid Sans Mono** commonly shipped with the platform |
+| **[Unexpected Keyboard](https://github.com/Julow/Unexpected-Keyboard)** (third-party keyboard cited in this README; install separately) |
+| Upstream font projects listed under **Bundled terminal fonts** below |
+
+### Bundled terminal fonts
+
+In-app shell fonts: open **Appearance** from the floating orb menu. **System monospace** is not shipped under `res/font/`.
+
+| File (`trierarch-app/app/src/main/res/font/`) | Upstream | License |
+|-----------------------------------------------|----------|---------|
+| `jetbrains_mono_regular.ttf` | [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) | [SIL OFL 1.1](https://openfontlicense.org) |
+| `ibm_plex_mono_regular.ttf` | [IBM Plex Mono](https://github.com/googlefonts/ibm-plex) | [SIL OFL 1.1](https://openfontlicense.org) |
+| `source_code_pro_regular.ttf` | [Source Code Pro](https://github.com/adobe-fonts/source-code-pro) | [SIL OFL 1.1](https://openfontlicense.org) |
+| `noto_sans_mono_regular.ttf` | [Noto Sans Mono](https://github.com/googlefonts/noto-fonts) | [SIL OFL 1.1](https://openfontlicense.org) |
+| `droid_sans_mono.ttf` | [Droid Sans Mono](https://cs.android.com/android/platform/frameworks/base/+/master:data/fonts) (AOSP) | [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0) |
+
+**JetBrains Mono** (copyright excerpt from upstream):
+
+> Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
+>
+> This Font Software is licensed under the SIL Open Font License, Version 1.1.
+
+Other SIL fonts in the table are under OFL as well; full terms and notices are in each upstream repository. **Complete license texts** shipped with the app are in **`assets/licenses/FONT_LICENSES.txt`** (in-tree: `trierarch-app/app/src/main/assets/licenses/FONT_LICENSES.txt`).

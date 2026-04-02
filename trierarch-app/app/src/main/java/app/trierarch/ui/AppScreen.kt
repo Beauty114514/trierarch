@@ -7,6 +7,7 @@ import android.os.Handler
 import android.os.Looper
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -21,16 +22,20 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import app.trierarch.NativeBridge
 import app.trierarch.ProgressCallback
 import app.trierarch.WaylandBridge
 import app.trierarch.input.InputRouteState
-import app.trierarch.ui.screens.DisplayScriptDialog
-import app.trierarch.ui.screens.InstallScreen
-import app.trierarch.ui.screens.MOUSE_MODE_TOUCHPAD
-import app.trierarch.ui.screens.TerminalScreen
-import app.trierarch.ui.screens.ViewSettingsDialog
+import app.trierarch.shell.ShellFonts
+import app.trierarch.ui.dialog.AppearanceDialog
+import app.trierarch.ui.dialog.DisplayScriptDialog
+import app.trierarch.ui.dialog.MOUSE_MODE_TOUCHPAD
+import app.trierarch.ui.dialog.ViewSettingsDialog
+import app.trierarch.ui.orb.FloatingMenuOrb
+import app.trierarch.ui.setup.InstallScreen
+import app.trierarch.ui.shell.ShellScreen
 import app.trierarch.wayland.WaylandSurfaceView
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -48,7 +53,7 @@ fun AppScreen(startInTerminal: Boolean = false) {
      * States (simplified):
      * - native init: NativeBridge.init(...) succeeds -> we can call other native methods
      * - rootfs missing: download+extract rootfs -> ask user to restart (fresh proot session)
-     * - proot running: spawn proot shell under a PTY -> terminal I/O is available
+     * - proot running: first TerminalView layout runs RustPtySession.updateSize (forkpty winsize matches the grid)
      * - Wayland server running: WaylandBridge.nativeStartServer(runtimeDir)
      * - view: `showWayland=false` shows the terminal; `showWayland=true` shows the compositor Surface
      *
@@ -72,15 +77,12 @@ fun AppScreen(startInTerminal: Boolean = false) {
     var hasRootfs by remember { mutableStateOf(false) }
     var installProgress by remember { mutableStateOf(0 to "Preparing...") }
     var installDone by remember { mutableStateOf(false) }
-    var lines by remember { mutableStateOf(listOf<String>()) }
-    var partialLine by remember { mutableStateOf("") }
-    var inputLine by remember { mutableStateOf("") }
-    var prootSpawned by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var downloadStarted by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
     var showWayland by remember { mutableStateOf(false) }
     var settingsOpen by remember { mutableStateOf(false) }
+    var appearanceOpen by remember { mutableStateOf(false) }
     var displayScriptDialogOpen by remember { mutableStateOf(false) }
     var mouseMode by remember { mutableStateOf(MOUSE_MODE_TOUCHPAD) }
     var resolutionPercent by remember { mutableStateOf(100) }
@@ -89,7 +91,39 @@ fun AppScreen(startInTerminal: Boolean = false) {
     var keyboardWanted by remember { mutableStateOf(false) }
     var autoDisplayTriggered by remember { mutableStateOf(false) }
     var pendingAutoShowWayland by remember { mutableStateOf(false) }
+    var terminalFontKey by remember { mutableStateOf(ShellFonts.DEFAULT_ID) }
     val prefs = remember(context) { context.getSharedPreferences("trierarch_prefs", 0) }
+    val waylandRuntimeDir = remember(context) {
+        File(context.filesDir, "usr/tmp").apply { mkdirs() }.absolutePath
+    }
+
+    /**
+     * Copy bundled keymap (if missing) and start the in-process Wayland compositor socket + dispatch thread.
+     * Idempotent with respect to native `nativeStartServer` (safe to call more than once).
+     *
+     * Terminal shortcut entry defers this until the user opens **Display**, so only the PTY + terminal view
+     * run until then (fewer moving parts when debugging crashes after a delay).
+     */
+    fun prepareWaylandRuntimeAndStartServer(): Boolean {
+        val keymapTarget = File(waylandRuntimeDir, "keymap_us.xkb")
+        if (!keymapTarget.exists()) {
+            try {
+                context.assets.open("keymap_us.xkb").use { input ->
+                    keymapTarget.outputStream().use { out ->
+                        input.copyTo(out)
+                    }
+                }
+            } catch (_: Throwable) {
+                return false
+            }
+        }
+        return try {
+            WaylandBridge.nativeStartServer(waylandRuntimeDir)
+            true
+        } catch (_: Throwable) {
+            false
+        }
+    }
 
     /**
      * Display startup contract (shared by auto-start and the main menu "Display" entry):
@@ -120,6 +154,10 @@ fun AppScreen(startInTerminal: Boolean = false) {
         if (showWayland) {
             showWayland = false
         } else {
+            if (!prepareWaylandRuntimeAndStartServer()) {
+                menuOpen = false
+                return
+            }
             runDisplayStartupScriptIfNeeded()
             pendingAutoShowWayland = true
         }
@@ -141,6 +179,8 @@ fun AppScreen(startInTerminal: Boolean = false) {
         scalePercent = prefs.getInt("scale_percent", 100)
             .coerceIn(100, 1000)
             .let { v -> ((v + 50) / 100) * 100 }
+        terminalFontKey = prefs.getString(ShellFonts.PREF_KEY, ShellFonts.DEFAULT_ID)
+            ?: ShellFonts.DEFAULT_ID
     }
 
     fun persistMouseMode(mode: Int) {
@@ -156,6 +196,11 @@ fun AppScreen(startInTerminal: Boolean = false) {
     fun persistScalePercent(pct: Int) {
         scalePercent = pct.coerceIn(100, 1000).let { v -> ((v + 50) / 100) * 100 }
         prefs.edit().putInt("scale_percent", scalePercent).apply()
+    }
+
+    fun persistTerminalFont(key: String) {
+        terminalFontKey = key
+        prefs.edit().putString(ShellFonts.PREF_KEY, key).apply()
     }
 
     LaunchedEffect(Unit) {
@@ -175,13 +220,7 @@ fun AppScreen(startInTerminal: Boolean = false) {
 
     LaunchedEffect(initialized, hasRootfs) {
         if (!initialized) return@LaunchedEffect
-        if (hasRootfs) {
-            if (NativeBridge.spawnProot()) {
-                prootSpawned = true
-            } else {
-                errorMsg = "Failed to spawn proot"
-            }
-        } else if (!installDone && !downloadStarted) {
+        if (!hasRootfs && !installDone && !downloadStarted) {
             downloadStarted = true
             val mainHandler = Handler(Looper.getMainLooper())
             scope.launch(Dispatchers.IO) {
@@ -202,18 +241,14 @@ fun AppScreen(startInTerminal: Boolean = false) {
         }
     }
 
-    val waylandRuntimeDir = remember(context) {
-        File(context.filesDir, "usr/tmp").apply { mkdirs() }.absolutePath
-    }
-
     LaunchedEffect(showWayland) {
+        setImmersiveMode(context as? Activity, immersive = showWayland)
         InputRouteState.waylandVisible = showWayland
-        setImmersiveMode(context as? Activity, showWayland)
     }
 
-    LaunchedEffect(menuOpen, settingsOpen, displayScriptDialogOpen) {
+    LaunchedEffect(menuOpen, settingsOpen, appearanceOpen, displayScriptDialogOpen) {
         // Don't auto-pop the IME while the user is interacting with menus/dialogs.
-        if (menuOpen || settingsOpen || displayScriptDialogOpen) {
+        if (menuOpen || settingsOpen || appearanceOpen || displayScriptDialogOpen) {
             keyboardWanted = false
         }
     }
@@ -240,28 +275,23 @@ fun AppScreen(startInTerminal: Boolean = false) {
         }
     }
 
-    LaunchedEffect(prootSpawned, startInTerminal) {
-        if (!prootSpawned) return@LaunchedEffect
-
-        // Always start the Wayland server once proot is ready.
-        val keymapTarget = File(waylandRuntimeDir, "keymap_us.xkb")
-        if (!keymapTarget.exists()) {
-            context.assets.open("keymap_us.xkb").use { input ->
-                keymapTarget.outputStream().use { out ->
-                    input.copyTo(out)
-                }
-            }
+    LaunchedEffect(hasRootfs, startInTerminal) {
+        if (!hasRootfs) return@LaunchedEffect
+        var waited = 0
+        while (!NativeBridge.isProotSpawned() && waited < 256) {
+            delay(32)
+            waited++
         }
-        try {
-            WaylandBridge.nativeStartServer(waylandRuntimeDir)
-        } catch (_: Throwable) {
-            // If native libs are missing or init fails, stay in terminal.
-            return@LaunchedEffect
-        }
+        if (!NativeBridge.isProotSpawned()) return@LaunchedEffect
 
+        // Terminal shortcut: do not start the in-process Wayland compositor until the user taps **Display**
+        // (see [prepareWaylandRuntimeAndStartServer] in [triggerDisplayToggle]). Avoids native crashes while
+        // only the PTY terminal is needed and matches "shortcut = terminal first" UX.
         if (startInTerminal) return@LaunchedEffect
 
-        // Default launch behavior (MAIN/LAUNCHER): may auto-run Display script, then wait for desktop.
+        if (!prepareWaylandRuntimeAndStartServer()) return@LaunchedEffect
+
+        // Default launcher: may auto-run Display script, then wait for desktop (terminal stays visible underneath).
         if (!autoDisplayTriggered) {
             autoDisplayTriggered = true
             val script = prefs.getString("display_startup_script", "")?.trim()
@@ -270,23 +300,6 @@ fun AppScreen(startInTerminal: Boolean = false) {
             }
         }
         pendingAutoShowWayland = true
-    }
-
-    LaunchedEffect(prootSpawned) {
-        if (!prootSpawned) return@LaunchedEffect
-        var lastLines = listOf<String>()
-        var lastPartial = ""
-        while (true) {
-            val newLines = NativeBridge.getLines()
-            val newPartial = NativeBridge.getPartialLine()
-            if (newLines != lastLines || newPartial != lastPartial) {
-                lastLines = newLines
-                lastPartial = newPartial
-                lines = newLines
-                partialLine = newPartial
-            }
-            delay(100)
-        }
     }
 
     errorMsg?.let { msg ->
@@ -331,11 +344,6 @@ fun AppScreen(startInTerminal: Boolean = false) {
         return
     }
 
-    if (hasRootfs && !prootSpawned) {
-        Box(modifier = Modifier.fillMaxSize())
-        return
-    }
-
     Box(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.fillMaxSize()) {
             when {
@@ -351,21 +359,12 @@ fun AppScreen(startInTerminal: Boolean = false) {
                         modifier = Modifier.fillMaxSize()
                     )
                 }
-                prootSpawned && pendingAutoShowWayland -> {
-                    Box(modifier = Modifier.fillMaxSize())
-                }
                 else -> {
-                    TerminalScreen(
-                        lines = lines,
-                        partialLine = partialLine,
-                        inputLine = inputLine,
-                        onInputChange = { inputLine = it },
-                        onInputSubmit = {
-                            NativeBridge.writeInput((it + "\n").toByteArray(Charsets.UTF_8))
-                            inputLine = ""
-                        },
+                    ShellScreen(
+                        terminalFontKey = terminalFontKey,
                         showKeyboardTrigger = showKeyboardTrigger,
-                        onKeyboardTriggerConsumed = { showKeyboardTrigger = 0 }
+                        onKeyboardTriggerConsumed = { showKeyboardTrigger = 0 },
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
             }
@@ -384,11 +383,19 @@ fun AppScreen(startInTerminal: Boolean = false) {
                 menuOpen = false
                 settingsOpen = true
             },
+            onAppearanceClick = {
+                menuOpen = false
+                appearanceOpen = true
+            },
             onKeyboardClick = {
                 menuOpen = false
                 keyboardWanted = true
                 showKeyboardTrigger += 1
-            }
+            },
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .wrapContentSize(Alignment.TopStart)
+                .graphicsLayer { clip = false }
         )
         if (settingsOpen) {
             ViewSettingsDialog(
@@ -399,6 +406,13 @@ fun AppScreen(startInTerminal: Boolean = false) {
                 onMouseModeChange = { persistMouseMode(it) },
                 onResolutionPercentChange = { persistResolutionPercent(it) },
                 onScalePercentChange = { persistScalePercent(it) }
+            )
+        }
+        if (appearanceOpen) {
+            AppearanceDialog(
+                terminalFontPrefKey = terminalFontKey,
+                onTerminalFontPrefChange = { persistTerminalFont(it) },
+                onDismiss = { appearanceOpen = false }
             )
         }
         if (displayScriptDialogOpen) {

@@ -1,4 +1,4 @@
-package app.trierarch.ui.screens
+package app.trierarch.ui.setup
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -18,7 +18,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** Progress screen shown during rootfs init (download + extract). */
 @Composable
 fun InstallScreen(
     progress: Int,

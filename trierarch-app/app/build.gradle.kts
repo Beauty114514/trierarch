@@ -55,6 +55,7 @@ android {
     packaging {
         jniLibs {
             useLegacyPackaging = true
+            excludes += "**/libtermux.so"
         }
     }
     buildFeatures {
@@ -63,6 +64,12 @@ android {
 }
 
 dependencies {
+    // terminal-emulator artifact (VT + screen buffer); terminal-view sources live under com/termux/view/
+    implementation("com.termux.termux-app:terminal-emulator:0.118.0")
+    // ProfileInstaller + androidx.concurrent need a real ListenableFuture on the classpath; the "9999.0-empty"
+    // artifact is a zero-class placeholder and causes NoClassDefFoundError on pool-* threads at runtime.
+    implementation("com.google.guava:listenablefuture:1.0")
+    implementation("androidx.concurrent:concurrent-futures:1.2.0")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

@@ -1,4 +1,4 @@
-package app.trierarch.ui
+package app.trierarch.ui.glass
 
 import android.os.Build
 import androidx.compose.ui.Modifier
@@ -7,20 +7,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-/** Rounded corners for frosted surfaces (orb menu panel, settings dialog). */
 val FloatingGlassCornerDp = 20.dp
-
-/** Shared stroke weight ([androidx.compose.material3.MaterialTheme.colorScheme.outline]). */
 val FloatingGlassRimDp = 1.dp
-
 const val FloatingGlassRimAlpha = 0.55f
-
-/** Full-screen dim behind glass overlays (orb menu, dialogs). Keep in sync with [floatingOverlayScrimColor]. */
 const val FloatingOverlayScrimAlpha = 0.22f
 
 fun floatingOverlayScrimColor(): Color = Color.Black.copy(alpha = FloatingOverlayScrimAlpha)
 
-/** Backdrop blur radius (API 31+; no-op below). */
 internal val FloatingGlassBlurDp = 14.dp
 
 private const val GlassHighlightApi31 = 0.065f

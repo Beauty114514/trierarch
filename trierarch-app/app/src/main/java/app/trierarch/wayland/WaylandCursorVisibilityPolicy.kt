@@ -4,7 +4,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import app.trierarch.WaylandBridge
-import app.trierarch.ui.screens.MOUSE_MODE_TOUCHPAD
+import app.trierarch.ui.dialog.MOUSE_MODE_TOUCHPAD
 
 /**
  * Avoids the "double cursor" effect when a physical mouse is connected.
