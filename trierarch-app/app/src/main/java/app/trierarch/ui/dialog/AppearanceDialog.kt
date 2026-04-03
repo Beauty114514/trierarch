@@ -19,10 +19,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.trierarch.shell.ShellFonts
 import app.trierarch.ui.glass.GlassDialogWidthPickerDp
 import app.trierarch.ui.glass.GlassDialogWidthStandardDp
+import app.trierarch.ui.glass.GlassPickerPanelMinHeightDp
 import app.trierarch.ui.glass.GlassOverlayLayer
 import app.trierarch.ui.glass.GlassSubOverlay
 import app.trierarch.ui.glass.OrbStyleGlassPanel
@@ -44,6 +46,8 @@ fun AppearanceDialog(
     modifier: Modifier = Modifier
 ) {
     var fontPickerOpen by remember { mutableStateOf(false) }
+    var lastMainCardHeight by remember { mutableStateOf<Dp?>(null) }
+    var subPanelLock by remember { mutableStateOf<Dp?>(null) }
     val fontIndex = ShellFonts.indexForPref(terminalFontPrefKey)
     val fontLabel = ShellFonts.options[fontIndex].label
     val link = accent()
@@ -55,6 +59,9 @@ fun AppearanceDialog(
                 widthCap = GlassDialogWidthStandardDp,
                 panelConsume = panelConsume,
                 columnModifier = modifier,
+                onCardHeightChanged = { h ->
+                    if (lastMainCardHeight != h) lastMainCardHeight = h
+                },
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp)
             ) {
                 Text(
@@ -70,7 +77,10 @@ fun AppearanceDialog(
                     modifier = Modifier.padding(bottom = 4.dp)
                 )
                 TextButton(
-                    onClick = { fontPickerOpen = true },
+                    onClick = {
+                        subPanelLock = lastMainCardHeight ?: GlassPickerPanelMinHeightDp
+                        fontPickerOpen = true
+                    },
                     modifier = Modifier.padding(bottom = 12.dp)
                 ) {
                     Text(fontLabel, color = link)
@@ -86,11 +96,16 @@ fun AppearanceDialog(
             }
         }
         if (fontPickerOpen) {
-            GlassSubOverlay(onDismissRequest = { fontPickerOpen = false }) {
+            GlassSubOverlay(onDismissRequest = {
+                fontPickerOpen = false
+                subPanelLock = null
+            }) {
                 val pickConsume = remember { MutableInteractionSource() }
                 OrbStyleGlassPanel(
                     widthCap = GlassDialogWidthPickerDp,
                     panelConsume = pickConsume,
+                    cardHeight = subPanelLock ?: lastMainCardHeight ?: GlassPickerPanelMinHeightDp,
+                    showVerticalScrollbar = true,
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     ShellFonts.options.forEachIndexed { index, opt ->
@@ -99,6 +114,7 @@ fun AppearanceDialog(
                             onClick = {
                                 onTerminalFontPrefChange(opt.id)
                                 fontPickerOpen = false
+                                subPanelLock = null
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {

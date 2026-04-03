@@ -19,9 +19,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.trierarch.ui.glass.GlassDialogWidthPickerDp
 import app.trierarch.ui.glass.GlassDialogWidthStandardDp
+import app.trierarch.ui.glass.GlassPickerPanelMinHeightDp
 import app.trierarch.ui.glass.GlassOverlayLayer
 import app.trierarch.ui.glass.GlassSubOverlay
 import app.trierarch.ui.glass.OrbStyleGlassPanel
@@ -51,6 +53,8 @@ fun ViewSettingsDialog(
     var mousePickerOpen by remember { mutableStateOf(false) }
     var resolutionPickerOpen by remember { mutableStateOf(false) }
     var scalePickerOpen by remember { mutableStateOf(false) }
+    var lastMainCardHeight by remember { mutableStateOf<Dp?>(null) }
+    var subPanelLock by remember { mutableStateOf<Dp?>(null) }
     val accent = linkColor()
 
     GlassOverlayLayer(onDismissRequest = onDismiss) {
@@ -60,6 +64,9 @@ fun ViewSettingsDialog(
                 widthCap = GlassDialogWidthStandardDp,
                 panelConsume = panelConsume,
                 columnModifier = modifier,
+                onCardHeightChanged = { h ->
+                    if (lastMainCardHeight != h) lastMainCardHeight = h
+                },
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp)
             ) {
                 Text(
@@ -90,7 +97,10 @@ fun ViewSettingsDialog(
                     modifier = Modifier.padding(bottom = 4.dp)
                 )
                 TextButton(
-                    onClick = { resolutionPickerOpen = true },
+                    onClick = {
+                        subPanelLock = lastMainCardHeight ?: GlassPickerPanelMinHeightDp
+                        resolutionPickerOpen = true
+                    },
                     modifier = Modifier.padding(bottom = 12.dp)
                 ) {
                     Text(
@@ -105,7 +115,10 @@ fun ViewSettingsDialog(
                     modifier = Modifier.padding(bottom = 4.dp)
                 )
                 TextButton(
-                    onClick = { scalePickerOpen = true },
+                    onClick = {
+                        subPanelLock = lastMainCardHeight ?: GlassPickerPanelMinHeightDp
+                        scalePickerOpen = true
+                    },
                     modifier = Modifier.padding(bottom = 12.dp)
                 ) {
                     Text(
@@ -124,7 +137,10 @@ fun ViewSettingsDialog(
             }
         }
         if (mousePickerOpen) {
-            GlassSubOverlay(onDismissRequest = { mousePickerOpen = false }) {
+            GlassSubOverlay(onDismissRequest = {
+                mousePickerOpen = false
+                subPanelLock = null
+            }) {
                 val pickConsume = remember { MutableInteractionSource() }
                 OrbStyleGlassPanel(
                     widthCap = GlassDialogWidthPickerDp,
@@ -139,6 +155,7 @@ fun ViewSettingsDialog(
                                     if (index == 0) MOUSE_MODE_TOUCHPAD else MOUSE_MODE_TABLET
                                 )
                                 mousePickerOpen = false
+                                subPanelLock = null
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -154,11 +171,16 @@ fun ViewSettingsDialog(
             }
         }
         if (resolutionPickerOpen) {
-            GlassSubOverlay(onDismissRequest = { resolutionPickerOpen = false }) {
+            GlassSubOverlay(onDismissRequest = {
+                resolutionPickerOpen = false
+                subPanelLock = null
+            }) {
                 val pickConsume = remember { MutableInteractionSource() }
                 OrbStyleGlassPanel(
                     widthCap = GlassDialogWidthPickerDp,
                     panelConsume = pickConsume,
+                    cardHeight = subPanelLock ?: lastMainCardHeight ?: GlassPickerPanelMinHeightDp,
+                    showVerticalScrollbar = true,
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     PERCENT_OPTIONS.forEach { pct ->
@@ -168,6 +190,7 @@ fun ViewSettingsDialog(
                             onClick = {
                                 onResolutionPercentChange(pct)
                                 resolutionPickerOpen = false
+                                subPanelLock = null
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -183,11 +206,16 @@ fun ViewSettingsDialog(
             }
         }
         if (scalePickerOpen) {
-            GlassSubOverlay(onDismissRequest = { scalePickerOpen = false }) {
+            GlassSubOverlay(onDismissRequest = {
+                scalePickerOpen = false
+                subPanelLock = null
+            }) {
                 val pickConsume = remember { MutableInteractionSource() }
                 OrbStyleGlassPanel(
                     widthCap = GlassDialogWidthPickerDp,
                     panelConsume = pickConsume,
+                    cardHeight = subPanelLock ?: lastMainCardHeight ?: GlassPickerPanelMinHeightDp,
+                    showVerticalScrollbar = true,
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     SCALE_OPTIONS.forEach { pct ->
@@ -197,6 +225,7 @@ fun ViewSettingsDialog(
                             onClick = {
                                 onScalePercentChange(pct)
                                 scalePickerOpen = false
+                                subPanelLock = null
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {

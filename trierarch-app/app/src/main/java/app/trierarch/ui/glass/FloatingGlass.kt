@@ -21,7 +21,13 @@ val GlassDialogScreenInsetDp = 8.dp
 
 val GlassDialogWidthStandardDp = 400.dp
 val GlassDialogWidthPickerDp = 280.dp
-val GlassDialogWidthScriptDp = 520.dp
+
+/**
+ * [OrbStyleGlassPanel] min height for [GlassSubOverlay] option lists.
+ * Short lists (e.g. two mouse modes) otherwise collapse; closing the sub-overlay then reveals a taller
+ * parent sheet and reads as a sudden height jump.
+ */
+val GlassPickerPanelMinHeightDp = 300.dp
 const val FloatingOverlayScrimAlpha = 0.22f
 
 /** Scrim color for [GlassOverlayLayer] and [GlassSubOverlay]; alpha from [FloatingOverlayScrimAlpha]. */
@@ -38,12 +44,12 @@ fun Modifier.glassDialogFullscreen(): Modifier =
     fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)
 
 /** Blur radius when [Build.VERSION_CODES.S] or newer; absent on older APIs (no heavy software blur). */
-internal val FloatingGlassBlurDp = 14.dp
+internal val FloatingGlassBlurDp = 26.dp
 
-private const val GlassHighlightApi31 = 0.065f
-private const val GlassFillApi31 = 0.022f
-private const val GlassHighlightLegacy = 0.09f
-private const val GlassFillLegacy = 0.035f
+private const val GlassHighlightApi31 = 0.120f
+private const val GlassFillApi31 = 0.070f
+private const val GlassHighlightLegacy = 0.144f
+private const val GlassFillLegacy = 0.081f
 
 /** Modifier chain step for frosted stack: real blur on API 31+, identity below. */
 fun glassBlurModifier(): Modifier =

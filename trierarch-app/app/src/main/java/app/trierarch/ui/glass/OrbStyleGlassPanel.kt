@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -25,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Dp
@@ -61,7 +63,7 @@ private fun BoxWithConstraintsScope.glassLayoutBudget(): Pair<Dp, Dp> {
 }
 
 /**
- * Centered frosted card with vertical scroll and [GlassVerticalScrollbar].
+ * Centered frosted card with vertical scroll; optional [GlassVerticalScrollbar] ([showVerticalScrollbar], e.g. tier‑3 pickers).
  *
  * Preconditions: [BoxWithConstraintsScope] under an overlay root (typically bounded).
  * [panelConsume]: [MutableInteractionSource] for the shell [clickable] (no-op); isolates panel from scrim gestures.
@@ -76,24 +78,55 @@ fun BoxWithConstraintsScope.OrbStyleGlassPanel(
     minPanelWidth: Dp = 48.dp,
     panelMinHeight: Dp = 48.dp,
     viewportMinHeight: Dp = 120.dp,
+    /** When set, fixes card height (clamped to the panel min/max height range) so sub-panels match a parent sheet. */
+    cardHeight: Dp? = null,
+    /** Invoked with the laid-out card height; use to record parent sheet size for [cardHeight] on pickers. */
+    onCardHeightChanged: ((Dp) -> Unit)? = null,
+    /** Tier‑3 option lists: show track + thumb. Tier‑1/2 omit to avoid scroll measure trade-offs and one-frame height jumps. */
+    showVerticalScrollbar: Boolean = false,
     contentPadding: PaddingValues = PaddingValues(12.dp),
     verticalArrangement: Arrangement.Vertical = Arrangement.Top,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val density = LocalDensity.current
     val (effMaxW, effMaxH) = glassLayoutBudget()
     val menuWidth = minOf(widthCap, effMaxW - edge * 2).coerceAtLeast(minPanelWidth)
     val panelMaxHeight = (effMaxH - edge * 2).coerceAtLeast(viewportMinHeight)
+    val lockedH = cardHeight?.coerceIn(panelMinHeight, panelMaxHeight)
+    val innerScrollCap = lockedH ?: panelMaxHeight
     val scrollState = rememberScrollState()
     val viewPadTop = contentPadding.calculateTopPadding()
     val viewPadBottom = contentPadding.calculateBottomPadding()
     val scrollViewport =
-        (panelMaxHeight - viewPadTop - viewPadBottom).coerceAtLeast(32.dp)
+        (innerScrollCap - viewPadTop - viewPadBottom).coerceAtLeast(32.dp)
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Box(
             modifier = Modifier
                 .width(menuWidth)
-                .wrapContentHeight()
-                .heightIn(min = panelMinHeight, max = panelMaxHeight)
+                .then(
+                    if (lockedH != null) {
+                        Modifier.height(lockedH)
+                    } else if (showVerticalScrollbar) {
+                        Modifier
+                            .heightIn(min = panelMinHeight, max = panelMaxHeight)
+                            .wrapContentHeight(align = Alignment.Top)
+                    } else {
+                        Modifier
+                            .heightIn(min = panelMinHeight, max = panelMaxHeight)
+                            .wrapContentHeight(align = Alignment.Top, unbounded = true)
+                    }
+                )
+                .then(
+                    if (onCardHeightChanged != null) {
+                        Modifier.onSizeChanged { sz ->
+                            if (sz.height > 0) {
+                                onCardHeightChanged.invoke(with(density) { sz.height.toDp() })
+                            }
+                        }
+                    } else {
+                        Modifier
+                    }
+                )
                 .clip(shape)
                 .border(
                     width = FloatingGlassRimDp,
@@ -113,28 +146,31 @@ fun BoxWithConstraintsScope.OrbStyleGlassPanel(
                     .background(brush = floatingGlassBrush(), shape = shape)
             )
             Box(Modifier.fillMaxWidth()) {
+                val scrollbarGutter = if (showVerticalScrollbar) 10.dp else 0.dp
                 Column(
                     columnModifier
                         .fillMaxWidth()
-                        .padding(end = 10.dp)
-                        .heightIn(max = panelMaxHeight)
+                        .padding(end = scrollbarGutter)
+                        .heightIn(max = innerScrollCap)
                         .verticalScroll(scrollState)
                         .padding(contentPadding),
                     verticalArrangement = verticalArrangement
                 ) {
                     content()
                 }
-                GlassVerticalScrollbar(
-                    scrollState = scrollState,
-                    viewportHeight = scrollViewport,
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(
-                            top = viewPadTop + 2.dp,
-                            end = 3.dp,
-                            bottom = viewPadBottom + 2.dp
-                        )
-                )
+                if (showVerticalScrollbar) {
+                    GlassVerticalScrollbar(
+                        scrollState = scrollState,
+                        viewportHeight = scrollViewport,
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(
+                                top = viewPadTop + 2.dp,
+                                end = 3.dp,
+                                bottom = viewPadBottom + 2.dp
+                            )
+                    )
+                }
             }
         }
     }
