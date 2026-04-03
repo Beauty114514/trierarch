@@ -59,7 +59,8 @@ fun AppScreen(startInTerminal: Boolean = false) {
      * - rootfs missing: download+extract rootfs -> ask user to restart (fresh proot session)
      * - proot running: first TerminalView layout runs RustPtySession.updateSize (forkpty winsize matches the grid)
      * - Wayland server running: WaylandBridge.nativeStartServer(runtimeDir)
-     * - view: `showWayland=false` shows the terminal; `showWayland=true` shows the compositor Surface
+     * - view: `showWayland` toggles desktop on top; **ShellScreen stays composed** underneath so
+     *   [TerminalView] / per-session [TerminalEmulator] buffers survive Display ↔ terminal switches.
      *
      * Invariants / ordering constraints:
      * - proot must be spawned before starting the Wayland server because Wayland clients live inside
@@ -383,29 +384,25 @@ fun AppScreen(startInTerminal: Boolean = false) {
 
     Box(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.fillMaxSize()) {
-            when {
-                showWayland -> {
-                    WaylandSurfaceView(
-                        runtimeDir = waylandRuntimeDir,
-                        mouseMode = mouseMode,
-                        resolutionPercent = resolutionPercent,
-                        scalePercent = scalePercent,
-                        showKeyboardTrigger = showKeyboardTrigger,
-                        keyboardWanted = keyboardWanted,
-                        onKeyboardTriggerConsumed = { showKeyboardTrigger = 0 },
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-                else -> {
-                    ShellScreen(
-                        terminalFontKey = terminalFontKey,
-                        activeSessionId = activeTerminalSessionId,
-                        terminalSessionIds = terminalSessionIds,
-                        showKeyboardTrigger = showKeyboardTrigger,
-                        onKeyboardTriggerConsumed = { showKeyboardTrigger = 0 },
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
+            ShellScreen(
+                terminalFontKey = terminalFontKey,
+                activeSessionId = activeTerminalSessionId,
+                terminalSessionIds = terminalSessionIds,
+                showKeyboardTrigger = if (showWayland) 0 else showKeyboardTrigger,
+                onKeyboardTriggerConsumed = { showKeyboardTrigger = 0 },
+                modifier = Modifier.fillMaxSize()
+            )
+            if (showWayland) {
+                WaylandSurfaceView(
+                    runtimeDir = waylandRuntimeDir,
+                    mouseMode = mouseMode,
+                    resolutionPercent = resolutionPercent,
+                    scalePercent = scalePercent,
+                    showKeyboardTrigger = showKeyboardTrigger,
+                    keyboardWanted = keyboardWanted,
+                    onKeyboardTriggerConsumed = { showKeyboardTrigger = 0 },
+                    modifier = Modifier.fillMaxSize()
+                )
             }
             if (desktopLaunchBlackout) {
                 Box(
