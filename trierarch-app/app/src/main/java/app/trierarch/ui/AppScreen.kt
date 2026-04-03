@@ -8,7 +8,6 @@ import android.os.Looper
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -73,7 +72,7 @@ fun AppScreen(startInTerminal: Boolean = false) {
      * - Default launcher entry: may auto-run Display script once, then switch to Wayland view.
      * - Terminal shortcut entry (`startInTerminal=true`): stays in terminal, never auto-runs Display.
      *
-     * Menu: [FloatingMenuOrb] (tap) opens a frosted panel near the orb; placement adapts to screen edges (no sidebar).
+     * Menu: [FloatingMenuOrb] (tap) opens a frosted panel centered on screen; orb stays draggable.
      */
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -440,8 +439,7 @@ fun AppScreen(startInTerminal: Boolean = false) {
                 showKeyboardTrigger += 1
             },
             modifier = Modifier
-                .align(Alignment.TopStart)
-                .wrapContentSize(Alignment.TopStart)
+                .fillMaxSize()
                 .graphicsLayer { clip = false }
         )
         if (settingsOpen) {

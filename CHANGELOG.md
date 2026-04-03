@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Adaptive glass menus:** the orb menu, settings sheets (view, appearance, sessions), and the display script editor now **size from the host window** via shared glass layout (`BoxWithConstraints`, width caps, and edge insets) so panels stay centered and within the screen instead of fixed dialog geometry; nested pickers use the same overlay stack.
 - **Floating menu orb:** grouped items under **Common**, **Desktop**, and **Terminal** section labels; slightly larger typography for those section headers and matching settings subtitles (e.g. View settings, Appearance).
 
 ### Fixed
