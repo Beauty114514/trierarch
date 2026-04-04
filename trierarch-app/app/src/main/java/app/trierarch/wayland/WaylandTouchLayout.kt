@@ -43,7 +43,11 @@ internal class WaylandTouchLayout(context: Context) : FrameLayout(context) {
     private val coordMapper = WaylandCoordMapper()
     private val touchpadController = WaylandTouchpadController(coordMapper, mainHandler)
     private val tabletController = WaylandTabletController(coordMapper, mainHandler)
-    private val twoFingerScroll = WaylandTwoFingerScroll(coordMapper)
+    private val twoFingerScroll = WaylandTwoFingerScroll(coordMapper) { event, timeMs ->
+        if (mouseMode == MOUSE_MODE_TOUCHPAD) {
+            touchpadController.onTwoFingerTapUpConsumed(event, timeMs)
+        }
+    }
 
     fun setKeyboardWanted(wanted: Boolean) {
         imeRecovery.setWanted(wanted)
@@ -141,6 +145,13 @@ internal class WaylandTouchLayout(context: Context) : FrameLayout(context) {
 
         if (event.actionMasked == MotionEvent.ACTION_DOWN) {
             twoFingerScroll.markNewGesture()
+        }
+
+        if (mouseMode == MOUSE_MODE_TOUCHPAD &&
+            event.actionMasked == MotionEvent.ACTION_POINTER_DOWN &&
+            event.pointerCount >= 2
+        ) {
+            touchpadController.onMultiTouchGestureStarted(event, timeMs)
         }
 
         if (twoFingerScroll.onTouchEvent(event, mouseMode, timeMs)) {

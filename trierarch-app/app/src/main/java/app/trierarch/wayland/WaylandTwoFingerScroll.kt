@@ -12,7 +12,8 @@ import app.trierarch.ui.dialog.MOUSE_MODE_TOUCHPAD
  * - Returns true when the event is consumed by scroll/two-finger-tap tracking.
  */
 internal class WaylandTwoFingerScroll(
-    private val coordMapper: WaylandCoordMapper
+    private val coordMapper: WaylandCoordMapper,
+    private val onTwoFingerTapUpConsumed: (MotionEvent, Int) -> Unit = { _, _ -> }
 ) {
     private var scrollLastCentroidX: Float? = null
     private var scrollLastCentroidY: Float? = null
@@ -82,6 +83,7 @@ internal class WaylandTwoFingerScroll(
             (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_POINTER_UP)
         ) {
             twoFingerTapPending = false
+            onTwoFingerTapUpConsumed(event, timeMs)
             return true
         }
 

@@ -128,5 +128,45 @@ internal class WaylandTouchpadController(
         holdDragRunnable?.let { handler.removeCallbacks(it) }
         holdDragRunnable = null
     }
+
+    /**
+     * Called when a second (or more) finger lands without [onTouchEvent] receiving [ACTION_POINTER_DOWN]
+     * (multi-touch is handled elsewhere first). Cancels the delayed hold-drag runnable and mirrors
+     * the state cleanup in [ACTION_POINTER_DOWN].
+     */
+    fun onMultiTouchGestureStarted(event: MotionEvent, timeMs: Int) {
+        holdDragRunnable?.let { handler.removeCallbacks(it) }
+        holdDragRunnable = null
+        touchpadAwaitingHoldDrag = false
+        if (touchpadButtonDown) {
+            coordMapper.setCursorPhysical(coordMapper.cursorX, coordMapper.cursorY)
+            val w = coordMapper.toWaylandCoords(coordMapper.cursorX, coordMapper.cursorY)
+            WaylandBridge.nativeOnPointerEvent(w[0], w[1], WaylandBridge.POINTER_ACTION_UP, timeMs)
+            touchpadButtonDown = false
+        }
+        lastX = event.getX(0)
+        lastY = event.getY(0)
+    }
+
+    /**
+     * [WaylandTwoFingerScroll] consumes the final [ACTION_UP] after a two-finger tap → right click.
+     * Sync touchpad bookkeeping so the next single-finger stream does not see stale state.
+     */
+    fun onTwoFingerTapUpConsumed(event: MotionEvent, timeMs: Int) {
+        holdDragRunnable?.let { handler.removeCallbacks(it) }
+        holdDragRunnable = null
+        touchpadAwaitingHoldDrag = false
+        if (touchpadButtonDown) {
+            coordMapper.setCursorPhysical(coordMapper.cursorX, coordMapper.cursorY)
+            val w = coordMapper.toWaylandCoords(coordMapper.cursorX, coordMapper.cursorY)
+            WaylandBridge.nativeOnPointerEvent(w[0], w[1], WaylandBridge.POINTER_ACTION_UP, timeMs)
+            touchpadButtonDown = false
+        }
+        if (event.pointerCount > 0) {
+            val idx = event.actionIndex.coerceIn(0, event.pointerCount - 1)
+            lastX = event.getX(idx)
+            lastY = event.getY(idx)
+        }
+    }
 }
 
