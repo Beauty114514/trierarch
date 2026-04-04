@@ -25,6 +25,8 @@ internal class WaylandTouchpadController(
         const val TAP_THRESHOLD = 15f
         const val TOUCHPAD_TAP_MAX_MS = 180L
         const val TOUCHPAD_HOLD_DRAG_MS = 220L
+        /** Cursor delta vs finger delta in view space (was 1:1). */
+        const val POINTER_MOVE_SCALE = 2.5f
     }
 
     fun onTouchEvent(event: MotionEvent, timeMs: Int): Boolean {
@@ -85,7 +87,7 @@ internal class WaylandTouchpadController(
                     holdDragRunnable = null
                     touchpadAwaitingHoldDrag = false
                 }
-                coordMapper.moveCursorBy(dx, dy)
+                coordMapper.moveCursorBy(dx * POINTER_MOVE_SCALE, dy * POINTER_MOVE_SCALE)
                 val w = coordMapper.toWaylandCoords(coordMapper.cursorX, coordMapper.cursorY)
                 coordMapper.setCursorPhysical(coordMapper.cursorX, coordMapper.cursorY)
                 WaylandBridge.nativeOnPointerEvent(w[0], w[1], WaylandBridge.POINTER_ACTION_POINTER_MOVE, timeMs)
