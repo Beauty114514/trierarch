@@ -175,8 +175,18 @@ void compositor_pointer_axis_event(wayland_server_t *srv_opaque, uint32_t time_m
         float delta_x, float delta_y, uint32_t axis_source) {
     if (!srv_opaque) return;
     struct wayland_server *srv = (struct wayland_server *)srv_opaque;
-    wl_fixed_t vy = wl_fixed_from_double((double)(-delta_y)); /* Android Y down = scroll up */
-    wl_fixed_t vx = wl_fixed_from_double((double)delta_x);
+    /*
+     * JNI deltas: Kotlin sends two-finger centroid deltas (dx, dy) in surface pixels, or
+     * (-AXIS_HSCROLL, -AXIS_VSCROLL) for a physical wheel. Map to wl_pointer axis values:
+     * vertical positive = scroll down, horizontal positive = scroll right.
+     * Finger centroid dy follows Android surface Y (down positive); wheel uses MotionEvent axes.
+     * Horizontal matches after negating dx; vertical matches wheel only if finger dy is negated here.
+     */
+    float dy = delta_y;
+    if (axis_source == WL_POINTER_AXIS_SOURCE_FINGER)
+        dy = -dy;
+    wl_fixed_t vy = wl_fixed_from_double((double)dy);
+    wl_fixed_t vx = wl_fixed_from_double((double)(-delta_x));
     if (vy == 0 && vx == 0) return;
     pthread_mutex_lock(&srv->surfaces_mutex);
     struct compositor_surface *surf = srv->pointer_focus;
