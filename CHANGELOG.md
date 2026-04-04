@@ -7,28 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+## [0.3.0] — unreleased (source-only milestone)
 
+### Added
+- In-app **terminal emulator** (Termux `TerminalView`) for the proot shell, with bundled **monospace fonts**, **Appearance** selection, and **`assets/licenses/FONT_LICENSES.txt`** (SIL OFL 1.1 and Apache 2.0).
 - **Multi-session terminal:** native **per-session PTY** (spawn/close, per-session stdin and PTY output relay) with Kotlin **Session** UI (orb menu → list, switch, add, remove tabs). Terminal sessions use ids **1, 2, …**.
 - **Display session separation:** **Display startup script** is injected on **session 0** (dedicated shell), independent of interactive terminal sessions, so desktop bootstrap and terminal tabs no longer share one stdin/PTY.
 
 ### Changed
-
-- **Adaptive glass menus:** the orb menu, settings sheets (view, appearance, sessions), and the display script editor now **size from the host window** via shared glass layout (`BoxWithConstraints`, width caps, and edge insets) so panels stay centered and within the screen instead of fixed dialog geometry; nested pickers use the same overlay stack.
-- **Floating menu orb:** grouped items under **Common**, **Desktop**, and **Terminal** section labels; slightly larger typography for those section headers and matching settings subtitles (e.g. View settings, Appearance).
-
-### Fixed
-
----
-
-## [0.3.0] — 2026-04-02 (source-only milestone)
-
-### Added
-- In-app **terminal emulator** (Termux `TerminalView`) for the proot shell, with bundled **monospace fonts**, **Appearance** selection, and **`assets/licenses/FONT_LICENSES.txt`** (SIL OFL 1.1 and Apache 2.0).
-
-### Changed
 - **Terminal** screen respects **status bar** and **soft keyboard** insets.
 - **UI codebase** reorganized into **orb**, **glass**, **dialogs**, **shell**, and **setup** modules, with matching **native** updates.
+- **Pointer sensitivity:** separate **scroll axis scaling** for physical wheel vs two-finger gestures in the compositor, and **faster simulated touchpad cursor** movement (finger delta × 2.5) in touchpad mode.
+- **Adaptive glass menus:** the orb menu, settings sheets (view, appearance, sessions), and the display script editor now **size from the host window** via shared glass layout (`BoxWithConstraints`, width caps, and edge insets) so panels stay centered and within the screen instead of fixed dialog geometry; nested pickers use the same overlay stack.
+- **Floating menu orb:** grouped items under **Common**, **Desktop**, and **Terminal** section labels; slightly larger typography for those section headers and matching settings subtitles (e.g. View settings, Appearance).
 
 ### Removed
 - Older **placeholder terminal** UI and superseded **monolithic** glass/menu sources.
