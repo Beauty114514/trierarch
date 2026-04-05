@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.3.0] — unreleased (source-only milestone)
+## [0.3.0] — 2026-04-04
 
 ### Added
 - In-app **terminal emulator** (Termux `TerminalView`) for the proot shell, with bundled **monospace fonts**, **Appearance** selection, and **`assets/licenses/FONT_LICENSES.txt`** (SIL OFL 1.1 and Apache 2.0).
