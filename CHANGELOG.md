@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Floating menu orb:** grouped items under **Common**, **Desktop**, and **Terminal** section labels; slightly larger typography for those section headers and matching settings subtitles (e.g. View settings, Appearance).
 
 ### Fixed
+- **View Settings (Wayland output):** **Scale** had no effect and **Resolution** vs **Scale** did not behave distinctly (only changing resolution drove UI size). Both sliders now apply as intended.
 - **Floating menu orb:** fix **size/layout calculation** that could **crash** the app when opening the glass menu.
 - **Touchpad mode (Wayland):** two-finger gestures no longer leave a **delayed left-press** (hold-drag runnable was not canceled when the second finger was handled elsewhere) or **inconsistent state** after a two-finger tap → right click (final `ACTION_UP` consumed without syncing the simulated touchpad controller).
 
