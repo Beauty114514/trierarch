@@ -8,9 +8,9 @@
 
 ## Demo
 
-| KDE Plasma (Wayland) | Firefox (inside proot) |
+| KDE Plasma (Wayland) | VS Code (inside proot) |
 |------------------------|-------------------------|
-| ![KDE Plasma desktop](docs/images/desktop.jpg) | ![Firefox](docs/images/firefox.jpg) |
+| ![KDE Plasma desktop](docs/images/desktop.jpg) | ![VS Code](docs/images/vscode.jpg) |
 
 ---
 
@@ -30,7 +30,7 @@ In the proot Arch shell, **update first, then install the desktop** (example; ad
 
 ```bash
 pacman -Syu
-pacman -S plasma-desktop dolphin konsole
+pacman -S plasma-meta dolphin konsole
 ```
 
 ## 3. Floating menu orb and Display (open menu, set Display script, start the desktop)
@@ -51,13 +51,36 @@ pacman -S plasma-desktop dolphin konsole
 dbus-launch --exit-with-session startplasma-wayland > /dev/null 2>&1 &
 ```
 
+Even in a **proot** environment, it is good practice to **run the desktop as a normal user**, not as root. If you want to dig deeper, read ArchWiki **[Users and groups](https://wiki.archlinux.org/title/Users_and_groups)** and **[Sudo](https://wiki.archlinux.org/title/Sudo)**; otherwise the short recipe below is enough.
+
+**Create a user and sudo (example user `myuser`):**
+
+```bash
+pacman -S sudo
+useradd -m -G wheel -s /bin/bash myuser
+passwd myuser
+EDITOR=nano visudo
+```
+
+In the editor, you can either **uncomment** the line `%wheel ALL=(ALL:ALL) ALL` so everyone in group `wheel` may use `sudo`, **or** leave that line as-is and **add below it** a dedicated rule, e.g. `myuser ALL=(ALL:ALL) ALL`. Alternatively, add a file under `/etc/sudoers.d/` (same syntax; use `visudo -f /etc/sudoers.d/myuser` to avoid syntax errors). Save and exit.
+
+In the **Display** script editor (long-press **Display**), start Plasma **as that user** so files under `/home/myuser` belong to the session: **first line** switch to the account, **Enter**, **second line** the startup command. See the screenshot below.
+
 ![Display in orb menu](docs/images/displayScript.jpg)
+
+**Sessions** (orb menu) lists terminal tabs—switch, add, or remove sessions.
+
+![Sessions](docs/images/sessionSettings.jpg)
+
+**Appearance** (orb menu): customize the in-app **Terminal** look—**fonts only** for now. For further beautification or theming ideas, **open an issue**—reasonable suggestions welcome.
+
+![Appearance settings](docs/images/appearenceSettings.jpg)
 
 ## 4. Daily use: tap app to auto-start the desktop
 
 After you have set a Display startup script, you can **tap the app icon normally** to enter the desktop view; the app will **inject and run the Display script automatically** (idempotent when a desktop client is already connected).
 
-The **Terminal** shortcut is mainly for initialization (installing a desktop + terminal app) or as a fallback when you don’t have a terminal available inside the desktop yet.
+The **Terminal** shortcut is for **first-time setup** (e.g. installing the desktop and terminal packages) or when you **prefer the in-app native terminal**—it’s optimized for **smooth switching** between the **desktop and terminal** views.
 
 ## 5. After Plasma starts: View Settings and terminal ↔ desktop switching
 
@@ -74,7 +97,15 @@ Open **View Settings** from the orb menu to tune the compositor and pointer beha
 
 After Plasma is running, tap **Display** in the orb menu again to return to the **terminal / Wayland** view; **open the orb menu → Display** to go back to the desktop. The orb menu and Display work in both the shell view and on the desktop.
 
-## 6. Keyboard and input (orb menu Keyboard, GTK / Qt)
+## 6. In-rootfs tuning (`trierarch-optimize`)
+
+For topic guides (browser, IME, fonts, etc.) after you’re on the desktop, see **[`trierarch-optimize/README.md`](trierarch-optimize/README.md)** ([中文](trierarch-optimize/README.zh.md)).
+
+**Strongly recommended:** fix **Baloo / virtual `tags:/`** issues common under **proot** (otherwise repeated pop-ups and wasted resources). Follow **[Baloo and `tags:/`](trierarch-optimize/baloo-tags-warning.md)** ([中文](trierarch-optimize/baloo-tags-warning.zh.md)).
+
+For general Arch setup and troubleshooting, use **[ArchWiki](https://wiki.archlinux.org/)** and the **[Arch Linux Chinese Wiki](https://wiki.archlinuxcn.org/)**. This app is **proot + Wayland**; some full-desktop assumptions (kernel, systemd sessions, …) may not apply.
+
+## 7. Keyboard and input (orb menu Keyboard, GTK / Qt)
 
 The **Keyboard** item in the orb menu can **invoke** the soft keyboard.
 
@@ -84,15 +115,11 @@ In **GTK** apps you can enter **non-ASCII** characters (Chinese, emoji, special 
 
 **Qt** apps often don’t support that path: type in a **GTK** app first (**Mousepad**), then **copy/paste** into Qt. The **Android soft keyboard** and **Plasma clipboard** are **not integrated**—copy/paste inside Linux using the mouse or shortcuts (e.g. `Ctrl+C`, `Ctrl+V`). You can use a full soft keyboard such as [**Unexpected Keyboard**](https://play.google.com/store/apps/details?id=juloo.keyboard2) ([GitHub](https://github.com/Julow/Unexpected-Keyboard)).
 
-## 7. In-rootfs tuning (`trierarch-optimize`) and Arch documentation
-
-Topic guides for **tuning apps inside the rootfs desktop** are in **[`trierarch-optimize/README.md`](trierarch-optimize/README.md)** ([中文](trierarch-optimize/README.zh.md)), with links to articles (Firefox, non-ASCII input and fonts, etc.).
-
-For **general Arch Linux** setup, packages, and troubleshooting, use **[ArchWiki](https://wiki.archlinux.org/)** and the **[Arch Linux Chinese Wiki](https://wiki.archlinuxcn.org/)**. This app provides **proot + Wayland** on a phone; many Arch steps match a normal desktop install, but kernel features, full **systemd** sessions, etc. may differ.
+## 8. Build, changes, and releases
 
 To build from source, see [`README_DEV.md`](README_DEV.md). **Contributing & security:** [`CONTRIBUTING.md`](CONTRIBUTING.md), [`SECURITY.md`](SECURITY.md); changes in [`CHANGELOG.md`](CHANGELOG.md); releases: [`docs/RELEASING.md`](docs/RELEASING.md).
 
-## Acknowledgments and licenses
+## 9. Acknowledgments and licenses
 
 This section covers: **thanks to upstreams**, **bundled terminal font licenses**, and **other in-tree code** (see each tree’s `COPYING` / `LICENSE`).
 

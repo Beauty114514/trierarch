@@ -8,9 +8,9 @@
 
 ## 演示
 
-| KDE Plasma（Wayland） | Firefox（proot 内） |
+| KDE Plasma（Wayland） | VS Code（proot 内） |
 |----------------------|---------------------|
-| ![KDE Plasma 桌面](docs/images/desktop.jpg) | ![Firefox](docs/images/firefox.jpg) |
+| ![KDE Plasma 桌面](docs/images/desktop.jpg) | ![VS Code](docs/images/vscode.jpg) |
 
 ---
 
@@ -30,7 +30,7 @@
 
 ```bash
 pacman -Syu
-pacman -S plasma-desktop dolphin konsole
+pacman -S plasma-meta dolphin konsole
 ```
 
 ## 3. 悬浮菜单球与 Display（打开菜单、设置启动脚本、启动桌面）
@@ -51,13 +51,36 @@ pacman -S plasma-desktop dolphin konsole
 dbus-launch --exit-with-session startplasma-wayland > /dev/null 2>&1 &
 ```
 
+即便在 **proot** 里，也建议**不要用 root 长期跑桌面**：像真机一样**建普通用户**、设密码、用**用户组 / sudo** 管理权限。愿意可自行查阅 ArchWiki（英文 **[Users and groups](https://wiki.archlinux.org/title/Users_and_groups)**；中文 **[用户和用户组](https://wiki.archlinuxcn.org/wiki/用户和用户组)**、**[Sudo](https://wiki.archlinuxcn.org/wiki/Sudo)**）；不依赖 Wiki 时，按下面步骤即可。
+
+**创建用户并配置 sudo（示例用户名为 `myuser`）：**
+
+```bash
+pacman -S sudo
+useradd -m -G wheel -s /bin/bash myuser
+passwd myuser
+EDITOR=nano visudo
+```
+
+在 `visudo` 里可以：**取消注释** `%wheel ALL=(ALL:ALL) ALL`，让 `wheel` 组用户都能用 `sudo`；**或者**保留该行不动，在它**下面另起一行**写上 `myuser ALL=(ALL:ALL) ALL`，只给该用户提权。也可以在 **`/etc/sudoers.d/`** 下单独放规则文件（语法相同；可用 `visudo -f /etc/sudoers.d/myuser` 编辑以免写坏语法）。保存退出。
+
+在 **Display** 启动脚本**编辑框**里（长按 **Display**），应让 Plasma **以该用户身份**启动，家目录与文件归属才正常：**第一行**切换到该用户，**回车**，**第二行**写启动命令。**如图所示。**
+
 ![球菜单中的 Display](docs/images/displayScript.jpg)
+
+**Sessions（会话）** 在球菜单中可列出终端标签页，切换、新建或关闭会话。
+
+![Sessions](docs/images/sessionSettings.jpg)
+
+**外观（Appearance）**：可对应用内 **Terminal** 进行**自定义美化**（**目前仅有** shell **字体**）；若今后还有其它美化想法，请 **开 issue**，合理意见会采纳。
+
+![外观设置](docs/images/appearenceSettings.jpg)
 
 ## 4. 日常使用：点应用自动启动桌面
 
 当你设置好 Display 启动脚本后，后续**直接点击应用图标**即可进入桌面视图，应用会**自动注入并执行**该脚本（当已有桌面客户端连接时具备幂等保护，不会重复执行）。
 
-**Terminal shortcut** 主要用于初始化（例如安装桌面与终端应用），或当桌面环境里暂时没有可用终端时作为备用入口。
+**Terminal shortcut**：适用于**初始化**（例如安装桌面与终端应用），或当您**更偏好本应用内置的原生终端**时。请放心，我们已对此优化，**桌面与终端**之间切换十分流畅。
 
 ## 5. 进入桌面后：View Settings 与终端 / 桌面切换
 
@@ -74,7 +97,15 @@ dbus-launch --exit-with-session startplasma-wayland > /dev/null 2>&1 &
 
 **进入桌面（Plasma）后**，在球菜单中再点 **Display** 可回到**终端 / Wayland 界面**；**再打开球菜单**，点 **Display** 即可**回到桌面画面**。球菜单与 Display 在终端界面与桌面中均可使用。
 
-## 6. 键盘与输入（球菜单 Keyboard、GTK / Qt）
+## 6. rootfs 内调优（`trierarch-optimize`）
+
+进入桌面后若要在 **rootfs** 里继续折腾浏览器、输入法、字体等，可查阅 **[`trierarch-optimize/README.zh.md`](trierarch-optimize/README.zh.md)**（[English](trierarch-optimize/README.md)）中的专题索引。
+
+**强烈建议**尽早处理 KDE **Baloo 索引 / 虚拟 `tags:/`** 在 **proot** 下常见的报错与弹窗（否则可能反复打扰、占用资源）。步骤见 **[Baloo 与 `tags:/` 说明](trierarch-optimize/baloo-tags-warning.zh.md)**（[English](trierarch-optimize/baloo-tags-warning.md)）。
+
+一般性的 Arch 安装与排错仍以 **[ArchWiki](https://wiki.archlinux.org/)**、**[Arch Linux 中文维基](https://wiki.archlinuxcn.org/)** 为准；本应用提供的是 **proot + Wayland**，与完整桌面 Arch 相比，部分场景（内核、systemd 会话等）可能受限。
+
+## 7. 键盘与输入（球菜单 Keyboard、GTK / Qt）
 
 球菜单中的 **Keyboard** 可**唤起**软键盘。
 
@@ -84,15 +115,11 @@ dbus-launch --exit-with-session startplasma-wayland > /dev/null 2>&1 &
 
 **Qt 类应用**对同一路径往往不完整：可先在 **GTK 应用**（推荐 **Mousepad**）里输入，再**复制粘贴**到 Qt 应用。**目前 Android 软键盘与 Plasma 桌面剪贴板未打通**，复制粘贴请在 Linux 侧通过鼠标或快捷键完成（如 `Ctrl+C`、`Ctrl+V`）。可用 [**Unexpected Keyboard**](https://play.google.com/store/apps/details?id=juloo.keyboard2) 等全键盘软键盘（[GitHub](https://github.com/Julow/Unexpected-Keyboard)）。
 
-## 7. 软件与体验优化（trierarch-optimize）与 Arch 文档
-
-在 **rootfs 桌面环境内**优化软件使用的**专题教程**见仓库内 **[`trierarch-optimize/README.zh.md`](trierarch-optimize/README.zh.md)**（[English](trierarch-optimize/README.md)），索引内链接各篇说明（如 Firefox、非 ASCII 输入与字体等）。
-
-**Arch Linux 通用折腾与包管理**：系统配置、软件安装、故障排除等，请以 **[ArchWiki（英文）](https://wiki.archlinux.org/)** 与 **[Arch Linux 中文维基](https://wiki.archlinuxcn.org/)** 为准；本应用提供的是 **proot + Wayland** 运行环境，许多 Arch 侧操作与常规桌面 Arch 相同，但部分涉及内核、systemd 完整会话等场景可能受限，需结合实际环境判断。
+## 8. 构建、变更与发版
 
 如需从源码构建应用，见 [`README_DEV.zh.md`](README_DEV.zh.md)。**贡献与安全：** [`CONTRIBUTING.zh.md`](CONTRIBUTING.zh.md)、[`SECURITY.zh.md`](SECURITY.zh.md)；变更见 [`CHANGELOG.md`](CHANGELOG.md)；发版见 [`docs/RELEASING.zh.md`](docs/RELEASING.zh.md)。
 
-## 致谢与许可证
+## 9. 致谢与许可证
 
 本节汇总：**开源致谢**、**内置终端字体许可证**、**其余随包代码**（各目录内 `COPYING` / `LICENSE`）。
 
