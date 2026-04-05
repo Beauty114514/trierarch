@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Adaptive glass menus:** the orb menu, settings sheets (view, appearance, sessions), and the display script editor now **size from the host window** via shared glass layout (`BoxWithConstraints`, width caps, and edge insets) so panels stay centered and within the screen instead of fixed dialog geometry; nested pickers use the same overlay stack.
 - **Floating menu orb:** grouped items under **Common**, **Desktop**, and **Terminal** section labels; slightly larger typography for those section headers and matching settings subtitles (e.g. View settings, Appearance).
 
+### Fixed
+- **Touchpad mode (Wayland):** two-finger gestures no longer leave a **delayed left-press** (hold-drag runnable was not canceled when the second finger was handled elsewhere) or **inconsistent state** after a two-finger tap → right click (final `ACTION_UP` consumed without syncing the simulated touchpad controller).
+
 ### Removed
 - Older **placeholder terminal** UI and superseded **monolithic** glass/menu sources.
 
