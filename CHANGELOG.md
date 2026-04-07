@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-04-07
+
 ### Added
 - **Audio (PulseAudio):** host PulseAudio daemon with an **AAudio** sink, exposed to the proot desktop over a **Unix socket**. To avoid silent output when the desktop picks the default **Null Output**, Trierarch now **auto-injects** a small snippet into the saved **Display startup script** that waits for PulseAudio and runs `pactl set-default-sink trierarch-out` (idempotent).
 
@@ -96,7 +98,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial public monorepo layout: Android app, Rust JNI, proot, Wayland compositor, optimize docs.
 
-[Unreleased]: https://github.com/Beauty114514/trierarch/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Beauty114514/trierarch/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Beauty114514/trierarch/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Beauty114514/trierarch/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/Beauty114514/trierarch/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/Beauty114514/trierarch/compare/v0.2.1...v0.2.2

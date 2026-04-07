@@ -22,8 +22,8 @@ android {
         targetSdk = 36
         // versionName: user-visible, align with git tag / Release (e.g. v0.1.0 → "0.1.0").
         // versionCode: positive integer, must increase for every new APK you ship (Play / sideload).
-        versionCode = 6
-        versionName = "0.3.0"
+        versionCode = 7
+        versionName = "0.4.0"
     }
 
     signingConfigs {
