@@ -217,12 +217,18 @@ static void *render_loop(void *arg) {
 }
 
 static void stop_dispatch(void) {
-    if (g_dispatch_created) { g_stop_dispatch = 1; pthread_join(g_dispatch_thread, NULL); g_dispatch_created = 0; g_stop_dispatch = 0; }
+    if (!g_dispatch_created) return;
+    g_stop_dispatch = 1;
+    pthread_join(g_dispatch_thread, NULL);
+    g_dispatch_created = 0;
+    g_stop_dispatch = 0;
 }
 static void start_dispatch(void) {
     if (g_dispatch_created || !g_server) return;
     g_stop_dispatch = 0;
-    if (pthread_create(&g_dispatch_thread, NULL, dispatch_loop, NULL) == 0) g_dispatch_created = 1;
+    if (pthread_create(&g_dispatch_thread, NULL, dispatch_loop, NULL) == 0) {
+        g_dispatch_created = 1;
+    }
 }
 
 JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeStartServer(JNIEnv *env, jobject thiz, jstring runtime_dir) {
@@ -231,7 +237,9 @@ JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeStartServer(JNIEnv
     const char *dir = (*env)->GetStringUTFChars(env, runtime_dir, NULL);
     if (!dir) return;
     mkdir(dir, 0700);
-    if (!g_server) g_server = compositor_create(dir);
+    if (!g_server) {
+        g_server = compositor_create(dir);
+    }
     (*env)->ReleaseStringUTFChars(env, runtime_dir, dir);
     if (g_server && !g_render_created) start_dispatch();
 }
@@ -242,21 +250,45 @@ JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeSurfaceCreated(JNI
     const char *dir = (*env)->GetStringUTFChars(env, runtime_dir, NULL);
     if (!dir) return;
     mkdir(dir, 0700);
-    struct sigaction sa; sa.sa_sigaction = crash_handler; sigemptyset(&sa.sa_mask); sa.sa_flags = SA_SIGINFO;
-    sigaction(SIGSEGV, &sa, NULL); sigaction(SIGABRT, &sa, NULL);
-    if (!g_server) g_server = compositor_create(dir);
+    struct sigaction sa;
+    sa.sa_sigaction = crash_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_SIGINFO;
+    sigaction(SIGSEGV, &sa, NULL);
+    sigaction(SIGABRT, &sa, NULL);
+
+    if (!g_server) {
+        g_server = compositor_create(dir);
+    }
     (*env)->ReleaseStringUTFChars(env, runtime_dir, dir);
     if (!g_server) return;
     stop_dispatch();
     g_running = 0;
-    if (g_render_created) { pthread_join(g_render_thread, NULL); g_render_created = 0; }
-    if (g_renderer) { renderer_destroy(g_renderer); g_renderer = NULL; }
-    if (g_window) { ANativeWindow_release(g_window); g_window = NULL; }
+    if (g_render_created) {
+        pthread_join(g_render_thread, NULL);
+        g_render_created = 0;
+    }
+    if (g_renderer) {
+        renderer_destroy(g_renderer);
+        g_renderer = NULL;
+    }
+    if (g_window) {
+        ANativeWindow_release(g_window);
+        g_window = NULL;
+    }
     usleep(50000);
     g_window = ANativeWindow_fromSurface(env, surface);
-    if (!g_window) { start_dispatch(); return; }
+    if (!g_window) {
+        start_dispatch();
+        return;
+    }
     g_renderer = renderer_create(g_window, (struct wayland_server *)g_server);
-    if (!g_renderer) { ANativeWindow_release(g_window); g_window = NULL; start_dispatch(); return; }
+    if (!g_renderer) {
+        ANativeWindow_release(g_window);
+        g_window = NULL;
+        start_dispatch();
+        return;
+    }
     int pw = 0, ph = 0;
     renderer_get_size(g_renderer, &pw, &ph);
     int rp = (resolution_percent >= 10 && resolution_percent <= 100) ? (int)resolution_percent : 100;
@@ -290,16 +322,27 @@ JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeSurfaceCreated(JNI
 }
 
 JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeSurfaceDestroyed(JNIEnv *env, jobject thiz) {
-    (void)env;(void)thiz;
+    (void)env;
+    (void)thiz;
     g_running = 0;
-    if (g_render_created) { pthread_join(g_render_thread, NULL); g_render_created = 0; }
-    if (g_renderer) { renderer_destroy(g_renderer); g_renderer = NULL; }
-    if (g_window) { ANativeWindow_release(g_window); g_window = NULL; }
+    if (g_render_created) {
+        pthread_join(g_render_thread, NULL);
+        g_render_created = 0;
+    }
+    if (g_renderer) {
+        renderer_destroy(g_renderer);
+        g_renderer = NULL;
+    }
+    if (g_window) {
+        ANativeWindow_release(g_window);
+        g_window = NULL;
+    }
     start_dispatch();
 }
 
 JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeOutputSizeChanged(JNIEnv *env, jobject thiz, jint width, jint height, jint resolution_percent, jint scale_percent) {
-    (void)env;(void)thiz;
+    (void)env;
+    (void)thiz;
     if (!g_server || width <= 0 || height <= 0) return;
     int rp = (resolution_percent >= 10 && resolution_percent <= 100) ? (int)resolution_percent : 100;
     int sp = (scale_percent >= 100 && scale_percent <= 1000 && (scale_percent % 100) == 0)
@@ -324,46 +367,57 @@ JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeOutputSizeChanged(
 }
 
 JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeOnPointerEvent(JNIEnv *env, jobject thiz, jfloat x, jfloat y, jint action, jint timeMs) {
-    (void)env;(void)thiz;
+    (void)env;
+    (void)thiz;
     if (!g_server) return;
     compositor_pointer_event(g_server, (float)x, (float)y, (int)action, (uint32_t)timeMs);
 }
 
 JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeOnPointerAxis(JNIEnv *env, jobject thiz, jfloat deltaX, jfloat deltaY, jint timeMs, jint axisSource) {
-    (void)env;(void)thiz;
+    (void)env;
+    (void)thiz;
     if (!g_server) return;
     compositor_pointer_axis_event(g_server, (uint32_t)timeMs, (float)deltaX, (float)deltaY, (uint32_t)axisSource);
 }
 
 JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeOnPointerRightClick(JNIEnv *env, jobject thiz, jfloat x, jfloat y, jint timeMs) {
-    (void)env;(void)thiz;
+    (void)env;
+    (void)thiz;
     if (!g_server) return;
     compositor_pointer_right_click(g_server, (uint32_t)timeMs, (float)x, (float)y);
 }
 
 JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeSetCursorPhysical(JNIEnv *env, jobject thiz, jfloat x, jfloat y) {
-    (void)env;(void)thiz;
+    (void)env;
+    (void)thiz;
     if (!g_server) return;
     compositor_set_cursor_physical(g_server, (float)x, (float)y);
 }
 
 JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeSetCursorVisible(JNIEnv *env, jobject thiz, jboolean visible) {
-    (void)env;(void)thiz;
+    (void)env;
+    (void)thiz;
     if (!g_server) return;
     compositor_set_cursor_visible(g_server, visible ? true : false);
 }
 
 JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeStopWayland(JNIEnv *env, jobject thiz) {
-    (void)env;(void)thiz;
+    (void)env;
+    (void)thiz;
     g_running = 0;
-    if (g_render_created) { pthread_join(g_render_thread, NULL); g_render_created = 0; }
+    if (g_render_created) {
+        pthread_join(g_render_thread, NULL);
+        g_render_created = 0;
+    }
     stop_dispatch();
-    wayland_server_t *s = g_server; g_server = NULL;
+    wayland_server_t *s = g_server;
+    g_server = NULL;
     if (s) compositor_destroy(s);
 }
 
 JNIEXPORT jboolean JNICALL Java_app_trierarch_WaylandBridge_nativeIsWaylandReady(JNIEnv *env, jobject thiz) {
-    (void)env;(void)thiz;
+    (void)env;
+    (void)thiz;
     return (g_renderer && renderer_is_valid(g_renderer)) ? JNI_TRUE : JNI_FALSE;
 }
 
@@ -390,14 +444,17 @@ JNIEXPORT jstring JNICALL Java_app_trierarch_WaylandBridge_nativeGetSocketDir(JN
 }
 
 JNIEXPORT jboolean JNICALL Java_app_trierarch_WaylandBridge_nativeHasActiveClients(JNIEnv *env, jobject thiz) {
-    (void)env;(void)thiz;
+    (void)env;
+    (void)thiz;
     if (!g_server) return JNI_FALSE;
     return compositor_has_toplevel_client(g_server) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeOnKeyEvent(JNIEnv *env, jobject thiz,
         jint keyCode, jint metaState, jboolean isDown, jlong timeMs) {
-    (void)env;(void)thiz;(void)metaState;
+    (void)env;
+    (void)thiz;
+    (void)metaState;
     if (!g_server) return;
     uint32_t key_linux = android_keycode_to_linux(keyCode);
     if (key_linux == 0) return;

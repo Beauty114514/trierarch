@@ -28,12 +28,7 @@ impl Drop for ChildProcess {
 pub fn fork_pty_shell(
     initial_rows: u16,
     initial_cols: u16,
-) -> Result<(
-    ChildProcess,
-    std::fs::File,
-    Box<dyn Write + Send>,
-    RawFd,
-)> {
+) -> Result<(ChildProcess, std::fs::File, Box<dyn Write + Send>, RawFd)> {
     let rootfs = super::application_context::rootfs_dir()?;
     let (argv, env) = args::build_exec_args(&rootfs)?;
 

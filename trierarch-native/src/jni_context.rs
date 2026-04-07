@@ -49,7 +49,9 @@ pub fn init_pty_output_jni(env: &mut JNIEnv) -> Result<()> {
         let cls = env
             .find_class("app/trierarch/PtyOutputRelay")
             .context("find_class PtyOutputRelay")?;
-        let g = env.new_global_ref(&cls).context("global_ref PtyOutputRelay")?;
+        let g = env
+            .new_global_ref(&cls)
+            .context("global_ref PtyOutputRelay")?;
         let _ = PTY_RELAY_CLASS.set(g);
     }
     Ok(())
@@ -68,8 +70,7 @@ pub fn spawn_session(session_id: i32, initial_rows: u16, initial_cols: u16) -> R
     if map.contains_key(&session_id) {
         return Ok(());
     }
-    let (child, read_file, stdin, master_fd) =
-        proot::fork_pty_shell(initial_rows, initial_cols)?;
+    let (child, read_file, stdin, master_fd) = proot::fork_pty_shell(initial_rows, initial_cols)?;
     map.insert(
         session_id,
         PtySession {
@@ -102,11 +103,7 @@ pub fn is_session_alive(session_id: i32) -> bool {
 }
 
 pub fn any_session_alive() -> bool {
-    SESSIONS
-        .lock()
-        .ok()
-        .map(|m| !m.is_empty())
-        .unwrap_or(false)
+    SESSIONS.lock().ok().map(|m| !m.is_empty()).unwrap_or(false)
 }
 
 pub fn write_input(session_id: i32, bytes: &[u8]) -> Result<()> {
@@ -119,7 +116,9 @@ pub fn write_input(session_id: i32, bytes: &[u8]) -> Result<()> {
     s.stdin
         .write_all(bytes)
         .map_err(|e| anyhow::anyhow!("stdin write: {}", e))?;
-    s.stdin.flush().map_err(|e| anyhow::anyhow!("stdin flush: {}", e))?;
+    s.stdin
+        .flush()
+        .map_err(|e| anyhow::anyhow!("stdin flush: {}", e))?;
     Ok(())
 }
 

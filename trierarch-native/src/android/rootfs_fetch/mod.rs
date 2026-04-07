@@ -10,7 +10,9 @@
 //! This module is Trierarch-owned logic (not vendored) and should keep comments focused on
 //! invariants, failure semantics, and on-disk state transitions.
 
-use super::application_context::{get_application_context, has_rootfs, rootfs_dir, ROOTFS_READY_SENTINEL};
+use super::application_context::{
+    get_application_context, has_rootfs, rootfs_dir, ROOTFS_READY_SENTINEL,
+};
 use anyhow::{Context, Result};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -61,7 +63,8 @@ pub fn ensure_arch_rootfs_with_progress(progress: Option<ProgressFn>) -> Result<
 
     loop {
         if tarball_path.exists() {
-            let existing = download::sha256_file(&tarball_path).context("sha256 existing tarball")?;
+            let existing =
+                download::sha256_file(&tarball_path).context("sha256 existing tarball")?;
             if existing == TARBALL_SHA256 {
                 break;
             }
@@ -75,7 +78,8 @@ pub fn ensure_arch_rootfs_with_progress(progress: Option<ProgressFn>) -> Result<
 
         report(0, "Downloading Arch Linux FS...");
         let _ = std::fs::remove_file(&tarball_tmp);
-        match download::download_tarball_with_progress(&tarball_tmp, &tarball_path, 0, 70, &report) {
+        match download::download_tarball_with_progress(&tarball_tmp, &tarball_path, 0, 70, &report)
+        {
             Ok(()) => break,
             Err(e) => {
                 log::warn!("Download failed, retrying: {:?}", e);

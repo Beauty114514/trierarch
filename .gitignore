@@ -23,6 +23,11 @@ trierarch-app/app/src/main/jniLibs/
 # Pulse prefix synced by trierarch-audio/build-android/build-pulse-android.sh
 trierarch-app/app/src/main/assets/pulse/
 
+# --- trierarch-audio (PulseAudio port/build) ---
+# Upstream clones + build outputs live here; keep only our scripts/patches/modules tracked.
+trierarch-audio/third_party/
+trierarch-audio/out/
+
 # --- Drivers (currently not used in app build pipeline) ---
 trierarch-drivers/
 

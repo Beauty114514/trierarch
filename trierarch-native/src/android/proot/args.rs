@@ -77,7 +77,9 @@ pub(super) fn build_exec_args(rootfs: &std::path::Path) -> Result<(Vec<CString>,
             use std::os::unix::fs::PermissionsExt;
             let _ = std::fs::set_permissions(&x11_dir, std::fs::Permissions::from_mode(0o1777));
         }
-        argv.push(CString::new(format!("--bind={}:/run/user/0", wayland_runtime.display())).unwrap());
+        argv.push(
+            CString::new(format!("--bind={}:/run/user/0", wayland_runtime.display())).unwrap(),
+        );
         let pulse_rt = pulse_host::host_pulse_runtime_dir(&ctx.data_dir);
         let _ = std::fs::create_dir_all(&pulse_rt);
         argv.push(
@@ -100,7 +102,9 @@ pub(super) fn build_exec_args(rootfs: &std::path::Path) -> Result<(Vec<CString>,
         if let Some(ref sdcard) = ctx.external_storage_path {
             if sdcard.exists() {
                 argv.push(CString::new(format!("--bind={}:/android", sdcard.display())).unwrap());
-                argv.push(CString::new(format!("--bind={}:/root/Android", sdcard.display())).unwrap());
+                argv.push(
+                    CString::new(format!("--bind={}:/root/Android", sdcard.display())).unwrap(),
+                );
             }
         }
         argv.push(CString::new("--bind=/dev/urandom:/dev/random").unwrap());
@@ -108,14 +112,52 @@ pub(super) fn build_exec_args(rootfs: &std::path::Path) -> Result<(Vec<CString>,
         argv.push(CString::new("--bind=/proc/self/fd/0:/dev/stdin").unwrap());
         argv.push(CString::new("--bind=/proc/self/fd/1:/dev/stdout").unwrap());
         argv.push(CString::new("--bind=/proc/self/fd/2:/dev/stderr").unwrap());
-        argv.push(CString::new(format!("--bind={}/proc/.loadavg:/proc/loadavg", rootfs.display())).unwrap());
-        argv.push(CString::new(format!("--bind={}/proc/.stat:/proc/stat", rootfs.display())).unwrap());
-        argv.push(CString::new(format!("--bind={}/proc/.uptime:/proc/uptime", rootfs.display())).unwrap());
-        argv.push(CString::new(format!("--bind={}/proc/.version:/proc/version", rootfs.display())).unwrap());
-        argv.push(CString::new(format!("--bind={}/proc/.vmstat:/proc/vmstat", rootfs.display())).unwrap());
-        argv.push(CString::new(format!("--bind={}/proc/.sysctl_entry_cap_last_cap:/proc/sys/kernel/cap_last_cap", rootfs.display())).unwrap());
+        argv.push(
+            CString::new(format!(
+                "--bind={}/proc/.loadavg:/proc/loadavg",
+                rootfs.display()
+            ))
+            .unwrap(),
+        );
+        argv.push(
+            CString::new(format!("--bind={}/proc/.stat:/proc/stat", rootfs.display())).unwrap(),
+        );
+        argv.push(
+            CString::new(format!(
+                "--bind={}/proc/.uptime:/proc/uptime",
+                rootfs.display()
+            ))
+            .unwrap(),
+        );
+        argv.push(
+            CString::new(format!(
+                "--bind={}/proc/.version:/proc/version",
+                rootfs.display()
+            ))
+            .unwrap(),
+        );
+        argv.push(
+            CString::new(format!(
+                "--bind={}/proc/.vmstat:/proc/vmstat",
+                rootfs.display()
+            ))
+            .unwrap(),
+        );
+        argv.push(
+            CString::new(format!(
+                "--bind={}/proc/.sysctl_entry_cap_last_cap:/proc/sys/kernel/cap_last_cap",
+                rootfs.display()
+            ))
+            .unwrap(),
+        );
         argv.push(CString::new(format!("--bind={}/proc/.sysctl_inotify_max_user_watches:/proc/sys/fs/inotify/max_user_watches", rootfs.display())).unwrap());
-        argv.push(CString::new(format!("--bind={}/sys/.empty:/sys/fs/selinux", rootfs.display())).unwrap());
+        argv.push(
+            CString::new(format!(
+                "--bind={}/sys/.empty:/sys/fs/selinux",
+                rootfs.display()
+            ))
+            .unwrap(),
+        );
         argv.push(CString::new("/bin/bash").unwrap());
         argv.push(CString::new("-i").unwrap());
     } else {

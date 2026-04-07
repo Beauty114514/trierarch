@@ -2,7 +2,12 @@
 
 [中文](README.zh.md) | English
 
-**PulseAudio** integration for the host app, under the [Trierarch monorepo](https://github.com/Beauty114514/trierarch). On device: prefix **`filesDir/pulse/`** (`bin/pulseaudio`, `lib/`, …). Guest: **`libpulse`**, **`PULSE_SERVER=tcp:127.0.0.1:4713`**. Host: **`trierarch-native`** **`pulse_host`** starts the daemon.
+**PulseAudio** integration for the host app, under the [Trierarch monorepo](https://github.com/Beauty114514/trierarch). On device: prefix **`filesDir/pulse/`** (`bin/pulseaudio`, `lib/`, …). Guest: **`libpulse`** connects over a **Unix socket** (`PULSE_SERVER=unix:/run/trierarch-pulse/native`). Host: **`trierarch-native`** `pulse_host` starts the daemon (AAudio sink).
+
+## Repository layout (tracked vs generated)
+
+- **Tracked (this repo)**: `build-android/`, `pulse-android/`, `README*.md`, `.gitignore`
+- **Generated (ignored)**: `third_party/` (upstream clones), `out/` (sysroot + install prefix)
 
 ## Prerequisites
 
@@ -28,14 +33,14 @@ If silent: **`load-module`** for SLES/AAudio in **`default.pa`** or **`pulse_hos
 
 ## Script build
 
-Same as step **1** above (v17.0 tree + **`build-pulse.sh`**); default clone dir **`trierarch-audio/third_party/pulseaudio`**:
+Default clone dir is **`trierarch-audio/third_party/pulseaudio`**:
 
 ```bash
 cd trierarch-audio/build-android
 ./build-pulse-android.sh
 ```
 
-**`PULSE_SRC`** / **`PULSE_CLONE_DIR`**: see **`build-android/build-pulse-android.sh`**. **Step 2 (Meson cross-build + install) is still manual.**
+`build-pulse-android.sh` will build the sysroot deps, run the Meson cross build + install into **`trierarch-audio/out/pulse-android-prefix`**, then **sync the prefix into the app assets** under **`trierarch-app/app/src/main/assets/pulse/`** (disable with `PULSE_SKIP_INSTALL_TO_APP=1`).
 
 ## Using the artifacts
 

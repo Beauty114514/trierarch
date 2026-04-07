@@ -1,2 +1,3 @@
-# 一键脚本默认 clone 位置，可整目录删掉重来
+# One-shot scripts may (re)create these directories.
 /third_party/
+/out/

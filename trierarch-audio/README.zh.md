@@ -2,7 +2,12 @@
 
 [English](README.md) | 中文
 
-[Trierarch monorepo](https://github.com/Beauty114514/trierarch) 中的宿主 PulseAudio 集成。设备上前缀 **`filesDir/pulse/`**（`bin/pulseaudio`、`lib/`…）；guest 使用 **`libpulse`**，`PULSE_SERVER=tcp:127.0.0.1:4713`；由 **`trierarch-native`** **`pulse_host`** 拉起 daemon。
+[Trierarch monorepo](https://github.com/Beauty114514/trierarch) 中的宿主 PulseAudio 集成。设备上前缀 **`filesDir/pulse/`**（`bin/pulseaudio`、`lib/`…）；guest 使用 **`libpulse`** 通过 **Unix socket** 连接（`PULSE_SERVER=unix:/run/trierarch-pulse/native`）；由 **`trierarch-native`** `pulse_host` 拉起 daemon（AAudio 输出）。
+
+## 目录约定（哪些会进仓库）
+
+- **会被追踪（本仓库维护）**：`build-android/`、`pulse-android/`、`README*.md`、`.gitignore`
+- **脚本生成（已忽略）**：`third_party/`（上游 clone）、`out/`（sysroot 与 install 前缀）
 
 ## 前置条件
 
@@ -28,14 +33,14 @@ cd trierarch-audio/build-android
 
 ## 脚本构建
 
-与手动第 1 步中「确保有 v17.0 树 + `build-pulse.sh`」等价；默认 clone 到 **`trierarch-audio/third_party/pulseaudio`**：
+默认 clone 到 **`trierarch-audio/third_party/pulseaudio`**：
 
 ```bash
 cd trierarch-audio/build-android
 ./build-pulse-android.sh
 ```
 
-**`PULSE_SRC`**、**`PULSE_CLONE_DIR`** 见 **`build-android/build-pulse-android.sh`**。**第 2 步（Meson 交叉编译与 install）仍须手动完成**。
+`build-pulse-android.sh` 会构建 sysroot 依赖、跑 Meson 交叉编译并 install 到 **`trierarch-audio/out/pulse-android-prefix`**，然后把前缀 **同步到应用 assets**：**`trierarch-app/app/src/main/assets/pulse/`**（可用 `PULSE_SKIP_INSTALL_TO_APP=1` 关闭同步）。
 
 ## 编译产物怎么用
 

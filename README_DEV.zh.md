@@ -6,7 +6,19 @@
 
 面向需要从源码构建 Android 应用的开发者。下文路径均相对于**仓库根目录**。
 
-应用会从 `trierarch-app/app/src/main/jniLibs/arm64-v8a/` 加载若干原生库。下面按**作用 → 产物如何用 → 详细说明见哪篇文档**来写；**中文**请打开各目录下的 `README.zh.md`，**English** 请打开对应目录的 `README.md`。
+应用会从 `trierarch-app/app/src/main/jniLibs/arm64-v8a/` 加载若干原生库，并可选打包 `trierarch-app/app/src/main/assets/` 下的资源。下面按**作用 → 产物 → 构建入口 → 文档**梳理各模块；**中文**请打开各目录下的 `README.zh.md`，**English** 请打开对应目录的 `README.md`。
+
+## 快速检查（推荐）
+
+推 PR 前建议先跑一遍：
+
+```bash
+./scripts/dev-check.sh
+```
+
+## 生成物说明（不进 git）
+
+- `trierarch-app/app/src/main/assets/pulse/` 由 `trierarch-audio/build-android/build-pulse-android.sh` 生成并刻意不追踪；运行时应用会解压到 `filesDir/pulse/`。
 
 ---
 
@@ -52,7 +64,7 @@
 
 ### 宿主 PulseAudio（可选）
 
-为应用内部存储下的 `filesDir/pulse/` 前缀构建 **bionic** 版 `pulseaudio`，供 guest `libpulse` 通过 TCP 连接。
+为应用内部存储下的 `filesDir/pulse/` 前缀构建 **bionic** 版 `pulseaudio`。guest `libpulse` 通过 **Unix socket** 连接到宿主 daemon。
 
 - **作用：** 宿主 `pulseaudio` + proot 内 `PULSE_SERVER`。
 - **产物：** `meson install` 得到的前缀，运行时放到 **`getFilesDir()/pulse/`**（与 **`trierarch-native`** 中 **`pulse_host`** 约定一致）。
@@ -70,6 +82,13 @@ cp trierarch-proot/build-android/out/aarch64/proot   trierarch-app/app/src/main/
 cp trierarch-proot/build-android/out/aarch64/loader trierarch-app/app/src/main/jniLibs/arm64-v8a/libproot_loader.so
 cp trierarch-native/target/aarch64-linux-android/release/libtrierarch.so trierarch-app/app/src/main/jniLibs/arm64-v8a/
 cp trierarch-wayland/out/arm64-v8a/*.so trierarch-app/app/src/main/jniLibs/arm64-v8a/
+```
+
+可选：构建并同步宿主 PulseAudio 前缀到应用 assets：
+
+```bash
+cd trierarch-audio/build-android
+./build-pulse-android.sh
 ```
 
 确认 `trierarch-app/app/src/main/assets/keymap_us.xkb` 存在（本仓库已包含）。然后：

@@ -92,7 +92,10 @@ pub extern "system" fn Java_app_trierarch_NativeBridge_init(
 
 /// Returns 1 if Arch rootfs exists, 0 otherwise.
 #[no_mangle]
-pub extern "system" fn Java_app_trierarch_NativeBridge_hasRootfs(_env: JNIEnv, _: JObject) -> jboolean {
+pub extern "system" fn Java_app_trierarch_NativeBridge_hasRootfs(
+    _env: JNIEnv,
+    _: JObject,
+) -> jboolean {
     jni_context::has_rootfs() as jboolean
 }
 
@@ -159,7 +162,11 @@ pub extern "system" fn Java_app_trierarch_NativeBridge_spawnSession(
 }
 
 #[no_mangle]
-pub extern "system" fn Java_app_trierarch_NativeBridge_closeSession(_env: JNIEnv, _: JObject, session_id: jint) {
+pub extern "system" fn Java_app_trierarch_NativeBridge_closeSession(
+    _env: JNIEnv,
+    _: JObject,
+    session_id: jint,
+) {
     if let Err(e) = jni_context::close_session(session_id) {
         log::warn!("closeSession: {:?}", e);
     }
@@ -175,7 +182,10 @@ pub extern "system" fn Java_app_trierarch_NativeBridge_isSessionAlive(
 }
 
 #[no_mangle]
-pub extern "system" fn Java_app_trierarch_NativeBridge_anySessionAlive(_env: JNIEnv, _: JObject) -> jboolean {
+pub extern "system" fn Java_app_trierarch_NativeBridge_anySessionAlive(
+    _env: JNIEnv,
+    _: JObject,
+) -> jboolean {
     jni_context::any_session_alive() as jboolean
 }
 

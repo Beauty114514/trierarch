@@ -15,15 +15,25 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: trierarch-native
 
+      - name: Cargo fmt
+        working-directory: trierarch-native
+        run: cargo fmt --check
+
       - name: Cargo check
         working-directory: trierarch-native
         run: cargo check
+
+      - name: Cargo clippy
+        working-directory: trierarch-native
+        run: cargo clippy -- -D warnings
 
   app-kotlin-check:
     name: Android App Kotlin Compile
@@ -56,3 +66,7 @@ jobs:
       - name: Compile debug Kotlin
         working-directory: trierarch-app
         run: ./gradlew :app:compileDebugKotlin --stacktrace
+
+      - name: Android lint (debug)
+        working-directory: trierarch-app
+        run: ./gradlew :app:lintDebug --stacktrace

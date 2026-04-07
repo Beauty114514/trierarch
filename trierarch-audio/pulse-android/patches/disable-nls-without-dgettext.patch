@@ -1,0 +1,12 @@
+diff --git a/meson.build b/meson.build
+--- a/meson.build
++++ b/meson.build
+@@ -171,7 +171,6 @@ cdata.set_quoted('PA_CFLAGS', 'Not yet supported on meson')
+ cdata.set_quoted('PA_ALSA_DATA_DIR', alsadatadir)
+ cdata.set_quoted('DESKTOPFILEDIR', join_paths(datadir, 'applications'))
+ cdata.set_quoted('PULSE_LOCALEDIR', localedir)
+ cdata.set_quoted('GETTEXT_PACKAGE', 'pulseaudio')
+-cdata.set('ENABLE_NLS', 1)
+ cdata.set('top_srcdir', meson.source_root())
+ 
+ # Platform specifics

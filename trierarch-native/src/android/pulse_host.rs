@@ -131,7 +131,10 @@ fn run_pulse_until_exit(
     let runtime_dir = match std::fs::canonicalize(&runtime_dir) {
         Ok(p) => p,
         Err(e) => {
-            log::warn!("pulse_host: canonicalize runtime dir: {:?}; using non-canonical", e);
+            log::warn!(
+                "pulse_host: canonicalize runtime dir: {:?}; using non-canonical",
+                e
+            );
             runtime_dir
         }
     };

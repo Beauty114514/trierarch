@@ -47,6 +47,29 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+private const val DisplayAudioDefaultSinkMarker = "# trierarch:audio-default-sink"
+
+private fun patchDisplayStartupScriptForAudio(script: String): String {
+    val s = script.trimEnd()
+    if (s.isEmpty()) return s
+    if (s.contains(DisplayAudioDefaultSinkMarker)) return s
+
+    // Why: the host pulse daemon may default to a null sink; many apps "play" happily but users
+    // hear nothing unless the default sink is set to the real output.
+    val snippet = """
+
+        $DisplayAudioDefaultSinkMarker
+        # Ensure desktop apps use the real output (AAudio) instead of the null sink.
+        for i in {1..50}; do
+          pactl info >/dev/null 2>&1 && break
+          sleep 0.1
+        done
+        pactl set-default-sink trierarch-out >/dev/null 2>&1 || true
+    """.trimIndent()
+
+    return s + "\n" + snippet + "\n"
+}
+
 @Composable
 fun AppScreen(startInTerminal: Boolean = false) {
     /*
@@ -156,28 +179,6 @@ fun AppScreen(startInTerminal: Boolean = false) {
         if (!NativeBridge.isSessionAlive(TerminalSessionIds.DISPLAY)) {
             NativeBridge.spawnSession(TerminalSessionIds.DISPLAY, 24, 80)
         }
-    }
-
-    fun ensureAudioDefaultSinkSnippet(script: String): String {
-        val s = script.trimEnd()
-        if (s.isEmpty()) return s
-        val marker = "# trierarch:audio-default-sink"
-        if (s.contains(marker)) return s
-
-        // Why: the host pulse daemon may default to a null sink; many apps "play" happily but users
-        // hear nothing unless the default sink is set to the real output.
-        val snippet = """
-            
-            $marker
-            # Ensure desktop apps use the real output (AAudio) instead of the null sink.
-            for i in {1..50}; do
-              pactl info >/dev/null 2>&1 && break
-              sleep 0.1
-            done
-            pactl set-default-sink trierarch-out >/dev/null 2>&1 || true
-        """.trimIndent()
-
-        return s + "\n" + snippet + "\n"
     }
 
     fun runDisplayStartupScriptIfNeeded() {
@@ -491,7 +492,7 @@ fun AppScreen(startInTerminal: Boolean = false) {
                 initialScript = prefs.getString("display_startup_script", "") ?: "",
                 onDismiss = { displayScriptDialogOpen = false },
                 onConfirm = { script ->
-                    val patched = ensureAudioDefaultSinkSnippet(script)
+                    val patched = patchDisplayStartupScriptForAudio(script)
                     prefs.edit().putString("display_startup_script", patched).apply()
                     displayScriptDialogOpen = false
                 }
