@@ -51,6 +51,8 @@ pacman -S plasma-meta dolphin konsole
 dbus-launch --exit-with-session startplasma-wayland > /dev/null 2>&1 &
 ```
 
+**音频说明（PulseAudio）：** Trierarch 会在宿主侧运行 PulseAudio（输出到 Android 的 AAudio），并通过 Unix socket 提供给 proot 桌面使用。为避免默认输出落在 **Null Output** 导致“看似在播但没声音”，应用会在你保存的 Display 启动脚本末尾**自动注入**一小段脚本：等待 PulseAudio 就绪后执行 `pactl set-default-sink trierarch-out`（带标记、幂等，不会重复插入），因此用户无需每次手动设置默认输出。
+
 即便在 **proot** 里，也建议**不要用 root 长期跑桌面**：像真机一样**建普通用户**、设密码、用**用户组 / sudo** 管理权限。愿意可自行查阅 ArchWiki（英文 **[Users and groups](https://wiki.archlinux.org/title/Users_and_groups)**；中文 **[用户和用户组](https://wiki.archlinuxcn.org/wiki/用户和用户组)**、**[Sudo](https://wiki.archlinuxcn.org/wiki/Sudo)**）；不依赖 Wiki 时，按下面步骤即可。
 
 **创建用户并配置 sudo（示例用户名为 `myuser`）：**

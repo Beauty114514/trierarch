@@ -4,6 +4,7 @@
 //! - proot process lifecycle (per-session spawn/close)
 //! - rootfs acquisition (download/extract)
 //! - PTY stdin (write) and raw output relay to Java (per session id)
+//! - Host PulseAudio (Unix socket + TCP) for guest `libpulse`; see `android::pulse_host`
 //!
 //! Guideline: keep these functions thin and deterministic. Complex policy should live in
 //! the Rust modules and be tested there.
@@ -14,6 +15,7 @@ use jni::JNIEnv;
 use std::path::PathBuf;
 use std::thread;
 
+use crate::android::pulse_host;
 use crate::android::rootfs_fetch;
 use crate::jni_context;
 
@@ -82,6 +84,8 @@ pub extern "system" fn Java_app_trierarch_NativeBridge_init(
         log::error!("init_pty_output_jni: {:?}", e);
         return 0;
     }
+
+    pulse_host::spawn_host_pulseaudio_if_present();
 
     1
 }

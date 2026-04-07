@@ -20,6 +20,8 @@ captures/
 .cursor/
 # Aggregated native build outputs copied into app module for packaging
 trierarch-app/app/src/main/jniLibs/
+# Pulse prefix synced by trierarch-audio/build-android/build-pulse-android.sh
+trierarch-app/app/src/main/assets/pulse/
 
 # --- Drivers (currently not used in app build pipeline) ---
 trierarch-drivers/

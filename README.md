@@ -51,6 +51,8 @@ pacman -S plasma-meta dolphin konsole
 dbus-launch --exit-with-session startplasma-wayland > /dev/null 2>&1 &
 ```
 
+**Audio note (PulseAudio):** Trierarch runs a host PulseAudio daemon (AAudio sink) and exposes it to the proot desktop over a Unix socket. To avoid "silent but playing" cases caused by the default **Null Output**, Trierarch will **auto-inject** a small snippet into your saved Display startup script that waits for PulseAudio and runs `pactl set-default-sink trierarch-out` (idempotent; it won’t be inserted twice).
+
 Even in a **proot** environment, it is good practice to **run the desktop as a normal user**, not as root. If you want to dig deeper, read ArchWiki **[Users and groups](https://wiki.archlinux.org/title/Users_and_groups)** and **[Sudo](https://wiki.archlinux.org/title/Sudo)**; otherwise the short recipe below is enough.
 
 **Create a user and sudo (example user `myuser`):**

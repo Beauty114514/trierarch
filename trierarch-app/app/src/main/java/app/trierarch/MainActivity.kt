@@ -1,5 +1,6 @@
 package app.trierarch
 
+import android.media.AudioManager
 import android.os.Bundle
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
@@ -23,6 +24,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        volumeControlStream = AudioManager.STREAM_MUSIC
         startInTerminal = intent?.action == ACTION_OPEN_TERMINAL
         setContent {
             TrierarchTheme {

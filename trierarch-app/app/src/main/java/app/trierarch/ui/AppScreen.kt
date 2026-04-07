@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import app.trierarch.NativeBridge
+import app.trierarch.PulseAssets
 import app.trierarch.ProgressCallback
 import app.trierarch.TerminalSessionIds
 import app.trierarch.WaylandBridge
@@ -157,6 +158,28 @@ fun AppScreen(startInTerminal: Boolean = false) {
         }
     }
 
+    fun ensureAudioDefaultSinkSnippet(script: String): String {
+        val s = script.trimEnd()
+        if (s.isEmpty()) return s
+        val marker = "# trierarch:audio-default-sink"
+        if (s.contains(marker)) return s
+
+        // Why: the host pulse daemon may default to a null sink; many apps "play" happily but users
+        // hear nothing unless the default sink is set to the real output.
+        val snippet = """
+            
+            $marker
+            # Ensure desktop apps use the real output (AAudio) instead of the null sink.
+            for i in {1..50}; do
+              pactl info >/dev/null 2>&1 && break
+              sleep 0.1
+            done
+            pactl set-default-sink trierarch-out >/dev/null 2>&1 || true
+        """.trimIndent()
+
+        return s + "\n" + snippet + "\n"
+    }
+
     fun runDisplayStartupScriptIfNeeded() {
         val hasClients = try {
             WaylandBridge.nativeHasActiveClients()
@@ -232,6 +255,9 @@ fun AppScreen(startInTerminal: Boolean = false) {
     }
 
     LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            PulseAssets.syncFromAssetsIfNeeded(context)
+        }
         if (NativeBridge.init(
                 context.filesDir.absolutePath,
                 context.cacheDir.absolutePath,
@@ -465,7 +491,8 @@ fun AppScreen(startInTerminal: Boolean = false) {
                 initialScript = prefs.getString("display_startup_script", "") ?: "",
                 onDismiss = { displayScriptDialogOpen = false },
                 onConfirm = { script ->
-                    prefs.edit().putString("display_startup_script", script).apply()
+                    val patched = ensureAudioDefaultSinkSnippet(script)
+                    prefs.edit().putString("display_startup_script", patched).apply()
                     displayScriptDialogOpen = false
                 }
             )

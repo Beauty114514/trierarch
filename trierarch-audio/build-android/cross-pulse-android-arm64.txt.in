@@ -1,0 +1,17 @@
+[binaries]
+c = '@NDK@/toolchains/llvm/prebuilt/@NDK_HOST@/bin/aarch64-linux-android@API@-clang'
+cpp = '@NDK@/toolchains/llvm/prebuilt/@NDK_HOST@/bin/aarch64-linux-android@API@-clang++'
+ar = '@NDK@/toolchains/llvm/prebuilt/@NDK_HOST@/bin/llvm-ar'
+strip = '@NDK@/toolchains/llvm/prebuilt/@NDK_HOST@/bin/llvm-strip'
+pkg-config = 'pkg-config'
+
+[host_machine]
+system = 'android'
+cpu_family = 'aarch64'
+cpu = 'aarch64'
+endian = 'little'
+
+[built-in options]
+c_args = ['-DANDROID', '-fPIC', '-I@SYSROOT@/include']
+cpp_args = ['-DANDROID', '-fPIC', '-I@SYSROOT@/include']
+c_link_args = ['-L@SYSROOT@/lib', '-landroid-glob', '-landroid-execinfo', '-Wl,--undefined-version']

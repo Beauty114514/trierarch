@@ -16,6 +16,12 @@ import com.termux.view.TerminalView
  * library is missing or not ready we prefer to fall back to normal Android handling.
  */
 class HardwareKeyboardRouter {
+    private fun isSystemVolumeKey(keyCode: Int): Boolean {
+        return keyCode == KeyEvent.KEYCODE_VOLUME_UP ||
+            keyCode == KeyEvent.KEYCODE_VOLUME_DOWN ||
+            keyCode == KeyEvent.KEYCODE_VOLUME_MUTE
+    }
+
     private fun isLockKey(keyCode: Int): Boolean {
         return keyCode == KeyEvent.KEYCODE_CAPS_LOCK ||
             keyCode == KeyEvent.KEYCODE_NUM_LOCK ||
@@ -49,6 +55,9 @@ class HardwareKeyboardRouter {
     fun handleHardwareKeyboardEvent(event: KeyEvent): Boolean {
         if (!InputRouteState.waylandVisible) return false
         if (event.action != KeyEvent.ACTION_DOWN && event.action != KeyEvent.ACTION_UP) return false
+        // Let Android handle volume keys so the system volume UI works and AAudio output is controlled
+        // via STREAM_MUSIC (see MainActivity.volumeControlStream).
+        if (isSystemVolumeKey(event.keyCode)) return false
         if (!HardwareKeyEventPolicy.isLikelyFromHardwareKeyboard(event)) return false
 
         val isDown = event.action == KeyEvent.ACTION_DOWN

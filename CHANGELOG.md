@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Audio (PulseAudio):** host PulseAudio daemon with an **AAudio** sink, exposed to the proot desktop over a **Unix socket**. To avoid silent output when the desktop picks the default **Null Output**, Trierarch now **auto-injects** a small snippet into the saved **Display startup script** that waits for PulseAudio and runs `pactl set-default-sink trierarch-out` (idempotent).
+
 ## [0.3.0] — 2026-04-04
 
 ### Added
