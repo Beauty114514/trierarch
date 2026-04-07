@@ -39,30 +39,39 @@ class MainActivity : ComponentActivity() {
         startInTerminal = intent.action == ACTION_OPEN_TERMINAL
     }
 
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (hardwareKeyboardRouter.handleHardwareKeyboardEvent(event)) return true
-        if (!InputRouteState.waylandVisible) {
+        if (!InputRouteState.waylandVisible && HardwareKeyEventPolicy.isLikelyFromHardwareKeyboard(event)) {
             val tv = InputRouteState.shellTerminalView
-            if (tv != null &&
-                (event.action == KeyEvent.ACTION_DOWN || event.action == KeyEvent.ACTION_UP) &&
-                HardwareKeyEventPolicy.isLikelyFromHardwareKeyboard(event)
-            ) {
+            if (tv != null) {
                 tv.requestFocus()
                 if (tv.dispatchKeyEvent(event)) return true
             }
         }
-        return super.dispatchKeyEvent(event)
+        return super.onKeyDown(keyCode, event)
     }
 
-    override fun dispatchKeyShortcutEvent(event: KeyEvent): Boolean {
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
         if (hardwareKeyboardRouter.handleHardwareKeyboardEvent(event)) return true
-        if (!InputRouteState.waylandVisible) {
+        if (!InputRouteState.waylandVisible && HardwareKeyEventPolicy.isLikelyFromHardwareKeyboard(event)) {
             val tv = InputRouteState.shellTerminalView
-            if (tv != null && HardwareKeyEventPolicy.isLikelyFromHardwareKeyboard(event)) {
+            if (tv != null) {
+                tv.requestFocus()
+                if (tv.dispatchKeyEvent(event)) return true
+            }
+        }
+        return super.onKeyUp(keyCode, event)
+    }
+
+    override fun onKeyShortcut(keyCode: Int, event: KeyEvent): Boolean {
+        if (hardwareKeyboardRouter.handleHardwareKeyboardEvent(event)) return true
+        if (!InputRouteState.waylandVisible && HardwareKeyEventPolicy.isLikelyFromHardwareKeyboard(event)) {
+            val tv = InputRouteState.shellTerminalView
+            if (tv != null) {
                 tv.requestFocus()
                 if (tv.dispatchKeyShortcutEvent(event)) return true
             }
         }
-        return super.dispatchKeyShortcutEvent(event)
+        return super.onKeyShortcut(keyCode, event)
     }
 }
