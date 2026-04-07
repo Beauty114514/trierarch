@@ -50,6 +50,16 @@
 
 ---
 
+### 宿主 PulseAudio（可选）
+
+为应用内部存储下的 `filesDir/pulse/` 前缀构建 **bionic** 版 `pulseaudio`，供 guest `libpulse` 通过 TCP 连接。
+
+- **作用：** 宿主 `pulseaudio` + proot 内 `PULSE_SERVER`。
+- **产物：** `meson install` 得到的前缀，运行时放到 **`getFilesDir()/pulse/`**（与 **`trierarch-native`** 中 **`pulse_host`** 约定一致）。
+- **详见：** [`trierarch-audio/README.zh.md`](trierarch-audio/README.zh.md)
+
+---
+
 ## 汇总：放入 JNI 库并打 APK
 
 各部分按各自 `README.zh.md` 构建完成后，在仓库根目录执行：

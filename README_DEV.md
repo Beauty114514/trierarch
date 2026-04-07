@@ -50,6 +50,16 @@ Builds the minimal Wayland server `.so` files so Linux GUI clients in the rootfs
 
 ---
 
+### Host PulseAudio (optional)
+
+Build a **bionic** `pulseaudio` prefix for the app’s internal storage layout (`filesDir/pulse/`), same integration style as Termux-style TCP guest clients.
+
+- **Role:** host daemon + guest `libpulse` over `PULSE_SERVER`.
+- **Artifacts:** after **`meson install`**, ship `bin/`, `lib/`, … under the app’s **`pulse/`** prefix (see `pulse_host` in **`trierarch-native`**).
+- **Details:** [`trierarch-audio/README.md`](trierarch-audio/README.md)
+
+---
+
 ## Assemble native libs and build the APK
 
 After building the pieces above (see each `README.md`), from the repo root:
