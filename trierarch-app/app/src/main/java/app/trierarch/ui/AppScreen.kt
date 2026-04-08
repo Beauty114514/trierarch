@@ -49,25 +49,36 @@ import kotlinx.coroutines.withContext
 
 private const val DisplayAudioDefaultSinkMarker = "# trierarch:audio-default-sink"
 
-private fun patchDisplayStartupScriptForAudio(script: String): String {
-    val s = script.trimEnd()
-    if (s.isEmpty()) return s
-    if (s.contains(DisplayAudioDefaultSinkMarker)) return s
+private fun stripLegacyInjectedAudioSnippet(script: String): String {
+    if (!script.contains(DisplayAudioDefaultSinkMarker)) return script
 
-    // Why: the host pulse daemon may default to a null sink; many apps "play" happily but users
-    // hear nothing unless the default sink is set to the real output.
-    val snippet = """
+    val lines = script.lines().toMutableList()
+    val markerIdx = lines.indexOfFirst { it.trim() == DisplayAudioDefaultSinkMarker }
+    if (markerIdx >= 0) {
+        // The marker was always appended at the end of the saved script. Remove it and everything after.
+        while (lines.size > markerIdx) lines.removeAt(lines.size - 1)
+    }
 
-        $DisplayAudioDefaultSinkMarker
+    // Also strip a legacy single-line injection that some users may have appended manually.
+    while (lines.isNotEmpty() && lines.last().trim().isEmpty()) lines.removeAt(lines.size - 1)
+    if (lines.lastOrNull()?.trim() == "pactl set-default-sink trierarch-out") {
+        lines.removeAt(lines.size - 1)
+    }
+    return lines.joinToString("\n").trimEnd()
+}
+
+private fun audioDefaultSinkRuntimeSnippet(): String {
+    // Keep this POSIX-sh compatible: no brace expansion, no bashisms.
+    return """
         # Ensure desktop apps use the real output (AAudio) instead of the null sink.
-        for i in {1..50}; do
+        i=0
+        while [ "${'$'}i" -lt 50 ]; do
           pactl info >/dev/null 2>&1 && break
+          i=${'$'}((i+1))
           sleep 0.1
         done
         pactl set-default-sink trierarch-out >/dev/null 2>&1 || true
     """.trimIndent()
-
-    return s + "\n" + snippet + "\n"
 }
 
 @Composable
@@ -196,6 +207,13 @@ fun AppScreen(startInTerminal: Boolean = false) {
                     (script + "\n").toByteArray(Charsets.UTF_8)
                 )
             }
+            // Why: the host pulse daemon may default to a null sink; many apps "play" happily but users
+            // hear nothing unless the default sink is set to the real output.
+            ensureDisplaySession()
+            NativeBridge.writeInput(
+                TerminalSessionIds.DISPLAY,
+                (audioDefaultSinkRuntimeSnippet() + "\n").toByteArray(Charsets.UTF_8)
+            )
         }
     }
 
@@ -256,6 +274,14 @@ fun AppScreen(startInTerminal: Boolean = false) {
     }
 
     LaunchedEffect(Unit) {
+        // Silent migration: older builds appended an audio snippet into the saved Display startup script.
+        // Keep the user's script clean and run audio setup internally at runtime instead.
+        val savedScript = prefs.getString("display_startup_script", "") ?: ""
+        val cleaned = stripLegacyInjectedAudioSnippet(savedScript)
+        if (cleaned != savedScript) {
+            prefs.edit().putString("display_startup_script", cleaned).apply()
+        }
+
         withContext(Dispatchers.IO) {
             PulseAssets.syncFromAssetsIfNeeded(context)
         }
@@ -492,8 +518,7 @@ fun AppScreen(startInTerminal: Boolean = false) {
                 initialScript = prefs.getString("display_startup_script", "") ?: "",
                 onDismiss = { displayScriptDialogOpen = false },
                 onConfirm = { script ->
-                    val patched = patchDisplayStartupScriptForAudio(script)
-                    prefs.edit().putString("display_startup_script", patched).apply()
+                    prefs.edit().putString("display_startup_script", script.trimEnd()).apply()
                     displayScriptDialogOpen = false
                 }
             )
