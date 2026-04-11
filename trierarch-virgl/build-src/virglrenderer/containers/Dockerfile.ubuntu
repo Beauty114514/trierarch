@@ -1,0 +1,70 @@
+FROM ubuntu:latest AS builder
+
+ARG BUILD_TYPE=release
+
+# Add glxgears for testing
+RUN apt-get update && apt-get install -y \
+    mesa-utils
+
+# Build dependencies for Mesa
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    bison \
+    flex \
+    git \
+    ninja-build \
+    cmake \
+    pkg-config \
+    libvulkan-dev \
+    libdrm-dev \
+    libxcb-glx0-dev \
+    libx11-dev \
+    libx11-xcb-dev \
+    libxcb-dri2-0-dev \
+    libxcb-dri3-dev \
+    libxcb-present-dev \
+    libxcb-shm0-dev \
+    libxext-dev \
+    libxfixes-dev \
+    libxrandr-dev \
+    libxshmfence-dev \
+    libxxf86vm-dev \
+    python3-pip \
+    libwayland-dev \
+    libwayland-egl-backend-dev \
+    libjpeg-dev \
+    libpng-dev \
+    curl
+
+RUN pip3 install mako meson pyyaml --break-system-packages
+
+# Build and install Mesa from main repository
+RUN git clone https://gitlab.freedesktop.org/mesa/mesa.git && \
+    cd mesa && \
+    meson setup build -Dgallium-drivers=virgl,zink,softpipe -Dvulkan-drivers=virtio -Dplatforms=x11,wayland -Dllvm=disabled --prefix=/usr -Dbuildtype=$BUILD_TYPE && \
+    ninja -C build install
+
+RUN git clone https://github.com/KhronosGroup/VK-GL-CTS.git && \
+    python3 /VK-GL-CTS/external/fetch_sources.py && \
+    cmake -S /VK-GL-CTS -B /VK-GL-CTS/build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_LIBDIR=lib64 -DCMAKE_INSTALL_BINDIR=bin/ && \
+    ninja -C /VK-GL-CTS/build install
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh && chmod +x rustup.sh && ./rustup.sh -y && echo ". /root/.cargo/env" >> /root/.profile
+
+RUN git clone https://gitlab.freedesktop.org/mesa/deqp-runner.git && \
+    . /root/.cargo/env && cd deqp-runner && cargo build --release --target-dir /deqp-runner/builds/
+
+RUN git clone https://github.com/glmark2/glmark2.git && \
+    cd glmark2 && \
+    meson setup -Dflavors=gbm-glesv2,wayland-gl,wayland-glesv2,x11-gl,x11-glesv2,x11-gl-egl -Dbuildtype=$BUILD_TYPE -Dprefix=/usr -Dlibdir=lib64 -Dlibexecdir=libexec -Dbindir=bin build && \
+    ninja -C build install
+
+FROM ubuntu:latest
+
+COPY --from=builder /usr /usr
+COPY --from=builder /etc /etc
+COPY --from=builder /root/.cargo/bin/ /usr/bin/
+COPY --from=builder /root/.profile /root/.profile
+COPY --from=builder /VK-GL-CTS/build /VK-GL-CTS
+COPY --from=builder /deqp-runner/builds/release/deqp-runner /usr/bin/deqp-runner
+RUN rustup default stable

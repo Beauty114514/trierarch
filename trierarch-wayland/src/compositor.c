@@ -22,10 +22,13 @@
 #include "pointer-constraints-unstable-v1-server-protocol.h"
 #include "relative-pointer-unstable-v1-server-protocol.h"
 #include "presentation-time-server-protocol.h"
+#include "linux-dmabuf-v1-server-protocol.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <android/log.h>
 
@@ -36,6 +39,19 @@
 volatile const char *g_wayland_checkpoint = "init";
 
 struct wayland_server *g_wayland_server;
+
+static struct wl_listener g_client_created_listener;
+
+static void client_created_notify(struct wl_listener *listener, void *data) {
+    (void)listener;
+    struct wl_client *client = (struct wl_client *)data;
+    pid_t pid = (pid_t)-1;
+    uid_t uid = 0;
+    gid_t gid = 0;
+    wl_client_get_credentials(client, &pid, &uid, &gid);
+    LOGI("Wayland client connected (pid=%d uid=%u) — expect registry bind + later zwp_linux_dmabuf if GPU client",
+            (int)pid, (unsigned)uid);
+}
 
 wayland_server_t *compositor_create(const char *runtime_dir) {
     if (!runtime_dir) return NULL;
@@ -94,6 +110,8 @@ wayland_server_t *compositor_create(const char *runtime_dir) {
     srv->valid = true;
 
     setenv("XDG_RUNTIME_DIR", runtime_dir, 1);
+    chmod(runtime_dir, 0755);
+
     {
         char path[256];
         snprintf(path, sizeof(path), "%s/wayland-trierarch.lock", runtime_dir);
@@ -108,10 +126,17 @@ wayland_server_t *compositor_create(const char *runtime_dir) {
         free(srv);
         return NULL;
     }
+    /* Default socket mode can be too restrictive for non-root guest users (Plasma as su user). */
+    {
+        char sockpath[512];
+        snprintf(sockpath, sizeof(sockpath), "%s/wayland-trierarch", runtime_dir);
+        chmod(sockpath, 0666);
+    }
 
     wl_global_create(srv->display, &wl_compositor_interface, 4, srv, surface_compositor_bind);
     wl_global_create(srv->display, &wl_subcompositor_interface, 1, srv, subcompositor_bind);
     wl_global_create(srv->display, &wl_shm_interface, 1, srv, buffer_shm_bind);
+    wl_global_create(srv->display, &zwp_linux_dmabuf_v1_interface, 3, srv, linux_dmabuf_bind);
     wl_global_create(srv->display, &wl_seat_interface, 5, srv, seat_bind);
     wl_global_create(srv->display, &wl_output_interface, 4, srv, output_bind);
     wl_global_create(srv->display, &xdg_wm_base_interface, 4, srv, xdg_shell_bind);
@@ -124,6 +149,9 @@ wayland_server_t *compositor_create(const char *runtime_dir) {
     wl_global_create(srv->display, &zwp_pointer_constraints_v1_interface, 1, srv, pointer_constraints_bind);
     wl_global_create(srv->display, &zwp_relative_pointer_manager_v1_interface, 1, srv, relative_pointer_manager_bind);
     wl_global_create(srv->display, &wp_presentation_interface, 2, srv, presentation_bind);
+
+    g_client_created_listener.notify = client_created_notify;
+    wl_display_add_client_created_listener(srv->display, &g_client_created_listener);
 
     srv->loop = wl_display_get_event_loop(srv->display);
     g_wayland_server = srv;
@@ -194,6 +222,7 @@ static void fill_surface_view(const struct compositor_surface *surf,
         int32_t out_w, int32_t out_h, int32_t scale, compositor_surface_view_t *view) {
     view->pixels = buffer_ref_get_data(surf->current_buffer);
     view->egl_buffer = buffer_ref_get_egl_resource(surf->current_buffer);
+    view->dmabuf = buffer_ref_get_dmabuf(surf->current_buffer);
     int32_t buf_w = buffer_ref_width(surf->current_buffer);
     int32_t buf_h = buffer_ref_height(surf->current_buffer);
     int32_t s = surf->buffer_scale > 1 ? surf->buffer_scale : 1;
@@ -248,7 +277,8 @@ static int foreach_surface_tree(struct compositor_surface *surf, int acc_x, int 
     if (ref && buffer_ref_width(ref) > 0 && buffer_ref_height(ref) > 0) {
         void *pixels = buffer_ref_get_data(ref);
         void *egl_buf = buffer_ref_get_egl_resource(ref);
-        if (pixels || egl_buf) {
+        struct dmabuf_buffer *dma = buffer_ref_get_dmabuf(ref);
+        if (pixels || egl_buf || dma) {
             compositor_surface_view_t view;
             fill_surface_view(surf, out_w, out_h, scale, &view);
             view.x = acc_x;
@@ -266,6 +296,41 @@ static int foreach_surface_tree(struct compositor_surface *surf, int acc_x, int 
     return 0;
 }
 
+/* KDE stacks a 1x1 (or tiny) buffer + wp_viewport destination above the real desktop if we iterate
+ * in wl_list order. That pixel is often black → wrong region or full screen black. Draw
+ * viewporter-upscaled tiny buffers first (underlay), then normal surfaces. */
+static int32_t g_sort_out_w, g_sort_out_h;
+
+static int surface_is_viewporter_underlay(struct compositor_surface *s, int32_t out_w, int32_t out_h) {
+    if (!s || !s->current_buffer) return 0;
+    int32_t bw = buffer_ref_width(s->current_buffer);
+    int32_t bh = buffer_ref_height(s->current_buffer);
+    if (bw <= 0 || bh <= 0) return 0;
+    if (!s->viewport_dst_set || s->viewport_dst_w <= 0 || s->viewport_dst_h <= 0) return 0;
+    int64_t buf_a = (int64_t)bw * (int64_t)bh;
+    int64_t out_a = (int64_t)out_w * (int64_t)out_h;
+    if (out_a <= 0) return 0;
+    /* Tiny buffer + viewporter upscale: Plasma may use 1x1 with a destination that is only part
+     * of the output (e.g. fractional scale → vp_dst is ~1/4 of the output). The old 75%-of-output
+     * rule missed that case, so the 1x1 stayed in arbitrary z-order and could paint black on top. */
+    if (buf_a <= 256)
+        return 1;
+    int64_t dst_a = (int64_t)s->viewport_dst_w * (int64_t)s->viewport_dst_h;
+    return dst_a * 100 >= out_a * 75; /* larger tile: treat as underlay only if ~fullscreen dest */
+}
+
+static int cmp_root_surface_underlay_first(const void *aa, const void *bb) {
+    struct compositor_surface *const *a = aa;
+    struct compositor_surface *const *b = bb;
+    int ua = surface_is_viewporter_underlay(*a, g_sort_out_w, g_sort_out_h);
+    int ub = surface_is_viewporter_underlay(*b, g_sort_out_w, g_sort_out_h);
+    if (ua != ub) {
+        if (ua) return -1; /* underlay first */
+        return 1;
+    }
+    return 0;
+}
+
 void compositor_foreach_surface(wayland_server_t *srv_opaque,
         int (*callback)(const compositor_surface_view_t *view, void *user), void *user) {
     if (!srv_opaque || !callback) return;
@@ -275,12 +340,31 @@ void compositor_foreach_surface(wayland_server_t *srv_opaque,
     int32_t scale = srv->output_scale > 0 ? srv->output_scale : 1;
 
     pthread_mutex_lock(&srv->surfaces_mutex);
-    struct compositor_surface *surf;
-    wl_list_for_each(surf, &srv->surfaces, link) {
-        if (surf->parent) continue;  /* only root surfaces; children done in tree walk */
-        if (surf->is_cursor) continue;  /* cursor drawn in compositor_get_cursor_view */
-        if (foreach_surface_tree(surf, 0, 0, out_w, out_h, scale, callback, user) != 0)
-            break;
+    int n = 0;
+    struct compositor_surface *s;
+    wl_list_for_each(s, &srv->surfaces, link) {
+        if (!s->parent && !s->is_cursor) n++;
+    }
+    struct compositor_surface **roots = NULL;
+    if (n > 0) {
+        roots = (struct compositor_surface **)calloc((size_t)n, sizeof(*roots));
+        if (!roots) {
+            pthread_mutex_unlock(&srv->surfaces_mutex);
+            return;
+        }
+        int i = 0;
+        wl_list_for_each(s, &srv->surfaces, link) {
+            if (s->parent || s->is_cursor) continue;
+            roots[i++] = s;
+        }
+        g_sort_out_w = out_w;
+        g_sort_out_h = out_h;
+        qsort(roots, (size_t)n, sizeof(*roots), cmp_root_surface_underlay_first);
+        for (i = 0; i < n; i++) {
+            if (foreach_surface_tree(roots[i], 0, 0, out_w, out_h, scale, callback, user) != 0)
+                break;
+        }
+        free(roots);
     }
     pthread_mutex_unlock(&srv->surfaces_mutex);
 }
@@ -320,7 +404,8 @@ bool compositor_get_cursor_view(wayland_server_t *srv_opaque, compositor_surface
     if (buf_w <= 0 || buf_h <= 0) return false;
     out->pixels = buffer_ref_get_data(cs->current_buffer);
     out->egl_buffer = buffer_ref_get_egl_resource(cs->current_buffer);
-    if (!out->pixels && !out->egl_buffer) return false;
+    out->dmabuf = buffer_ref_get_dmabuf(cs->current_buffer);
+    if (!out->pixels && !out->egl_buffer && !out->dmabuf) return false;
     /* Keep cursor size stable in physical pixels across output scale changes:
      * clients may choose a larger cursor buffer when scale increases. We intentionally ignore
      * output scaling here and draw a fixed-size cursor in physical pixels. */

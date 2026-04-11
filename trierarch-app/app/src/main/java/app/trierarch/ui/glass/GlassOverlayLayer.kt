@@ -15,14 +15,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 
-/**
- * Full-screen glass overlay in the same composition as [app.trierarch.ui.AppScreen], not a separate dialog window.
- *
- * Trade-off: root uses [Modifier.fillMaxSize] only without applying cutout or system-bar padding, so
- * centered panels share the same measure box as [app.trierarch.ui.orb.FloatingMenuOrb]. May overlap status/nav regions.
- *
- * Dismiss: [onDismissRequest] from system back and scrim tap.
- */
+/** Full-screen scrim + content; back and scrim call [onDismissRequest]. */
 @Composable
 fun GlassOverlayLayer(
     onDismissRequest: () -> Unit,
@@ -54,11 +47,7 @@ fun GlassOverlayLayer(
     }
 }
 
-/**
- * Full-screen layer above [GlassOverlayLayer] content (e.g. option list). Same [fillMaxSize] as the parent overlay.
- *
- * Dismiss: [onDismissRequest] from system back and scrim tap.
- */
+/** Second scrim layer over [GlassOverlayLayer] (nested picker). */
 @Composable
 fun GlassSubOverlay(
     onDismissRequest: () -> Unit,

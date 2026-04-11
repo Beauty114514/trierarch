@@ -1,0 +1,339 @@
+[
+    {
+        "filename": "vkr_buffer_gen.h",
+        "objects": [
+            {
+                "vkr_type": "buffer",
+                "vk_type": "VkBuffer",
+                "vk_enum": "VK_OBJECT_TYPE_BUFFER",
+                "generator": "simple-object",
+                "create_cmd": "vkCreateBuffer",
+                "create_info": "pCreateInfo",
+                "create_obj": "pBuffer",
+                "destroy_cmd": "vkDestroyBuffer",
+                "destroy_obj": "buffer"
+            },
+            {
+                "vkr_type": "buffer_view",
+                "vk_type": "VkBufferView",
+                "vk_enum": "VK_OBJECT_TYPE_BUFFER_VIEW",
+                "generator": "simple-object",
+                "create_cmd": "vkCreateBufferView",
+                "create_info": "pCreateInfo",
+                "create_obj": "pView",
+                "destroy_cmd": "vkDestroyBufferView",
+                "destroy_obj": "bufferView"
+            }
+        ]
+    },
+    {
+        "filename": "vkr_command_buffer_gen.h",
+        "objects": [
+            {
+                "vkr_type": "command_pool",
+                "vk_type": "VkCommandPool",
+                "vk_enum": "VK_OBJECT_TYPE_COMMAND_POOL",
+                "generator": "simple-object",
+                "create_cmd": "vkCreateCommandPool",
+                "create_info": "pCreateInfo",
+                "create_obj": "pCommandPool",
+                "destroy_cmd": "vkDestroyCommandPool",
+                "destroy_obj": "commandPool"
+            },
+            {
+                "vkr_type": "command_buffer",
+                "vk_type": "VkCommandBuffer",
+                "vk_enum": "VK_OBJECT_TYPE_COMMAND_BUFFER",
+                "generator": "pool-object",
+                "pool_type": "command_pool",
+                "create_cmd": "vkAllocateCommandBuffers",
+                "create_info": "pAllocateInfo",
+                "create_count": "pAllocateInfo->commandBufferCount",
+                "create_objs": "pCommandBuffers",
+                "destroy_cmd": "vkFreeCommandBuffers",
+                "destroy_pool": "commandPool",
+                "destroy_count": "commandBufferCount",
+                "destroy_objs": "pCommandBuffers"
+            }
+        ]
+    },
+    {
+        "filename": "vkr_descriptor_set_gen.h",
+        "objects": [
+            {
+                "vkr_type": "descriptor_set_layout",
+                "vk_type": "VkDescriptorSetLayout",
+                "vk_enum": "VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT",
+                "generator": "simple-object",
+                "create_cmd": "vkCreateDescriptorSetLayout",
+                "create_info": "pCreateInfo",
+                "create_obj": "pSetLayout",
+                "destroy_cmd": "vkDestroyDescriptorSetLayout",
+                "destroy_obj": "descriptorSetLayout"
+            },
+            {
+                "vkr_type": "descriptor_pool",
+                "vk_type": "VkDescriptorPool",
+                "vk_enum": "VK_OBJECT_TYPE_DESCRIPTOR_POOL",
+                "generator": "simple-object",
+                "create_cmd": "vkCreateDescriptorPool",
+                "create_info": "pCreateInfo",
+                "create_obj": "pDescriptorPool",
+                "destroy_cmd": "vkDestroyDescriptorPool",
+                "destroy_obj": "descriptorPool"
+            },
+            {
+                "vkr_type": "descriptor_set",
+                "vk_type": "VkDescriptorSet",
+                "vk_enum": "VK_OBJECT_TYPE_DESCRIPTOR_SET",
+                "generator": "pool-object",
+                "pool_type": "descriptor_pool",
+                "create_cmd": "vkAllocateDescriptorSets",
+                "create_info": "pAllocateInfo",
+                "create_count": "pAllocateInfo->descriptorSetCount",
+                "create_objs": "pDescriptorSets",
+                "destroy_cmd": "vkFreeDescriptorSets",
+                "destroy_pool": "descriptorPool",
+                "destroy_count": "descriptorSetCount",
+                "destroy_objs": "pDescriptorSets"
+            },
+            {
+                "vkr_type": "descriptor_update_template",
+                "vk_type": "VkDescriptorUpdateTemplate",
+                "vk_enum": "VK_OBJECT_TYPE_DESCRIPTOR_UPDATE_TEMPLATE",
+                "generator": "simple-object",
+                "create_cmd": "vkCreateDescriptorUpdateTemplate",
+                "create_info": "pCreateInfo",
+                "create_obj": "pDescriptorUpdateTemplate",
+                "destroy_cmd": "vkDestroyDescriptorUpdateTemplate",
+                "destroy_obj": "descriptorUpdateTemplate"
+            }
+        ]
+    },
+    {
+        "filename": "vkr_device_memory_gen.h",
+        "objects": [
+            {
+                "vkr_type": "device_memory",
+                "vk_type": "VkDeviceMemory",
+                "vk_enum": "VK_OBJECT_TYPE_DEVICE_MEMORY",
+                "generator": "simple-object",
+                "create_cmd": "vkAllocateMemory",
+                "create_info": "pAllocateInfo",
+                "create_obj": "pMemory",
+                "destroy_cmd": "vkFreeMemory",
+                "destroy_obj": "memory"
+            }
+        ]
+    },
+    {
+        "filename": "vkr_image_gen.h",
+        "objects": [
+            {
+                "vkr_type": "image",
+                "vk_type": "VkImage",
+                "vk_enum": "VK_OBJECT_TYPE_IMAGE",
+                "generator": "simple-object",
+                "create_cmd": "vkCreateImage",
+                "create_info": "pCreateInfo",
+                "create_obj": "pImage",
+                "destroy_cmd": "vkDestroyImage",
+                "destroy_obj": "image"
+            },
+            {
+                "vkr_type": "image_view",
+                "vk_type": "VkImageView",
+                "vk_enum": "VK_OBJECT_TYPE_IMAGE_VIEW",
+                "generator": "simple-object",
+                "create_cmd": "vkCreateImageView",
+                "create_info": "pCreateInfo",
+                "create_obj": "pView",
+                "destroy_cmd": "vkDestroyImageView",
+                "destroy_obj": "imageView"
+            },
+            {
+                "vkr_type": "sampler",
+                "vk_type": "VkSampler",
+                "vk_enum": "VK_OBJECT_TYPE_SAMPLER",
+                "generator": "simple-object",
+                "create_cmd": "vkCreateSampler",
+                "create_info": "pCreateInfo",
+                "create_obj": "pSampler",
+                "destroy_cmd": "vkDestroySampler",
+                "destroy_obj": "sampler"
+            },
+            {
+                "vkr_type": "sampler_ycbcr_conversion",
+                "vk_type": "VkSamplerYcbcrConversion",
+                "vk_enum": "VK_OBJECT_TYPE_SAMPLER_YCBCR_CONVERSION",
+                "generator": "simple-object",
+                "create_cmd": "vkCreateSamplerYcbcrConversion",
+                "create_info": "pCreateInfo",
+                "create_obj": "pYcbcrConversion",
+                "destroy_cmd": "vkDestroySamplerYcbcrConversion",
+                "destroy_obj": "ycbcrConversion"
+            }
+        ]
+    },
+    {
+        "filename": "vkr_pipeline_gen.h",
+        "objects": [
+            {
+                "vkr_type": "shader_module",
+                "vk_type": "VkShaderModule",
+                "vk_enum": "VK_OBJECT_TYPE_SHADER_MODULE",
+                "generator": "simple-object",
+                "create_cmd": "vkCreateShaderModule",
+                "create_info": "pCreateInfo",
+                "create_obj": "pShaderModule",
+                "destroy_cmd": "vkDestroyShaderModule",
+                "destroy_obj": "shaderModule"
+            },
+            {
+                "vkr_type": "pipeline_layout",
+                "vk_type": "VkPipelineLayout",
+                "vk_enum": "VK_OBJECT_TYPE_PIPELINE_LAYOUT",
+                "generator": "simple-object",
+                "create_cmd": "vkCreatePipelineLayout",
+                "create_info": "pCreateInfo",
+                "create_obj": "pPipelineLayout",
+                "destroy_cmd": "vkDestroyPipelineLayout",
+                "destroy_obj": "pipelineLayout"
+            },
+            {
+                "vkr_type": "pipeline_cache",
+                "vk_type": "VkPipelineCache",
+                "vk_enum": "VK_OBJECT_TYPE_PIPELINE_CACHE",
+                "generator": "simple-object",
+                "create_cmd": "vkCreatePipelineCache",
+                "create_info": "pCreateInfo",
+                "create_obj": "pPipelineCache",
+                "destroy_cmd": "vkDestroyPipelineCache",
+                "destroy_obj": "pipelineCache"
+            },
+            {
+                "vkr_type": "pipeline",
+                "vk_type": "VkPipeline",
+                "vk_enum": "VK_OBJECT_TYPE_PIPELINE",
+                "generator": "pipeline-object",
+                "create_func_name": "graphics_pipeline",
+                "create_cmd": "vkCreateGraphicsPipelines",
+                "create_hop": "",
+                "create_cache": "pipelineCache",
+                "create_count": "createInfoCount",
+                "create_info": "pCreateInfos",
+                "create_objs": "pPipelines",
+                "destroy_cmd": "vkDestroyPipeline",
+                "destroy_obj": "pipeline",
+                "variants": [
+                    {
+                        "create_func_name": "compute_pipeline",
+                        "create_cmd": "vkCreateComputePipelines"
+                    },
+                    {
+                        "create_func_name": "ray_tracing_pipeline",
+                        "create_cmd": "vkCreateRayTracingPipelinesKHR",
+                        "create_hop": "deferredOperation"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "filename": "vkr_query_pool_gen.h",
+        "objects": [
+            {
+                "vkr_type": "query_pool",
+                "vk_type": "VkQueryPool",
+                "vk_enum": "VK_OBJECT_TYPE_QUERY_POOL",
+                "generator": "simple-object",
+                "create_cmd": "vkCreateQueryPool",
+                "create_info": "pCreateInfo",
+                "create_obj": "pQueryPool",
+                "destroy_cmd": "vkDestroyQueryPool",
+                "destroy_obj": "queryPool"
+            }
+        ]
+    },
+    {
+        "filename": "vkr_queue_gen.h",
+        "objects": [
+            {
+                "vkr_type": "fence",
+                "vk_type": "VkFence",
+                "vk_enum": "VK_OBJECT_TYPE_FENCE",
+                "generator": "simple-object",
+                "create_cmd": "vkCreateFence",
+                "create_info": "pCreateInfo",
+                "create_obj": "pFence",
+                "destroy_cmd": "vkDestroyFence",
+                "destroy_obj": "fence"
+            },
+            {
+                "vkr_type": "semaphore",
+                "vk_type": "VkSemaphore",
+                "vk_enum": "VK_OBJECT_TYPE_SEMAPHORE",
+                "generator": "simple-object",
+                "create_cmd": "vkCreateSemaphore",
+                "create_info": "pCreateInfo",
+                "create_obj": "pSemaphore",
+                "destroy_cmd": "vkDestroySemaphore",
+                "destroy_obj": "semaphore"
+            },
+            {
+                "vkr_type": "event",
+                "vk_type": "VkEvent",
+                "vk_enum": "VK_OBJECT_TYPE_EVENT",
+                "generator": "simple-object",
+                "create_cmd": "vkCreateEvent",
+                "create_info": "pCreateInfo",
+                "create_obj": "pEvent",
+                "destroy_cmd": "vkDestroyEvent",
+                "destroy_obj": "event"
+            }
+        ]
+    },
+    {
+        "filename": "vkr_render_pass_gen.h",
+        "objects": [
+            {
+                "vkr_type": "render_pass",
+                "vk_type": "VkRenderPass",
+                "vk_enum": "VK_OBJECT_TYPE_RENDER_PASS",
+                "generator": "simple-object",
+                "create_cmd": "vkCreateRenderPass",
+                "create_info": "pCreateInfo",
+                "create_obj": "pRenderPass",
+                "destroy_cmd": "vkDestroyRenderPass",
+                "destroy_obj": "renderPass"
+            },
+            {
+                "vkr_type": "framebuffer",
+                "vk_type": "VkFramebuffer",
+                "vk_enum": "VK_OBJECT_TYPE_FRAMEBUFFER",
+                "generator": "simple-object",
+                "create_cmd": "vkCreateFramebuffer",
+                "create_info": "pCreateInfo",
+                "create_obj": "pFramebuffer",
+                "destroy_cmd": "vkDestroyFramebuffer",
+                "destroy_obj": "framebuffer"
+            }
+        ]
+    },
+    {
+        "filename": "vkr_acceleration_structure_gen.h",
+        "objects": [
+            {
+                "vkr_type": "acceleration_structure",
+                "vk_type": "VkAccelerationStructureKHR",
+                "vk_enum": "VK_OBJECT_TYPE_ACCELERATION_STRUCTURE_KHR",
+                "generator": "simple-object",
+                "create_cmd": "vkCreateAccelerationStructureKHR",
+                "create_info": "pCreateInfo",
+                "create_obj": "pAccelerationStructure",
+                "destroy_cmd": "vkDestroyAccelerationStructureKHR",
+                "destroy_obj": "accelerationStructure"
+            }
+        ]
+    }
+]

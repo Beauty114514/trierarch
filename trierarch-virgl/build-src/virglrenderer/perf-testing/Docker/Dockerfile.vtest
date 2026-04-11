@@ -1,0 +1,152 @@
+# Copyright 2018 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+FROM debian:sid
+LABEL description="Test vtest using a command like the following: \
+docker run --privileged -v /dev/log:/dev/log -v <path to crosvm>:/platform/crosvm:ro <crosvm base image>"
+
+# should be set to the ID/GROUP_ID of the user running the docker image
+ARG USER_ID
+ARG GROUP_ID
+
+# Build dependencies for Mesa
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    bison \
+    clang-18 \
+    cmake \
+    curl \
+    flex \
+    git \
+    meson \
+    ninja-build \
+    pkg-config \
+    libcairo-dev \
+    libclang-18-dev \
+    libclang-cpp18-dev \
+    libclc-18-dev \
+    libgbm-dev \
+    libdw-dev \
+    libelf-dev \
+    libepoxy-dev \
+    libgtest-dev \
+    libkmod-dev \
+    libllvmspirvlib-18-dev \
+    libpciaccess-dev \
+    libpixman-1-dev \
+    libproc2-dev \
+    libudev-dev \
+    libwayland-dev \
+    libwayland-egl-backend-dev \
+    libxcb-glx0-dev \
+    libx11-dev \
+    libx11-xcb-dev \
+    libxcb-dri2-0-dev \
+    libxcb-dri3-dev \
+    libxcb-present-dev \
+    libxcb-shm0-dev \
+    libxext-dev \
+    libxfixes-dev \
+    libxrandr-dev \
+    libxshmfence-dev \
+    libxxf86vm-dev \
+    llvm-18-dev \
+    protobuf-compiler \
+    python3 \
+    python3-mako \
+    python3-protobuf \
+    python3-yaml \
+    spirv-tools
+
+# Used /scratch for building dependencies which are too new or don't exist on Debian stretch.
+WORKDIR /scratch
+
+# Suppress warnings about detached HEAD, which will happen a lot and is meaningless in this context.
+RUN git config --global advice.detachedHead false
+
+RUN git clone https://gitlab.freedesktop.org/virgl/virglrenderer.git \
+    && cd virglrenderer \
+    && mkdir -p build \
+    && meson build/ -Dprefix=/usr/local -Dlibdir=lib \
+    && ninja -C build/ install
+
+# Reduces image size and prevents accidentally using /scratch files
+RUN rm -r /scratch
+WORKDIR /
+
+# The manual installation of shared objects requires an ld.so.cache refresh.
+RUN ldconfig
+
+RUN export uid=$USER_ID gid=$GROUP_ID && \
+    mkdir -p /home/chronos && \
+    echo "chronos:x:${uid}:${gid}:Developer,,,:/home/chronos:/bin/bash" >> /etc/passwd && \
+    echo "chronos:x:${uid}:" >> /etc/group && \
+    chown ${uid}:${gid} -R /home/chronos
+
+# Replace this build with the Debian package once that's possible
+RUN git clone https://gitlab.freedesktop.org/mesa/waffle.git --single-branch /waffle && \
+  cd /waffle && \
+  meson setup _build --libdir=lib -Dsurfaceless_egl=enabled && \
+  ninja -j12 -C _build install && \
+  mkdir -p build/lib build/bin && \
+  cp /usr/local/lib/libwaffle-1.so build/lib/libwaffle-1.so.0 && \
+  cp /usr/local/bin/wflinfo build/bin/wflinfo
+
+RUN git clone https://gitlab.freedesktop.org/lfrb/apitrace.git --single-branch -b perfetto /apitrace && \
+  cd /apitrace && \
+  git submodule update --init --depth 1 --recursive && \
+  cmake -G Ninja -B_build -H. -DCMAKE_BUILD_TYPE=Debug -DENABLE_GUI=False -DENABLE_WAFFLE=on && \
+  ninja -j12 -C _build && \
+  mkdir build && \
+  cp _build/apitrace build && \
+  cp _build/eglretrace build
+
+# So that llvmscript is happy
+RUN ln -s /usr/bin/clang-18 /usr/bin/clang
+RUN ln -s /usr/bin/clang++-18 /usr/bin/clang++
+
+RUN id
+ENV GN_ARGS="is_debug=false is_hermetic_clang=true use_custom_libcxx=true"
+ENV TAR_OPTIONS="--no-same-owner"
+RUN git clone https://android.googlesource.com/platform/external/perfetto && \
+  cd perfetto && \
+  git checkout v48.0 && \
+  python3 tools/install-build-deps && \
+  tools/gn gen out/dist --args="${GN_ARGS}"
+
+RUN cd perfetto && \
+  tools/ninja -C out/dist traced traced_probes perfetto trace_processor_shell && \
+  mkdir -p /usr/local/lib/python3.7/site-packages && \
+  protoc --python_out=/usr/local/lib/python3.7/site-packages protos/perfetto/trace/perfetto_trace.proto && \
+  tools/gen_amalgamated --gn_args 'target_os="linux" is_debug=false'
+
+# The libdrm-dev in distro can be too old to build minigbm,
+# so we build it from upstream.
+ARG DRM_COMMIT=main
+RUN git clone https://gitlab.freedesktop.org/mesa/drm.git/ \
+    && cd drm \
+    && git checkout $DRM_COMMIT \
+    && meson build -Dlibdir=lib \
+    && ninja -C build/ install
+
+ENV IGT_GPU_TOOLS_VERSION="master"
+RUN git clone --single-branch --no-checkout https://gitlab.freedesktop.org/drm/igt-gpu-tools.git && \
+    cd igt-gpu-tools && \
+    git checkout $IGT_GPU_TOOLS_VERSION && \
+    meson build -Doverlay=disabled -Dchamelium=disabled -Dvalgrind=disabled -Dman=disabled -Ddocs=disabled -Dtests=disabled -Drunner=disabled && \
+    ninja -C build install
+
+ENV GFX_PPS_VERSION="402e3126e6218112cfdfe9a038379ebc670c289c"
+RUN git clone --single-branch --no-checkout https://gitlab.freedesktop.org/lfrb/gfx-pps.git && \
+    cd gfx-pps && \
+    git checkout $GFX_PPS_VERSION && \
+    meson build -Dtest=false -Dbuildtype=debugoptimized && \
+    ninja -C build
+
+COPY perf-testing/Docker/run_traces.sh /usr/local/.
+COPY perf-testing/Docker/run.sh /usr/local/.
+COPY perf-testing/Docker/perfetto-host.cfg /usr/local/.
+COPY perf-testing/Docker/perfetto-vtest.cfg /usr/local/.
+
+ENTRYPOINT ["/usr/local/run.sh"]

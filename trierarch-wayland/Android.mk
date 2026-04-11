@@ -22,7 +22,7 @@ endif
 include $(CLEAR_VARS)
 LOCAL_MODULE := wayland-compositor
 LOCAL_SRC_FILES := \
-    src/compositor.c src/buffer.c src/surface.c src/subcompositor.c \
+    src/compositor.c src/buffer.c src/linux_dmabuf.c src/surface.c src/subcompositor.c \
     src/xdg_shell.c src/output.c src/seat.c src/pointer_input.c src/keyboard_input.c src/data_device.c \
     src/single_pixel_buffer.c src/viewporter.c src/xdg_decoration.c src/xdg_output.c \
     src/fractional_scale.c \
@@ -36,7 +36,8 @@ LOCAL_SRC_FILES := \
     protocol/fractional-scale-v1-server-protocol.c \
     protocol/pointer-constraints-unstable-v1-server-protocol.c \
     protocol/relative-pointer-unstable-v1-server-protocol.c \
-    protocol/presentation-time-server-protocol.c
+    protocol/presentation-time-server-protocol.c \
+    protocol/linux-dmabuf-v1-server-protocol.c
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/src $(LOCAL_PATH)/protocol
 LOCAL_LDLIBS := -lEGL -lGLESv2 -llog -landroid
 ifeq ($(TARGET_ARCH_ABI),arm64-v8a)

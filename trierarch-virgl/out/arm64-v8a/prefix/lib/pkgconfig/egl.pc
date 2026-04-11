@@ -1,0 +1,9 @@
+prefix=/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr
+libdir=/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/24
+includedir=/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include
+
+Name: egl
+Description: NDK EGL
+Version: 1.5
+Libs: -L${libdir} -lEGL
+Cflags: -I${includedir}

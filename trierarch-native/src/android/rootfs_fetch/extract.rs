@@ -1,10 +1,4 @@
-//! Extraction helpers for the Arch rootfs tarball.
-//!
-//! Contract:
-//! - Extracts the tarball into a temporary directory, expecting exactly one top-level directory.
-//! - Renames that directory into `dest` (caller provides staging paths).
-//! - Populates minimal `/proc` and `/sys` placeholders required by proot binds and common tooling.
-//! - Validates the extracted structure with a few hard requirements (shell, os-release, etc.).
+//! Tar extract, placeholder proc/sys, structure checks.
 
 use anyhow::{Context, Result};
 use std::fs::File;

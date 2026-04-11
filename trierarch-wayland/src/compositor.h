@@ -15,11 +15,13 @@
 #include <stdint.h>
 
 typedef struct wayland_server wayland_server_t;
+struct dmabuf_buffer;
 
-/* Snapshot of a surface for the renderer. pixels for SHM; egl_buffer for EGL (wl_resource*). */
+/* Snapshot of a surface for the renderer. pixels for SHM; egl_buffer for EGL (wl_resource*); dmabuf for linux-dmabuf. */
 typedef struct compositor_surface_view {
     const void *pixels;
     void *egl_buffer;  /* wl_resource* when from EGL client buffer; NULL for SHM */
+    struct dmabuf_buffer *dmabuf; /* non-NULL: import fd in renderer (EGL dma-buf) */
     int32_t width, height, stride;
     uint32_t format;
     int32_t x, y;

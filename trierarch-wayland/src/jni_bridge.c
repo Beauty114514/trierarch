@@ -6,10 +6,10 @@
 #include <android/log.h>
 #include <pthread.h>
 #include <signal.h>
+#include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -21,24 +21,12 @@
 
 #define LOG_TAG "WaylandJNI"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+/* Same messages also under TrierarchWayland so `adb logcat -s TrierarchWayland:I` shows the full pipeline. */
+#define LOGI_WL(...) __android_log_print(ANDROID_LOG_INFO, "TrierarchWayland", __VA_ARGS__)
 
 extern volatile const char *g_wayland_checkpoint;
 
-/*
- * Threading/lifecycle contract (Trierarch-owned compositor):
- *
- * - libwayland-server is not thread-safe. JNI entrypoints may be called from arbitrary Java
- *   threads (UI, IME, hardware keyboard). Those threads must NOT call wl_* send functions.
- * - We maintain a key-event queue from JNI threads -> Wayland thread, drained from dispatch/render
- *   loops with a strict per-tick budget to avoid starving rendering (prevents black screens on paste).
- * - `nativeStartServer()` creates the Wayland display/socket and runs a lightweight dispatch thread.
- * - `nativeSurfaceCreated()` switches into render mode: stops dispatch thread, (re)creates EGL context,
- *   then runs the render loop which also dispatches Wayland events.
- * - `nativeSurfaceDestroyed()` tears down render mode and resumes dispatch mode.
- *
- * When adding new JNI calls, prefer queueing work to the Wayland thread unless it is purely
- * thread-safe state (and document why).
- */
+/* Wayland runs on a dedicated thread; JNI may not call wl_* send from arbitrary threads (key queue). */
 
 static void crash_handler(int sig, siginfo_t *info, void *uctx) {
     (void)uctx;
@@ -236,7 +224,9 @@ JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeStartServer(JNIEnv
     if (!runtime_dir) return;
     const char *dir = (*env)->GetStringUTFChars(env, runtime_dir, NULL);
     if (!dir) return;
-    mkdir(dir, 0700);
+    /* 0755: non-root proot users (e.g. su beauty) must traverse XDG_RUNTIME_DIR to connect. */
+    mkdir(dir, 0755);
+    chmod(dir, 0755);
     if (!g_server) {
         g_server = compositor_create(dir);
     }
@@ -244,12 +234,13 @@ JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeStartServer(JNIEnv
     if (g_server && !g_render_created) start_dispatch();
 }
 
-JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeSurfaceCreated(JNIEnv *env, jobject thiz, jobject surface, jstring runtime_dir, jint resolution_percent, jint scale_percent) {
+JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeSurfaceCreated(JNIEnv *env, jobject thiz, jobject surface, jstring runtime_dir, jint resolution_percent, jint scale_percent, jboolean skip_egl_wl_bind) {
     (void)thiz;
     if (!surface || !runtime_dir) return;
     const char *dir = (*env)->GetStringUTFChars(env, runtime_dir, NULL);
     if (!dir) return;
-    mkdir(dir, 0700);
+    mkdir(dir, 0755);
+    chmod(dir, 0755);
     struct sigaction sa;
     sa.sa_sigaction = crash_handler;
     sigemptyset(&sa.sa_mask);
@@ -279,11 +270,13 @@ JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeSurfaceCreated(JNI
     usleep(50000);
     g_window = ANativeWindow_fromSurface(env, surface);
     if (!g_window) {
+        LOGI_WL("nativeSurfaceCreated: ANativeWindow is null — no EGL render loop (only dispatch thread). Black = no composite.");
         start_dispatch();
         return;
     }
-    g_renderer = renderer_create(g_window, (struct wayland_server *)g_server);
+    g_renderer = renderer_create(g_window, (struct wayland_server *)g_server, skip_egl_wl_bind == JNI_TRUE ? 1 : 0);
     if (!g_renderer) {
+        LOGI_WL("nativeSurfaceCreated: renderer_create failed — no EGL. Falling back to dispatch-only.");
         ANativeWindow_release(g_window);
         g_window = NULL;
         start_dispatch();
@@ -319,6 +312,12 @@ JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeSurfaceCreated(JNI
     compositor_set_output_user_scale(g_server, user_scale);
     g_running = 1;
     g_render_created = (pthread_create(&g_render_thread, NULL, render_loop, NULL) == 0);
+    if (g_render_created) {
+        LOGI_WL("EGL render thread started (skip_egl_wl_bind=%d) — next: TrierarchRenderer first frame; TrierarchDmabuf after guest binds linux-dmabuf",
+                skip_egl_wl_bind == JNI_TRUE ? 1 : 0);
+    } else {
+        LOGI_WL("EGL render thread FAILED to start — no frames");
+    }
 }
 
 JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeSurfaceDestroyed(JNIEnv *env, jobject thiz) {
@@ -401,26 +400,6 @@ JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeSetCursorVisible(J
     compositor_set_cursor_visible(g_server, visible ? true : false);
 }
 
-JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeStopWayland(JNIEnv *env, jobject thiz) {
-    (void)env;
-    (void)thiz;
-    g_running = 0;
-    if (g_render_created) {
-        pthread_join(g_render_thread, NULL);
-        g_render_created = 0;
-    }
-    stop_dispatch();
-    wayland_server_t *s = g_server;
-    g_server = NULL;
-    if (s) compositor_destroy(s);
-}
-
-JNIEXPORT jboolean JNICALL Java_app_trierarch_WaylandBridge_nativeIsWaylandReady(JNIEnv *env, jobject thiz) {
-    (void)env;
-    (void)thiz;
-    return (g_renderer && renderer_is_valid(g_renderer)) ? JNI_TRUE : JNI_FALSE;
-}
-
 JNIEXPORT jintArray JNICALL Java_app_trierarch_WaylandBridge_nativeGetOutputSize(JNIEnv *env, jobject thiz) {
     (void)thiz;
     jintArray out = (*env)->NewIntArray(env, 2);
@@ -430,17 +409,6 @@ JNIEXPORT jintArray JNICALL Java_app_trierarch_WaylandBridge_nativeGetOutputSize
     jint arr[] = { (jint)w, (jint)h };
     (*env)->SetIntArrayRegion(env, out, 0, 2, arr);
     return out;
-}
-
-JNIEXPORT jstring JNICALL Java_app_trierarch_WaylandBridge_nativeGetSocketDir(JNIEnv *env, jobject thiz, jstring files_dir) {
-    (void)thiz;
-    if (!files_dir) return NULL;
-    const char *path = (*env)->GetStringUTFChars(env, files_dir, NULL);
-    if (!path) return NULL;
-    static char buf[512];
-    snprintf(buf, sizeof(buf), "%s/usr/tmp", path);
-    (*env)->ReleaseStringUTFChars(env, files_dir, path);
-    return (*env)->NewStringUTF(env, buf);
 }
 
 JNIEXPORT jboolean JNICALL Java_app_trierarch_WaylandBridge_nativeHasActiveClients(JNIEnv *env, jobject thiz) {

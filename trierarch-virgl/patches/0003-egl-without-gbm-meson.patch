@@ -1,0 +1,22 @@
+Enable EGL on Android without requiring GBM/libdrm in meson.build.
+Adapted from Termux: 0001-do-not-use-gbm.patch (meson.build part only).
+
+--- a/meson.build
++++ b/meson.build
+@@ -171,6 +171,7 @@
+ endif
+ 
+ with_host_windows = host_machine.system() == 'windows'
++with_host_android = host_machine.system() == 'android'
+ with_host_darwin = host_machine.system() == 'darwin'
+ 
+ if thread_dep.found() and not with_host_windows
+@@ -288,7 +289,7 @@
+ 
+ if with_egl
+    if cc.has_header('epoxy/egl.h', dependencies: epoxy_dep) and epoxy_dep.get_variable(pkgconfig: 'epoxy_has_egl') == '1'
+-      if with_host_windows or with_host_darwin
++      if with_host_windows or with_host_darwin or with_host_android
+          have_egl = true
+       else
+          if libdrm_dep.found()

@@ -1,0 +1,10 @@
+[wrap-git]
+directory=vperfetto
+
+url=https://github.com/741g/vperfetto.git
+revision=46898c58f72ae5790c18dd6b2316b8efc4c37b1a
+depth=1
+patch_directory=vperfetto
+
+[provide]
+dependency_names=vperfetto_min

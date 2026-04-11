@@ -67,6 +67,8 @@ fun FloatingMenuOrb(
     onDismissMenu: () -> Unit,
     onDisplayClick: () -> Unit,
     onDisplayLongPress: () -> Unit,
+    desktopRendererLabel: String,
+    onDesktopRendererClick: () -> Unit,
     onViewClick: () -> Unit,
     onAppearanceClick: () -> Unit,
     onSessionClick: () -> Unit,
@@ -79,6 +81,7 @@ fun FloatingMenuOrb(
     val dismissMenuAction by rememberUpdatedState(onDismissMenu)
     val onDisplayTap by rememberUpdatedState(onDisplayClick)
     val onDisplayLong by rememberUpdatedState(onDisplayLongPress)
+    val onDesktopRendererTap by rememberUpdatedState(onDesktopRendererClick)
     val onView by rememberUpdatedState(onViewClick)
     val onAppearance by rememberUpdatedState(onAppearanceClick)
     val onSession by rememberUpdatedState(onSessionClick)
@@ -252,6 +255,19 @@ fun FloatingMenuOrb(
                     color = Color.White.copy(alpha = 0.85f),
                     modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
                 )
+                Box(
+                    modifier = Modifier
+                        .pointerInput(Unit) {
+                            detectTapGestures(onTap = { onDesktopRendererTap() })
+                        }
+                        .padding(vertical = 10.dp)
+                ) {
+                    Text(
+                        "Renderer: $desktopRendererLabel",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
                 Box(
                     modifier = Modifier
                         .clickable { onView() }

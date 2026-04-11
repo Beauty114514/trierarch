@@ -1,0 +1,9 @@
+prefix=/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr
+libdir=/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/24
+includedir=/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include
+
+Name: glesv2
+Description: NDK GLESv2
+Version: 3.2
+Libs: -L${libdir} -lGLESv2
+Cflags: -I${includedir}

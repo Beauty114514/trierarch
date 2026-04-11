@@ -1,14 +1,4 @@
-//! Rootfs acquisition for the Android app.
-//!
-//! Contract:
-//! - Produces a usable Arch rootfs under the app data directory (e.g. `data_dir/arch`).
-//! - Uses a cache tarball with SHA-256 verification.
-//! - Extracts into a staging directory and performs an *atomic swap* into place.
-//! - On failure, attempts to keep the previously working rootfs intact (rollback when possible).
-//! - A sentinel file (`ROOTFS_READY_SENTINEL`) is written into the staging rootfs to mark completeness.
-//!
-//! This module is Trierarch-owned logic (not vendored) and should keep comments focused on
-//! invariants, failure semantics, and on-disk state transitions.
+//! Download verified tarball, extract to staging, write [`ROOTFS_READY_SENTINEL`], rename into place.
 
 use super::application_context::{
     get_application_context, has_rootfs, rootfs_dir, ROOTFS_READY_SENTINEL,
@@ -68,11 +58,7 @@ pub fn ensure_arch_rootfs_with_progress(progress: Option<ProgressFn>) -> Result<
             if existing == TARBALL_SHA256 {
                 break;
             }
-            log::warn!(
-                "Existing rootfs tarball sha256 mismatch, redownloading: expected={}, got={}",
-                TARBALL_SHA256,
-                existing
-            );
+            log::warn!("rootfs tarball sha256 mismatch, redownloading");
             let _ = std::fs::remove_file(&tarball_path);
         }
 
@@ -82,7 +68,7 @@ pub fn ensure_arch_rootfs_with_progress(progress: Option<ProgressFn>) -> Result<
         {
             Ok(()) => break,
             Err(e) => {
-                log::warn!("Download failed, retrying: {:?}", e);
+                log::warn!("rootfs download failed, retry: {:?}", e);
                 let _ = std::fs::remove_file(&tarball_tmp);
                 let _ = std::fs::remove_file(&tarball_path);
             }
@@ -104,7 +90,7 @@ pub fn ensure_arch_rootfs_with_progress(progress: Option<ProgressFn>) -> Result<
                 break;
             }
             Err(e) => {
-                log::warn!("Extract failed: {:?}. Retrying extract (tarball kept).", e);
+                log::warn!("rootfs extract failed, retry: {:?}", e);
                 let _ = std::fs::remove_dir_all(&temp_extract);
                 let _ = std::fs::remove_dir_all(&staging_rootfs_path);
             }

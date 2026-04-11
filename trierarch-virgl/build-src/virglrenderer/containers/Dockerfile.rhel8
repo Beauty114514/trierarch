@@ -1,0 +1,56 @@
+FROM registry.access.redhat.com/ubi8
+
+# Add glxgears for testing
+RUN dnf -y update && dnf -y install \
+    glx-utils
+
+# Build dependencies for Mesa
+RUN dnf -y update && dnf -y install \
+    autoconf \
+    automake \
+    gcc \
+    gcc-c++ \
+    bison \
+    flex \
+    git \
+    libtool \
+    make \
+    ninja-build \
+    pkgconf-pkg-config \
+    python3.11 \
+    python3.11-pip \
+    libdrm-devel \
+    libXdamage-devel \
+    libXext-devel \
+    libXfixes-devel \
+    libXrandr-devel \
+    libXrender-devel \
+    libxshmfence-devel
+
+RUN alternatives --set python /usr/bin/python3.11
+RUN alternatives --set python3 /usr/bin/python3.11
+RUN pip3 install mako meson pyyaml
+
+# Build and install build dependencies for Mesa
+RUN git clone https://gitlab.freedesktop.org/xorg/util/macros.git && \
+    cd macros && \
+    ./autogen.sh --prefix=/usr && \
+    make && \
+    make install
+
+RUN git clone https://gitlab.freedesktop.org/xorg/lib/libxxf86vm && \
+    cd libxxf86vm && \
+    ./autogen.sh --prefix=/usr && \
+    make && \
+    make install
+
+RUN ls -al /usr/lib64/libGL.so*
+RUN rm /usr/lib64/libGL.so*
+
+# Build and install Mesa from main repository
+RUN git clone https://gitlab.freedesktop.org/mesa/mesa.git && \
+    cd mesa && \
+    meson setup build -Dgallium-drivers=virgl,softpipe -Dvulkan-drivers= -Dplatforms=x11 -Dllvm=disabled --prefix=/usr && \
+    ninja -C build install
+
+RUN ls -al /usr/lib64/libGL*

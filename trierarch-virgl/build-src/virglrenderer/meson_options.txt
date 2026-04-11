@@ -1,0 +1,137 @@
+#############################################################################
+#
+# Copyright (C) 2019 Collabora Ltd
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+# OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+# OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+# ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+# OTHER DEALINGS IN THE SOFTWARE.
+#
+
+option(
+  'platforms',
+  type : 'array',
+  value : ['auto'],
+  choices : [
+    'egl', 'glx', 'auto'
+  ],
+  description : 'Platforms support, set to auto to enable all.'
+)
+
+option(
+  'minigbm_allocation',
+  type : 'boolean',
+  value : 'false',
+  description : 'DEPRECATED: enable support for minigbm_allocations'
+)
+
+option(
+  'venus',
+  type : 'boolean',
+  value : 'false',
+  description : 'enable support for venus'
+)
+
+option(
+  'vulkan-dload',
+  type : 'boolean',
+  value : 'true',
+  description : 'enable loading libvulkan dynamically at runtime instead of linking to it at build-time'
+)
+
+option(
+  'vulkan-preload',
+  type : 'boolean',
+  value : 'false',
+  description : 'Enable Vulkan ICD preload inside the render server process. ' +
+                'This allows sharing of e.g. anon pages allocated within ICD ' +
+                'loading for free among all render worker processes forked. ' +
+                'WARNING! Enable with caution, because not all ICDs support ' +
+                'being preloaded that is safe to fork. e.g. NV proprietary ' +
+                'driver is not (see virglrenderer issue #630 for details)'
+)
+
+option(
+  'check-gl-errors',
+  type : 'boolean',
+  value : 'true',
+  description : 'treat host-side gl errors as fatal'
+)
+
+option(
+  'drm-renderers',
+  type : 'array',
+  value : [],
+  choices : [
+    'amdgpu-experimental',
+    'panfrost-experimental',
+    'asahi',
+    'msm',
+    'i915-experimental',
+  ],
+  description : 'List of drm native-context renderers to build'
+)
+
+option(
+  'render-server-worker',
+  type : 'combo',
+  value : 'process',
+  choices : ['process', 'thread', 'minijail'],
+  description : 'how a context in render server is serviced'
+)
+
+option(
+  'video',
+  type : 'boolean',
+  value : 'false',
+  description : 'enable support for hardware video acceleration'
+)
+
+option(
+  'tests',
+  type : 'boolean',
+  value : 'false',
+  description : 'enable unit tests'
+)
+
+option(
+  'fuzzer',
+  type : 'boolean',
+  value : 'false',
+  description : 'enable unit tests'
+)
+
+option(
+  'valgrind',
+  type : 'boolean',
+  value : 'false',
+  description : 'enable running unit tests with valgrind'
+)
+
+option(
+  'tracing',
+  type : 'combo',
+  value : 'none',
+  choices : [ 'percetto', 'perfetto', 'sysprof', 'stderr', 'none' ],
+  description : 'enable emitting traces using the selected backend'
+)
+
+option(
+  'unstable-apis',
+  type : 'boolean',
+  value : 'false',
+  description : 'enable unstable apis'
+)

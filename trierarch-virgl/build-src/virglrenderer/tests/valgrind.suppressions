@@ -1,0 +1,23 @@
+{
+   srunner_run::timer_create-uninitialized-bytes
+   Memcheck:Param
+   timer_create(evp)
+   fun:timer_create@@GLIBC_2.3.3
+   fun:srunner_run
+   fun:litest_run
+   fun:main
+}
+
+{
+   eglleak
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   ...
+   fun:dri_screen_create*
+   fun:dri_device_create
+   fun:_gbm_create_device
+   fun:gbm_create_device
+   ...
+}
+

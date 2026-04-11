@@ -1,0 +1,166 @@
+dEQP-GLES31.functional.draw_buffers_indexed.random.max_implementation_draw_buffers.8
+dEQP-GLES31.functional.ssbo.layout.random.all_shared_buffer.36
+dEQP-GLES31.functional.ssbo.layout.random.arrays_of_arrays.1
+dEQP-GLES31.functional.ssbo.layout.random.nested_structs_arrays_instance_arrays.22
+dEQP-GLES31.functional.ssbo.layout.unsized_struct_array.per_block_buffer.shared_instance_array
+
+hiz@hiz-depth-read-fbo-d24-s0
+hiz@hiz-depth-read-window-stencil0
+hiz@hiz-stencil-read-window-depth0
+hiz@hiz-stencil-read-window-depth1
+shaders@glsl-fs-sampler-numbering
+shaders@glsl-max-varyings
+shaders@glsl-max-varyings >max_varying_components
+shaders@glsl-uniform-interstage-limits@subdivide 5
+shaders@glsl-uniform-interstage-limits@subdivide 5- statechanges
+spec@amd_shader_trinary_minmax@execution@built-in-functions@gs-max3-vec3-vec3-vec3
+spec@amd_shader_trinary_minmax@execution@built-in-functions@tcs-mid3-uvec2-uvec2-uvec2
+spec@amd_shader_trinary_minmax@execution@built-in-functions@vs-max3-vec3-vec3-vec3
+spec@arb_clip_control@arb_clip_control-clip-control
+spec@arb_compute_shader@local-id-explosion
+spec@arb_copy_image@arb_copy_image-formats@Source: GL_STENCIL_INDEX8/Destination: GL_STENCIL_INDEX8
+spec@arb_depth_buffer_float@depthstencil-render-miplevels 146 d=z32f_s8
+spec@arb_depth_buffer_float@depthstencil-render-miplevels 273 s=d=z32f_s8
+spec@arb_depth_buffer_float@depthstencil-render-miplevels 585 d=z32f_s8
+spec@arb_depth_buffer_float@fbo-depthstencil-gl_depth32f_stencil8-copypixels
+spec@arb_depth_texture@depthstencil-render-miplevels 146 d=z16
+spec@arb_depth_texture@depthstencil-render-miplevels 585 d=z16
+spec@arb_fragment_layer_viewport@layer-gs-writes-in-range
+spec@arb_fragment_layer_viewport@viewport-gs-writes-in-range
+spec@arb_framebuffer_no_attachments@arb_framebuffer_no_attachments-atomic@Basic
+spec@arb_framebuffer_no_attachments@arb_framebuffer_no_attachments-atomic
+spec@arb_framebuffer_no_attachments@arb_framebuffer_no_attachments-atomic@glScissor
+spec@arb_framebuffer_no_attachments@arb_framebuffer_no_attachments-atomic@glViewport
+spec@arb_framebuffer_no_attachments@arb_framebuffer_no_attachments-atomic@MS4
+spec@arb_framebuffer_no_attachments@arb_framebuffer_no_attachments-atomic@Per-sample
+spec@arb_framebuffer_no_attachments@arb_framebuffer_no_attachments-roundup-samples
+spec@arb_framebuffer_object@arb_framebuffer_object-depth-stencil-blit stencil gl_stencil_index1
+spec@arb_framebuffer_srgb@blit renderbuffer linear_to_srgb upsample disabled clear
+spec@arb_get_texture_sub_image@arb_get_texture_sub_image-getcompressed
+spec@arb_gpu_shader5@texturegather@fs-r-0-uint-2drect
+spec@arb_gpu_shader5@texturegather@fs-rgb-1-unorm-2drect
+spec@arb_gpu_shader5@texturegatheroffset@fs-rgb-2-float-2drect-const
+spec@arb_gpu_shader5@texturegatheroffsets@vs-rg-0-float-2drect
+spec@arb_gpu_shader5@texturegatheroffsets@vs-rgb-0-int-2d
+spec@arb_gpu_shader5@texturegatheroffsets@vs-rgb-1-int-2d
+spec@arb_gpu_shader5@texturegatheroffset@vs-r-0-unorm-2darray
+spec@arb_gpu_shader5@texturegatheroffset@vs-rgb-2-uint-2drect-const
+spec@arb_shader_atomic_counter_ops@execution@add
+spec@arb_shader_atomic_counters@fragment-discard
+spec@arb_shader_atomic_counters@function-argument
+spec@arb_shader_image_load_store@atomicity
+spec@arb_shader_image_load_store@atomicity@imageAtomicAdd
+spec@arb_shader_image_load_store@atomicity@imageAtomicAnd
+spec@arb_shader_image_load_store@atomicity@imageAtomicCompSwap
+spec@arb_shader_image_load_store@atomicity@imageAtomicExchange
+spec@arb_shader_image_load_store@atomicity@imageAtomicMax
+spec@arb_shader_image_load_store@atomicity@imageAtomicMin
+spec@arb_shader_image_load_store@atomicity@imageAtomicOr
+spec@arb_shader_image_load_store@atomicity@imageAtomicXor
+spec@arb_shader_precision@fs-op-assign-div-vec3-float
+spec@arb_shader_storage_buffer_object@execution@memory-layouts-struct-deref
+spec@arb_shader_storage_buffer_object@execution@ssbo-atomicadd-int
+spec@arb_shader_storage_buffer_object@execution@ssbo-atomicexchange-int
+spec@arb_texture_cube_map@copyteximage cube samples=4
+spec@arb_texture_multisample@texelfetch fs sampler2dms 4 1x71-501x71
+spec@arb_texture_rg@texwrap formats-float bordercolor
+spec@arb_texture_view@rendering-target
+spec@arb_texture_view@rendering-target@1D view rendering
+spec@arb_timer_query@query gl_timestamp
+spec@arb_timer_query@timestamp-get
+spec@ext_timer_query@time-elapsed
+spec@arb_uniform_buffer_object@rendering-array
+spec@ext_framebuffer_blit@fbo-blit-check-limits
+spec@ext_framebuffer_blit@fbo-sys-blit
+spec@ext_framebuffer_blit@fbo-sys-sub-blit
+spec@ext_framebuffer_multisample@sample-alpha-to-coverage 2 depth
+spec@ext_framebuffer_object@fbo-fragcoord
+spec@ext_framebuffer_object@fbo-stencil-gl_stencil_index8-drawpixels
+spec@ext_gpu_shader4@execution@texelfetch@fs-texelfetch-isampler3d
+spec@ext_gpu_shader4@execution@texelfetchoffset@fs-texelfetch-sampler1d
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 146 ds=z24_s8
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 146 s=z24_s8
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 273 d=s=z24_s8
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 273 s=z24_s8
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 292 d=s=z24_s8
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 292 s=d=z24_s8
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 585 d=z24_s8
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 585 s=z24_s8
+spec@ext_packed_depth_stencil@fbo-clear-formats stencil
+spec@ext_packed_depth_stencil@fbo-clear-formats stencil@GL_DEPTH_STENCIL
+spec@ext_packed_depth_stencil@fbo-depth-gl_depth24_stencil8-tex1d
+spec@ext_texture_array@fbo-depth-array depth-draw
+spec@ext_texture_compression_s3tc@texwrap formats
+spec@ext_texture_compression_s3tc@texwrap formats@GL_COMPRESSED_RGB_S3TC_DXT1_EXT
+spec@ext_transform_feedback@builtin-varyings gl_color
+spec@glsl-1.10@execution@built-in-functions@fs-op-lt-float-float
+spec@glsl-1.10@execution@built-in-functions@vs-acos-float
+spec@glsl-1.10@execution@built-in-functions@vs-all-bvec2
+spec@glsl-1.10@execution@built-in-functions@vs-mix-vec4-vec4-vec4
+spec@glsl-1.10@execution@built-in-functions@vs-op-assign-add-ivec3-int
+spec@glsl-1.10@execution@built-in-functions@vs-op-div-vec2-float
+spec@glsl-1.10@execution@built-in-functions@vs-op-sub-vec2-float
+spec@glsl-1.10@execution@interpolation@interpolation-none-gl_backsecondarycolor-smooth-none
+spec@glsl-1.10@execution@variable-indexing@fs-temp-array-mat4-index-row-wr
+spec@glsl-1.20@execution@built-in-functions@fs-op-assign-mult-mat4x2-mat4
+spec@glsl-1.20@execution@built-in-functions@vs-op-eq-mat2x4-mat2x4
+spec@glsl-1.20@execution@built-in-functions@vs-op-mult-mat2x4-mat3x2
+spec@glsl-1.20@execution@const-builtin@glsl-const-builtin-fract
+spec@glsl-1.20@execution@uniform-initializer@fs-mat3
+spec@glsl-1.20@execution@uniform-initializer@vs-mat4-set-by-other-stage
+spec@glsl-1.20@execution@variable-indexing@fs-uniform-array-mat4-col-row-rd
+spec@glsl-1.20@execution@vs-outerproduct-mat4-ivec
+spec@glsl-1.30@execution@built-in-functions@fs-clamp-ivec3-int-int
+spec@glsl-1.30@execution@built-in-functions@fs-op-assign-lshift-ivec4-int
+spec@glsl-1.30@execution@built-in-functions@fs-op-assign-rshift-ivec2-uint
+spec@glsl-1.30@execution@built-in-functions@fs-op-bitand-not-abs-ivec3-int
+spec@glsl-1.30@execution@built-in-functions@fs-op-bitxor-abs-not-ivec2-int
+spec@glsl-1.30@execution@interpolation@interpolation-flat-gl_backsecondarycolor-smooth-none
+spec@glsl-1.30@execution@switch@fs-uint
+spec@glsl-1.30@execution@texelfetch fs sampler2darray 98x1x9-98x129x9
+spec@glsl-1.30@execution@texelfetch fs sampler3d 1x129x9-98x129x9
+spec@glsl-1.30@execution@texelfetch@vs-texelfetch-isampler2darray-swizzle
+spec@glsl-1.50@execution@built-in-functions@gs-fract-vec2
+spec@glsl-1.50@execution@built-in-functions@gs-fract-vec3
+spec@glsl-1.50@execution@built-in-functions@gs-op-assign-bitand-ivec3-int
+spec@glsl-1.50@execution@built-in-functions@gs-op-bitor-abs-not-ivec4-ivec4
+spec@glsl-1.50@execution@built-in-functions@gs-op-bitor-neg-int-ivec3
+spec@glsl-1.50@execution@built-in-functions@gs-op-uplus-ivec2
+spec@glsl-1.50@execution@texelfetchoffset@gs-texelfetch-isampler1darray
+spec@glsl-4.00@execution@inout@vs-out-fs-in-s2@2-vec3-dmat2x2
+spec@glsl-4.30@execution@built-in-functions@cs-op-add-mat2x4-float
+spec@glsl-4.30@execution@built-in-functions@cs-op-mult-uvec2-uint
+spec@glsl-4.30@execution@built-in-functions@cs-op-rshift-ivec2-int
+spec@glsl-4.30@execution@built-in-functions@cs-op-selection-bool-vec4-vec4
+spec@nv_copy_image@nv_copy_image-formats@Source: GL_DEPTH32F_STENCIL8/Destination: GL_DEPTH32F_STENCIL8
+spec@oes_viewport_array@viewport-gs-writes-in-range
+spec@!opengl 1.0@gl-1.0-blend-func
+spec@!opengl 1.0@gl-1.0-front-invalidate-back
+spec@!opengl 1.1@copypixels-draw-sync
+spec@!opengl 1.1@draw-sync
+spec@!opengl 1.1@getteximage-depth
+spec@!opengl 1.1@getteximage-depth@GL_TEXTURE_CUBE_MAP-GL_DEPTH24_STENCIL8
+spec@!opengl 1.1@masked-clear
+spec@!opengl 1.1@ppgtt_memory_alignment
+spec@!opengl 1.1@read-front clear-front-first
+spec@!opengl 1.1@read-front clear-front-first samples=2
+spec@!opengl 1.1@read-front clear-front-first samples=4
+spec@!opengl 1.1@read-front samples=2
+spec@!opengl 1.1@stencil-drawpixels
+spec@!opengl 2.0@vertex-program-two-side front back back2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side front back back2@vs- gs and fs
+spec@!opengl 2.0@vertex-program-two-side front back front2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side front back front2@vs- gs and fs
+spec@!opengl 2.0@vertex-program-two-side front back@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side front back@vs- gs and fs
+spec@!opengl 2.0@vertex-program-two-side front front2 back2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side front front2 back2@vs- gs and fs
+spec@!opengl 3.0@gl30basic
+spec@arb_get_texture_sub_image@arb_get_texture_sub_image-get
+spec@ext_packed_depth_stencil@depthstencil-render-miplevels 585 d=z24_s8
+dEQP-GLES31.functional.copy_image.non_compressed.viewclass_32_bits.rg16ui_r32f.texture3d_to_cubemap
+spec@ext_image_dma_buf_import@ext_image_dma_buf_import-refcount-multithread
+
+# uprev Mesa in Virglrenderer
+spec@glsl-1.40@uniform_buffer@two-stages
+

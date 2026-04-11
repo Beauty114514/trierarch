@@ -9,6 +9,11 @@
 
 #define LOG_TAG "TrierarchSurface"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+
+/* When eglBindWaylandDisplayWL was not called, egl_buffer_supported is false and
+ * wl_buffer with NULL user_data cannot be attached — every frame is dropped. */
+static uint64_t g_wl_buffer_dropped_no_egl_import;
 
 static void xdg_surface_resource_destroy(struct wl_resource *resource);
 static void xdg_toplevel_resource_destroy(struct wl_resource *resource);
@@ -32,6 +37,10 @@ static void surface_resource_destroy(struct wl_resource *resource) {
         surf->current_buffer->u.egl->surf = NULL;
     if (surf->pending_buffer && surf->pending_buffer->type == BUF_EGL && surf->pending_buffer->u.egl)
         surf->pending_buffer->u.egl->surf = NULL;
+    if (surf->current_buffer && surf->current_buffer->type == BUF_DMABUF && surf->current_buffer->u.dmabuf)
+        surf->current_buffer->u.dmabuf->owner = NULL;
+    if (surf->pending_buffer && surf->pending_buffer->type == BUF_DMABUF && surf->pending_buffer->u.dmabuf)
+        surf->pending_buffer->u.dmabuf->owner = NULL;
     if (surf->parent) {
         surf->parent = NULL;
         wl_list_remove(&surf->sub_link);
@@ -77,10 +86,35 @@ static void surface_attach(struct wl_client *client, struct wl_resource *resourc
         }
         return;
     }
+    {
+        struct dmabuf_buffer *dba = dmabuf_buffer_try_from_wl_resource(buffer_res);
+        if (dba) {
+            struct compositor_buffer_ref *ref = calloc(1, sizeof(*ref));
+            if (!ref) {
+                wl_client_post_no_memory(client);
+                return;
+            }
+            ref->type = BUF_DMABUF;
+            ref->u.dmabuf = dba;
+            if (surf->pending_buffer) {
+                buffer_ref_clear_owner(surf->pending_buffer);
+                buffer_ref_release(surf->pending_buffer);
+            }
+            surf->pending_buffer = ref;
+            return;
+        }
+    }
     void *raw = wl_resource_get_user_data(buffer_res);
     if (!raw) {
         /* EGL buffer (no user_data) */
         if (!surf->srv->egl_buffer_supported) {
+            g_wl_buffer_dropped_no_egl_import++;
+            if (g_wl_buffer_dropped_no_egl_import <= 15u
+                    || (g_wl_buffer_dropped_no_egl_import % 600u) == 0u) {
+                LOGE("wl_buffer attach IMPOSSIBLE: no user_data and EGL Wayland import disabled "
+                     "(need eglBindWaylandDisplayWL on compositor). drop_count=%llu — frames are discarded.",
+                     (unsigned long long)g_wl_buffer_dropped_no_egl_import);
+            }
             wl_resource_post_event(buffer_res, WL_BUFFER_RELEASE);
             return;
         }
@@ -169,11 +203,11 @@ static void surface_set_buffer_transform(struct wl_client *c, struct wl_resource
 static void surface_set_buffer_scale(struct wl_client *c, struct wl_resource *r, int32_t scale) {
     (void)c;
     struct compositor_surface *surf = wl_resource_get_user_data(r);
-    if (surf && scale >= 1) {
-        surf->buffer_scale = scale;
-        /* Debug aid: confirms whether clients enter HiDPI (buffer_scale > 1). */
-        LOGI("surface=%p set_buffer_scale=%d", (void *)surf, (int)scale);
-    }
+    if (!surf || scale < 1) return;
+    /* KWin may send the same scale every frame; avoid log spam (logcat sync I/O can stall the server). */
+    if (surf->buffer_scale == scale) return;
+    surf->buffer_scale = scale;
+    LOGI("surface=%p set_buffer_scale=%d", (void *)surf, (int)scale);
 }
 
 static void surface_commit(struct wl_client *client, struct wl_resource *resource) {
@@ -201,7 +235,26 @@ static void surface_commit(struct wl_client *client, struct wl_resource *resourc
         int32_t bw = buffer_ref_width(surf->current_buffer);
         int32_t bh = buffer_ref_height(surf->current_buffer);
         int32_t bs = surf->buffer_scale > 0 ? surf->buffer_scale : 1;
-        LOGI("surface=%p commit buffer=%dx%d buffer_scale=%d", (void *)surf, (int)bw, (int)bh, (int)bs);
+        const char *kind = "?";
+        switch (surf->current_buffer->type) {
+        case BUF_SHM: kind = "shm"; break;
+        case BUF_DMABUF: kind = "dmabuf"; break;
+        case BUF_EGL: kind = "egl"; break;
+        default: break;
+        }
+        /* High-frequency commits + LOGI can block the Wayland thread and contribute to black screens. */
+        static uint32_t g_commit_log_n;
+        g_commit_log_n++;
+        int do_log = (g_commit_log_n <= 24u) || ((g_commit_log_n & 255u) == 0u);
+        if (do_log) {
+            if (surf->viewport_dst_set)
+                LOGI("surface=%p commit kind=%s buf=%dx%d scale=%d vp_dst=%dx%d (n=%u)",
+                        (void *)surf, kind, (int)bw, (int)bh, (int)bs,
+                        (int)surf->viewport_dst_w, (int)surf->viewport_dst_h, g_commit_log_n);
+            else
+                LOGI("surface=%p commit kind=%s buf=%dx%d scale=%d vp_dst=- (n=%u)",
+                        (void *)surf, kind, (int)bw, (int)bh, (int)bs, g_commit_log_n);
+        }
     }
 
     /* Send wl_surface.enter(output) when surface gets a buffer and hasn't yet */

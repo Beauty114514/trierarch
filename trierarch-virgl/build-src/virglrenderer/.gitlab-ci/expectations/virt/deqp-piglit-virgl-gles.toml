@@ -1,0 +1,7 @@
+[[piglit]]
+piglit_folder = "/piglit"
+profile = "gpu"
+process_isolation = true
+    [piglit.env]
+    PIGLIT_PLATFORM = "surfaceless_egl"
+    PIGLIT_NO_WINDOW = "1"

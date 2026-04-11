@@ -1,0 +1,15 @@
+[binaries]
+c = '/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang'
+cpp = '/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang++'
+ar = '/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar'
+strip = '/home/Beauty/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip'
+pkg-config = '/home/Beauty/Code/Trierarch/trierarch-virgl/out/arm64-v8a/android-pkg-config'
+
+[host_machine]
+system = 'android'
+cpu_family = 'aarch64'
+cpu = 'aarch64'
+endian = 'little'
+
+[built-in options]
+c_link_args = ['-llog']

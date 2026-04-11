@@ -1,10 +1,4 @@
-//! Download helpers for the Arch rootfs tarball.
-//!
-//! Contract:
-//! - Writes to `tmp_path` while streaming, computing SHA-256 on the fly.
-//! - Verifies the digest before moving the file into `final_path`.
-//! - Uses a best-effort atomic move; falls back to copy+delete on filesystems where rename fails.
-//! - Progress reporting is intentionally coarse (percent changes) to keep overhead low.
+//! Stream download, SHA-256 verify, rename into place.
 
 use anyhow::{Context, Result};
 use sha2::{Digest, Sha256};

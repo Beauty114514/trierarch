@@ -1,13 +1,4 @@
-//! JNI bridge used by the Android/Compose UI.
-//!
-//! This module is the ABI boundary between Kotlin and the native runtime:
-//! - proot process lifecycle (per-session spawn/close)
-//! - rootfs acquisition (download/extract)
-//! - PTY stdin (write) and raw output relay to Java (per session id)
-//! - Host PulseAudio (Unix socket + TCP) for guest `libpulse`; see `android::pulse_host`
-//!
-//! Guideline: keep these functions thin and deterministic. Complex policy should live in
-//! the Rust modules and be tested there.
+//! JNI entrypoints for `NativeBridge` (init, PTY, rootfs, renderer mode).
 
 use jni::objects::{JByteArray, JObject, JString, JValue};
 use jni::sys::{jboolean, jint};
@@ -15,18 +6,12 @@ use jni::JNIEnv;
 use std::path::PathBuf;
 use std::thread;
 
+use crate::android::application_context::{set_renderer_mode, RendererMode};
 use crate::android::pulse_host;
 use crate::android::rootfs_fetch;
+use crate::android::virgl_host;
 use crate::jni_context;
 
-/// Initialize native layer with app paths.
-///
-/// Contract:
-/// - Must be called before any other `NativeBridge.*` JNI method.
-/// - Safe to call again on activity recreation; it updates paths.
-///
-/// `external_storage_dir`: optional path (e.g. `/storage/emulated/0`). When set, the proot
-/// environment will bind it into the guest as `/android` and `/root/Android`.
 #[no_mangle]
 pub extern "system" fn Java_app_trierarch_NativeBridge_init(
     mut env: JNIEnv,
@@ -38,7 +23,7 @@ pub extern "system" fn Java_app_trierarch_NativeBridge_init(
 ) -> jboolean {
     android_logger::init_once(
         android_logger::Config::default()
-            .with_max_level(log::LevelFilter::Debug)
+            .with_max_level(log::LevelFilter::Warn)
             .with_tag("trierarch"),
     );
     std::panic::set_hook(Box::new(|info| {
@@ -90,7 +75,37 @@ pub extern "system" fn Java_app_trierarch_NativeBridge_init(
     1
 }
 
-/// Returns 1 if Arch rootfs exists, 0 otherwise.
+#[no_mangle]
+pub extern "system" fn Java_app_trierarch_NativeBridge_stopVirglHost(_env: JNIEnv, _: JObject) {
+    virgl_host::stop_if_running();
+}
+
+#[no_mangle]
+pub extern "system" fn Java_app_trierarch_NativeBridge_setRendererMode(
+    mut env: JNIEnv,
+    _: JObject,
+    mode: JString,
+) {
+    let mode_str: String = match env.get_string(&mode) {
+        Ok(s) => s.into(),
+        Err(e) => {
+            log::warn!("setRendererMode get_string: {:?}", e);
+            return;
+        }
+    };
+    let parsed = RendererMode::from_str(&mode_str);
+    if let Err(e) = set_renderer_mode(parsed) {
+        log::warn!("setRendererMode: {:?}", e);
+    }
+    if let Err(e) = jni_context::close_all_sessions() {
+        log::warn!("setRendererMode close_all_sessions: {:?}", e);
+    }
+    virgl_host::stop_if_running();
+    if parsed.needs_virgl_server() {
+        virgl_host::start_if_possible();
+    }
+}
+
 #[no_mangle]
 pub extern "system" fn Java_app_trierarch_NativeBridge_hasRootfs(
     _env: JNIEnv,
@@ -99,11 +114,6 @@ pub extern "system" fn Java_app_trierarch_NativeBridge_hasRootfs(
     jni_context::has_rootfs() as jboolean
 }
 
-/// Download and install the Arch rootfs.
-///
-/// Threading:
-/// - Runs on a Rust background thread (caller blocks waiting for completion).
-/// - Calls `callback.onProgress(pct, msg)` from that background thread via JNI attach.
 #[no_mangle]
 pub extern "system" fn Java_app_trierarch_NativeBridge_downloadRootfs(
     env: JNIEnv,
@@ -141,7 +151,6 @@ pub extern "system" fn Java_app_trierarch_NativeBridge_downloadRootfs(
     }
 }
 
-/// Spawn a proot shell under its own PTY for `sessionId`. Idempotent if already running.
 #[no_mangle]
 pub extern "system" fn Java_app_trierarch_NativeBridge_spawnSession(
     _env: JNIEnv,
@@ -182,15 +191,6 @@ pub extern "system" fn Java_app_trierarch_NativeBridge_isSessionAlive(
 }
 
 #[no_mangle]
-pub extern "system" fn Java_app_trierarch_NativeBridge_anySessionAlive(
-    _env: JNIEnv,
-    _: JObject,
-) -> jboolean {
-    jni_context::any_session_alive() as jboolean
-}
-
-/// Update kernel PTY window size for `sessionId` (TIOCSWINSIZE).
-#[no_mangle]
 pub extern "system" fn Java_app_trierarch_NativeBridge_setPtyWindowSize(
     _env: JNIEnv,
     _: JObject,
@@ -205,7 +205,6 @@ pub extern "system" fn Java_app_trierarch_NativeBridge_setPtyWindowSize(
     }
 }
 
-/// Write raw bytes to the PTY stdin for `sessionId`.
 #[no_mangle]
 pub extern "system" fn Java_app_trierarch_NativeBridge_writeInput(
     env: JNIEnv,

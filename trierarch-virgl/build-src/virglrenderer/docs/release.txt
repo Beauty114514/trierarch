@@ -1,0 +1,11 @@
+/*
+ * This document explain how releases are made and how you can create one locally
+ */
+
+
+Since version 0.8.0 releases are now done by means of tags, i.e. the maintainer adds a tag,
+and Gitlab provide the release tarball/zipfile based on this.
+For more details about GitLab release, see https://docs.gitlab.com/ee/user/project/releases/
+
+If you needs to make your own archived, you can use git-archive (https://git-scm.com/docs/git-archive)
+or meson release (https://mesonbuild.com/Creating-releases.html)

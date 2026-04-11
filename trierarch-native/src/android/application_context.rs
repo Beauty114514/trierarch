@@ -9,21 +9,45 @@ pub const ARCH_ROOTFS_SUBDIR: &str = "arch";
 pub const ROOTFS_READY_SENTINEL: &str = ".trierarch_rootfs_ok";
 
 static APPLICATION_CONTEXT: Mutex<Option<ApplicationContext>> = Mutex::new(None);
+static RENDERER_MODE: Mutex<RendererMode> = Mutex::new(RendererMode::LlvmPipe);
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum RendererMode {
+    LlvmPipe,
+    Universal,
+}
+
+impl RendererMode {
+    pub fn from_str(s: &str) -> RendererMode {
+        match s.trim().to_ascii_uppercase().as_str() {
+            "UNIVERSAL" | "VIRGL" | "VENUS" => RendererMode::Universal,
+            _ => RendererMode::LlvmPipe,
+        }
+    }
+
+    pub fn as_env_value(&self) -> &'static str {
+        match self {
+            RendererMode::LlvmPipe => "LLVMPIPE",
+            RendererMode::Universal => "UNIVERSAL",
+        }
+    }
+
+    pub fn needs_virgl_server(&self) -> bool {
+        matches!(self, RendererMode::Universal)
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct ApplicationContext {
     pub cache_dir: PathBuf,
     pub data_dir: PathBuf,
     pub native_library_dir: PathBuf,
-    /// Optional external storage path (e.g. `/storage/emulated/0`).
-    ///
-    /// When set, the proot environment will bind it into the guest as `/android` and `/root/Android`.
+    /// If set, proot binds this into the guest as `/android` and `/root/Android`.
     pub external_storage_path: Option<PathBuf>,
 }
 
 impl ApplicationContext {
     /// Initialize from paths (JNI). Call before any other native method.
-    /// external_storage_path: optional, e.g. from Environment.getExternalStorageDirectory(); when set, proot will bind it as /android and /root/Android.
     pub fn init_from_paths(
         data_dir: PathBuf,
         cache_dir: PathBuf,
@@ -36,11 +60,6 @@ impl ApplicationContext {
             native_library_dir,
             external_storage_path,
         };
-        log::info!(
-            "ApplicationContext: data_dir={:?}, native_library_dir={:?}",
-            ctx.data_dir,
-            ctx.native_library_dir
-        );
         *APPLICATION_CONTEXT
             .lock()
             .map_err(|e| anyhow::anyhow!("ApplicationContext lock poisoned: {:?}", e))? = Some(ctx);
@@ -56,15 +75,24 @@ pub fn get_application_context() -> Result<ApplicationContext> {
         .ok_or_else(|| anyhow::anyhow!("ApplicationContext not initialized"))
 }
 
+pub fn set_renderer_mode(mode: RendererMode) -> Result<()> {
+    *RENDERER_MODE
+        .lock()
+        .map_err(|e| anyhow::anyhow!("RendererMode lock poisoned: {:?}", e))? = mode;
+    Ok(())
+}
+
+pub fn get_renderer_mode() -> Result<RendererMode> {
+    Ok(*RENDERER_MODE
+        .lock()
+        .map_err(|e| anyhow::anyhow!("RendererMode lock poisoned: {:?}", e))?)
+}
+
 pub fn rootfs_dir() -> Result<PathBuf> {
     Ok(get_application_context()?.data_dir.join(ARCH_ROOTFS_SUBDIR))
 }
 
-/// True if rootfs is ready.
-///
-/// We treat the sentinel file as the single source of truth.
-/// This prevents "incomplete" rootfs (or manually copied rootfs without the sentinel)
-/// from being considered usable.
+/// Rootfs is ready iff the extract sentinel exists.
 pub fn has_rootfs(root: &Path) -> bool {
     root.join(ROOTFS_READY_SENTINEL).exists()
 }

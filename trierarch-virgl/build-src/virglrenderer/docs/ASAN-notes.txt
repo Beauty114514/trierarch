@@ -1,0 +1,60 @@
+/*
+ * This document explain how to run analyse the virglrenderer
+ * code base using ASAN, the address sanitizer tools include
+ * in Clang and gcc.
+ */
+
+VIRGLRENDERER:
+
+Compiling virglrenderer with the following flags:
+`-fsanitize=address`
+or
+`-fsanitize=memory`
+Sadly, we can't use both of them in the same time.
+
+For example,
+```
+export CFLAGS="-fsanitize=address -fno-omit-frame-pointer"
+export CXXFLAGS="-fsanitize=address -fno-omit-frame-pointer"
+mkdir build && cd build
+../autogen.sh --prefix=/home/user/virglrenderer/install --enable-debug
+make
+```
+
+The `-fsanitize=leak` flag don't have to be add for Linux as
+it is set by default. This flag can be add to the toolchain of other platform.
+
+
+MESA:
+
+Since mesa unloads the drivers before a program finished, but ASAN only
+resolves stack traces at the end. It is almost impossible to get meaningful
+backtraces and so check whether the culprit is mesa or virglrenderer.
+Hence, it is useful to override *dlclose* by pre-loading a shared library
+that implements a stub, e.g. like:
+```
+int dlclose(void *handle) {
+        return 0;
+}
+```
+It seems that you need to pre-load ASAN before your dummie library.
+`export LD_PRELOAD="/usr/lib64/gcc/x86_64-pc-linux-gnu/7.3.0/libasan.so $HOME/libfake-dlclose.so"`
+
+
+VTEST:
+
+Then run virglrenderer with the following flag:
+`ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer`
+On platform other than Linux, `ASAN_OPTIONS=detect_leaks=1`
+should be added.
+
+Start the vtest server with the command:
+`ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer ./virgl_test_server`
+
+Then connect to the server
+```
+export LIBGL_ALWAYS_SOFTWARE=true
+export GALLIUM_DRIVER=virpipe
+```
+
+Run any payload.

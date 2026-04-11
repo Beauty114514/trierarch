@@ -1,0 +1,8 @@
+/*
+ * This document explain how to setup the CI in a fork of  the project.
+ */
+
+In order to set-up the CI in a fork, the location of the gitlab-ci.yml file
+needs to be provide to gitlab.
+For that, in `Setting->CI/CD->General pipelines->Custom CI config path`,
+change `gitlab-ci.yml` to `ci/gitlab-ci.yml`.

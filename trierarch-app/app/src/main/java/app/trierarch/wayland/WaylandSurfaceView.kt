@@ -17,6 +17,8 @@ fun WaylandSurfaceView(
     mouseMode: Int,
     resolutionPercent: Int,
     scalePercent: Int,
+    /** Keep false (see `WaylandBridge.nativeSurfaceCreated` javadoc). */
+    skipEglWaylandBind: Boolean,
     showKeyboardTrigger: Int,
     keyboardWanted: Boolean,
     onKeyboardTriggerConsumed: () -> Unit = {},
@@ -51,7 +53,7 @@ fun WaylandSurfaceView(
                         val l = (this@apply.parent as? WaylandTouchLayout)
                         val r = l?.resolutionPercent?.coerceIn(10, 100) ?: 100
                         val s = l?.scalePercent?.coerceIn(100, 1000) ?: 100
-                        WaylandBridge.nativeSurfaceCreated(surface, runtimeDir, r, s)
+                        WaylandBridge.nativeSurfaceCreated(surface, runtimeDir, r, s, skipEglWaylandBind)
                         l?.applyCursorVisibilityPolicy()
                     }
 

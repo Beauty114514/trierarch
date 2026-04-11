@@ -9,13 +9,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -29,6 +29,7 @@ import app.trierarch.NativeBridge
 import app.trierarch.PulseAssets
 import app.trierarch.ProgressCallback
 import app.trierarch.TerminalSessionIds
+import app.trierarch.VirglAssets
 import app.trierarch.WaylandBridge
 import app.trierarch.input.InputRouteState
 import app.trierarch.shell.ShellFonts
@@ -47,68 +48,24 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private const val DisplayAudioDefaultSinkMarker = "# trierarch:audio-default-sink"
+private val RENDERER_MODES = listOf("LLVMPIPE", "UNIVERSAL")
 
-private fun stripLegacyInjectedAudioSnippet(script: String): String {
-    if (!script.contains(DisplayAudioDefaultSinkMarker)) return script
-
-    val lines = script.lines().toMutableList()
-    val markerIdx = lines.indexOfFirst { it.trim() == DisplayAudioDefaultSinkMarker }
-    if (markerIdx >= 0) {
-        // The marker was always appended at the end of the saved script. Remove it and everything after.
-        while (lines.size > markerIdx) lines.removeAt(lines.size - 1)
-    }
-
-    // Also strip a legacy single-line injection that some users may have appended manually.
-    while (lines.isNotEmpty() && lines.last().trim().isEmpty()) lines.removeAt(lines.size - 1)
-    if (lines.lastOrNull()?.trim() == "pactl set-default-sink trierarch-out") {
-        lines.removeAt(lines.size - 1)
-    }
-    return lines.joinToString("\n").trimEnd()
+/** Maps legacy prefs (VIRGL/VENUS) to UNIVERSAL; second value = prefs key should store UNIVERSAL. */
+private fun normalizeDesktopRendererRaw(raw: String): Pair<String, Boolean> {
+    val u = raw.trim().uppercase()
+    val legacy = u == "VENUS" || u == "VIRGL"
+    val token = if (legacy) "UNIVERSAL" else u
+    return Pair(token, legacy)
 }
 
-private fun audioDefaultSinkRuntimeSnippet(): String {
-    // Keep this POSIX-sh compatible: no brace expansion, no bashisms.
-    return """
-        # Ensure desktop apps use the real output (AAudio) instead of the null sink.
-        i=0
-        while [ "${'$'}i" -lt 50 ]; do
-          pactl info >/dev/null 2>&1 && break
-          i=${'$'}((i+1))
-          sleep 0.1
-        done
-        pactl set-default-sink trierarch-out >/dev/null 2>&1 || true
-    """.trimIndent()
-}
+private fun audioDefaultSinkRuntimeSnippet(): String =
+    "pactl set-default-sink trierarch-out >/dev/null 2>&1 || true"
 
 @Composable
 fun AppScreen(startInTerminal: Boolean = false) {
-    /*
-     * AppScreen is the app’s runtime coordinator and UI state machine.
-     *
-     * ### Lifecycle & state (read this before changing startup behavior)
-     *
-     * States (simplified):
-     * - native init: NativeBridge.init(...) succeeds -> we can call other native methods
-     * - rootfs missing: download+extract rootfs -> ask user to restart (fresh proot session)
-     * - proot running: first TerminalView layout runs RustPtySession.updateSize (forkpty winsize matches the grid)
-     * - Wayland server running: WaylandBridge.nativeStartServer(runtimeDir)
-     * - view: `showWayland` toggles desktop on top; **ShellScreen stays composed** underneath so
-     *   [TerminalView] / per-session [TerminalEmulator] buffers survive Display ↔ terminal switches.
-     *
-     * Invariants / ordering constraints:
-     * - proot must be spawned before starting the Wayland server because Wayland clients live inside
-     *   the proot environment and rely on the socket under XDG_RUNTIME_DIR.
-     * - Display startup script is injected via PTY stdin on **session 0** (headless shell), not the
-     *   visible terminal tabs (1+). It is guarded by nativeHasActiveClients() so we don’t re-run the
-     *   script once a desktop client is already connected.
-     *
-     * Entry modes:
-     * - Default launcher entry: may auto-run Display script once, then switch to Wayland view.
-     * - Terminal shortcut entry (`startInTerminal=true`): stays in terminal, never auto-runs Display.
-     *
-     * Menu: [FloatingMenuOrb] (tap) opens a frosted panel centered on screen; orb stays draggable.
-     */
+    // Order: NativeBridge.init → rootfs → proot before Wayland server. Shell UI stays in the tree
+    // when toggling desktop so terminal buffers survive. Display script uses session 0; renderer
+    // changes clear PTYs (env is fixed at spawn).
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -137,6 +94,9 @@ fun AppScreen(startInTerminal: Boolean = false) {
     var keyboardWanted by remember { mutableStateOf(false) }
     var autoDisplayTriggered by remember { mutableStateOf(false) }
     var pendingAutoShowWayland by remember { mutableStateOf(false) }
+    var desktopRendererMode by remember { mutableStateOf("LLVMPIPE") }
+    /** Incremented when [desktopRendererMode] changes so [ShellScreen] drops cached terminal sessions. */
+    var rendererSessionResetEpoch by remember { mutableIntStateOf(0) }
     /** Full-screen cover during default desktop launch or Display toggle so the terminal flash is hidden. */
     var desktopLaunchBlackout by remember(startInTerminal) {
         mutableStateOf(!startInTerminal)
@@ -199,6 +159,13 @@ fun AppScreen(startInTerminal: Boolean = false) {
             false
         }
         if (!hasClients) {
+            // Run this before the Display script so later startup commands inherit AAudio as default.
+            ensureDisplaySession()
+            NativeBridge.writeInput(
+                TerminalSessionIds.DISPLAY,
+                (audioDefaultSinkRuntimeSnippet() + "\n").toByteArray(Charsets.UTF_8)
+            )
+
             val script = prefs.getString("display_startup_script", "")?.trim()
             if (!script.isNullOrEmpty()) {
                 ensureDisplaySession()
@@ -207,13 +174,6 @@ fun AppScreen(startInTerminal: Boolean = false) {
                     (script + "\n").toByteArray(Charsets.UTF_8)
                 )
             }
-            // Why: the host pulse daemon may default to a null sink; many apps "play" happily but users
-            // hear nothing unless the default sink is set to the real output.
-            ensureDisplaySession()
-            NativeBridge.writeInput(
-                TerminalSessionIds.DISPLAY,
-                (audioDefaultSinkRuntimeSnippet() + "\n").toByteArray(Charsets.UTF_8)
-            )
         }
     }
 
@@ -253,6 +213,24 @@ fun AppScreen(startInTerminal: Boolean = false) {
             ?: ShellFonts.DEFAULT_ID
     }
 
+    fun persistDesktopRendererMode(mode: String) {
+        val (token, _) = normalizeDesktopRendererRaw(mode)
+        val safe = if (token in RENDERER_MODES) token else "LLVMPIPE"
+        val modeChanged = desktopRendererMode != safe
+        desktopRendererMode = safe
+        prefs.edit().putString("desktop_renderer_mode", safe).apply()
+        try {
+            NativeBridge.setRendererMode(safe)
+        } catch (_: Throwable) {
+            // Keep UI responsive even if native layer isn't ready yet.
+        }
+        if (modeChanged) {
+            rendererSessionResetEpoch++
+            terminalSessionIds = listOf(TerminalSessionIds.FIRST_TERMINAL)
+            activeTerminalSessionId = TerminalSessionIds.FIRST_TERMINAL
+        }
+    }
+
     fun persistMouseMode(mode: Int) {
         mouseMode = mode
         prefs.edit().putInt("mouse_mode", mode).apply()
@@ -274,26 +252,36 @@ fun AppScreen(startInTerminal: Boolean = false) {
     }
 
     LaunchedEffect(Unit) {
-        // Silent migration: older builds appended an audio snippet into the saved Display startup script.
-        // Keep the user's script clean and run audio setup internally at runtime instead.
-        val savedScript = prefs.getString("display_startup_script", "") ?: ""
-        val cleaned = stripLegacyInjectedAudioSnippet(savedScript)
-        if (cleaned != savedScript) {
-            prefs.edit().putString("display_startup_script", cleaned).apply()
+        // Must run before persistDesktopRendererMode: parallel LaunchedEffect(Unit) blocks are unordered;
+        // if we used default LLVMPIPE here, native would stay wrong when prefs say UNIVERSAL.
+        run {
+            val raw = prefs.getString("desktop_renderer_mode", "LLVMPIPE") ?: "LLVMPIPE"
+            val (token, legacy) = normalizeDesktopRendererRaw(raw)
+            if (legacy) prefs.edit().putString("desktop_renderer_mode", "UNIVERSAL").apply()
+            desktopRendererMode = if (token in RENDERER_MODES) token else "LLVMPIPE"
         }
-
-        withContext(Dispatchers.IO) {
+        val ok = withContext(Dispatchers.IO) {
+            if (!NativeBridge.init(
+                    context.filesDir.absolutePath,
+                    context.cacheDir.absolutePath,
+                    context.applicationInfo.nativeLibraryDir,
+                    Environment.getExternalStorageDirectory()?.absolutePath
+                )
+            ) {
+                return@withContext false
+            }
+            // Must run before touching files/virgl/: a live virgl child may mmap libs under the
+            // tree we rename/delete (otherwise tombstones show "(deleted)" in libepoxy).
+            NativeBridge.stopVirglHost()
             PulseAssets.syncFromAssetsIfNeeded(context)
+            VirglAssets.syncFromAssetsIfNeeded(context)
+            true
         }
-        if (NativeBridge.init(
-                context.filesDir.absolutePath,
-                context.cacheDir.absolutePath,
-                context.applicationInfo.nativeLibraryDir,
-                Environment.getExternalStorageDirectory()?.absolutePath
-            )
-        ) {
+        if (ok) {
             initialized = true
             hasRootfs = NativeBridge.hasRootfs()
+            // Apply persisted renderer mode to native layer (affects newly spawned proot processes).
+            persistDesktopRendererMode(desktopRendererMode)
         } else {
             errorMsg = "Failed to initialize native layer"
         }
@@ -384,10 +372,7 @@ fun AppScreen(startInTerminal: Boolean = false) {
         // Default launcher: may auto-run Display script, then wait for desktop (ShellScreen stays under [desktopLaunchBlackout]).
         if (!autoDisplayTriggered) {
             autoDisplayTriggered = true
-            val script = prefs.getString("display_startup_script", "")?.trim()
-            if (!script.isNullOrEmpty()) {
-                runDisplayStartupScriptIfNeeded()
-            }
+            runDisplayStartupScriptIfNeeded()
         }
         pendingAutoShowWayland = true
     }
@@ -399,10 +384,10 @@ fun AppScreen(startInTerminal: Boolean = false) {
         return
     }
 
+    // Native init + asset sync can take a while; keep a plain black gap between system splash
+    // and the shell / desktop (no loading spinner — matches desktopLaunchBlackout UX).
     if (!initialized) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-        }
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black))
         return
     }
 
@@ -440,6 +425,7 @@ fun AppScreen(startInTerminal: Boolean = false) {
                 terminalFontKey = terminalFontKey,
                 activeSessionId = activeTerminalSessionId,
                 terminalSessionIds = terminalSessionIds,
+                rendererSessionResetEpoch = rendererSessionResetEpoch,
                 showKeyboardTrigger = if (showWayland) 0 else showKeyboardTrigger,
                 onKeyboardTriggerConsumed = { showKeyboardTrigger = 0 },
                 modifier = Modifier.fillMaxSize()
@@ -450,6 +436,9 @@ fun AppScreen(startInTerminal: Boolean = false) {
                     mouseMode = mouseMode,
                     resolutionPercent = resolutionPercent,
                     scalePercent = scalePercent,
+                    /* Keep false: if true, wl_buffer with NULL user_data is discarded (surface.c) when
+                     * EGL Wayland import is off — many Mesa paths still use that buffer type. */
+                    skipEglWaylandBind = false,
                     showKeyboardTrigger = showKeyboardTrigger,
                     keyboardWanted = keyboardWanted,
                     onKeyboardTriggerConsumed = { showKeyboardTrigger = 0 },
@@ -473,6 +462,12 @@ fun AppScreen(startInTerminal: Boolean = false) {
             onDisplayLongPress = {
                 menuOpen = false
                 displayScriptDialogOpen = true
+            },
+            desktopRendererLabel = desktopRendererMode,
+            onDesktopRendererClick = {
+                val idx = RENDERER_MODES.indexOf(desktopRendererMode)
+                val next = RENDERER_MODES[(idx + 1) % RENDERER_MODES.size]
+                persistDesktopRendererMode(next)
             },
             onViewClick = {
                 menuOpen = false

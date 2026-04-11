@@ -48,13 +48,29 @@ struct egl_buffer_ref {
     struct wl_listener resource_listener;
 };
 
-enum compositor_buffer_type { BUF_SHM, BUF_EGL };
+#define TRIERARCH_DMABUF_MAGIC 0x544d4442u /* 'TMDB' — distinguishes dmabuf wl_buffer from shm */
+
+/* linux-dmabuf single-plane buffer (linux_dmabuf.c) */
+struct dmabuf_buffer {
+    uint32_t magic;
+    struct wl_resource *resource;
+    int dmabuf_fd;
+    int32_t width, height;
+    uint32_t stride;
+    uint32_t offset;
+    uint32_t drm_format;
+    uint64_t modifier;
+    struct compositor_surface *owner;
+};
+
+enum compositor_buffer_type { BUF_SHM, BUF_EGL, BUF_DMABUF };
 
 struct compositor_buffer_ref {
     enum compositor_buffer_type type;
     union {
         struct shm_buffer *shm;
         struct egl_buffer_ref *egl;
+        struct dmabuf_buffer *dmabuf;
     } u;
 };
 
@@ -222,6 +238,10 @@ void relative_pointer_manager_bind(struct wl_client *client, void *data, uint32_
 /* presentation.c */
 void presentation_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id);
 
+/* linux_dmabuf.c */
+void linux_dmabuf_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id);
+struct dmabuf_buffer *dmabuf_buffer_try_from_wl_resource(struct wl_resource *buf_res);
+
 /* data_device.c */
 void data_device_manager_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id);
 
@@ -240,6 +260,7 @@ struct wl_resource *buffer_create_single_pixel(struct wl_client *client, uint32_
         uint32_t pixel_argb);
 /** EGL buffer: return wl_resource* for renderer; NULL if ref is SHM. */
 struct wl_resource *buffer_ref_get_egl_resource(struct compositor_buffer_ref *ref);
+struct dmabuf_buffer *buffer_ref_get_dmabuf(struct compositor_buffer_ref *ref);
 /** Create compositor_buffer_ref for EGL buffer; caller sets surf->pending_buffer. */
 struct compositor_buffer_ref *buffer_attach_egl_buffer(struct wl_client *client,
         struct wl_resource *buffer_res, struct compositor_surface *surf, int32_t w, int32_t h);

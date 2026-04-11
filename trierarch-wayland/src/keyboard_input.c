@@ -55,7 +55,6 @@ static void send_keymap_to_resource(struct wl_resource *keyboard_res, struct way
         if (nfd < 0) return;
         wl_keyboard_send_keymap(keyboard_res, WL_KEYBOARD_KEYMAP_FORMAT_NO_KEYMAP, nfd, 0);
         close(nfd);
-        wl_keyboard_send_repeat_info(keyboard_res, 25, 400);
         return;
     }
 
@@ -66,13 +65,13 @@ static void send_keymap_to_resource(struct wl_resource *keyboard_res, struct way
         if (nfd < 0) return;
         wl_keyboard_send_keymap(keyboard_res, WL_KEYBOARD_KEYMAP_FORMAT_NO_KEYMAP, nfd, 0);
         close(nfd);
-        wl_keyboard_send_repeat_info(keyboard_res, 25, 400);
         return;
     }
 
     wl_keyboard_send_keymap(keyboard_res, WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1, fd, (uint32_t)st.st_size);
     close(fd);
-    wl_keyboard_send_repeat_info(keyboard_res, 25, 400);
+    /* Omit wl_keyboard.repeat_info (opcode 5): optional; some clients leave the listener slot NULL
+     * (e.g. vkcube) and libwayland aborts. */
 }
 
 static void keyboard_send_enter(struct wayland_server *srv,

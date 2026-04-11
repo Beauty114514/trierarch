@@ -101,5 +101,7 @@ void seat_bind(struct wl_client *client, void *data, uint32_t version, uint32_t 
     }
     wl_resource_set_implementation(resource, &seat_impl, data, NULL);
     wl_seat_send_capabilities(resource, WL_SEAT_CAPABILITY_POINTER | WL_SEAT_CAPABILITY_KEYBOARD | WL_SEAT_CAPABILITY_TOUCH);
-    wl_seat_send_name(resource, "seat0");
+    /* Do not send wl_seat.name (opcode 1): optional per core protocol, but some clients ship a
+     * wl_seat_listener without a non-NULL name handler (e.g. older vkcube) and libwayland aborts:
+     * "listener function for opcode 1 of wl_seat is NULL". */
 }

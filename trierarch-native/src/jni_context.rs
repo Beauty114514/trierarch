@@ -1,4 +1,4 @@
-//! Shared state for JNI bridge: per-session PTY stdin, child process, master fd for winsize.
+//! PTY sessions: stdin, master fd, reader thread to Java.
 
 use super::android::application_context;
 use super::android::proot;
@@ -94,16 +94,21 @@ pub fn close_session(session_id: i32) -> Result<()> {
     Ok(())
 }
 
+/// Close all sessions (renderer mode change: env is fixed at spawn).
+pub fn close_all_sessions() -> Result<()> {
+    let mut map = SESSIONS
+        .lock()
+        .map_err(|e| anyhow::anyhow!("SESSIONS lock: {:?}", e))?;
+    map.clear();
+    Ok(())
+}
+
 pub fn is_session_alive(session_id: i32) -> bool {
     SESSIONS
         .lock()
         .ok()
         .map(|m| m.contains_key(&session_id))
         .unwrap_or(false)
-}
-
-pub fn any_session_alive() -> bool {
-    SESSIONS.lock().ok().map(|m| !m.is_empty()).unwrap_or(false)
 }
 
 pub fn write_input(session_id: i32, bytes: &[u8]) -> Result<()> {

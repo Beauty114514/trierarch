@@ -1,0 +1,87 @@
+FROM registry.access.redhat.com/ubi9 AS builder
+
+ARG BUILD_TYPE=release
+
+# Add glxgears for testing
+RUN dnf -y update && dnf -y install \
+    glx-utils
+
+# Build dependencies for Mesa
+RUN dnf -y update && dnf -y install --setopt=install_weak_deps=False \
+    autoconf \
+    automake \
+    gcc \
+    g++ \
+    bison \
+    flex \
+    git \
+    libtool \
+    elfutils-devel \
+    ninja-build \
+    cmake \
+    pkgconf-pkg-config \
+    python3-mako \
+    python3-pip \
+    libvulkan-dev \
+    libdrm-devel \
+    libXdamage-devel \
+    libXext-devel \
+    libXfixes-devel \
+    libXrandr-devel \
+    libXrender-devel \
+    libxshmfence-devel \
+    wayland-protocols-devel \
+    wayland-devel \
+    libjpeg-devel \
+    libpng-devel \
+    curl-minimal-7.76.1-29.el9_4.1.x86_64
+
+RUN pip3 install meson pyyaml
+
+RUN git clone https://github.com/KhronosGroup/Vulkan-Loader.git && \
+    cmake -S Vulkan-Loader -B Vulkan-Loader/build -G Ninja -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib64 -DUPDATE_DEPS=ON && \
+    ninja -C Vulkan-Loader/build install
+
+# Build and install build dependencies for Mesa
+RUN git clone https://gitlab.freedesktop.org/xorg/util/macros.git && \
+    cd macros && \
+    ./autogen.sh --prefix=/usr && \
+    make && \
+    make install
+
+RUN git clone https://gitlab.freedesktop.org/xorg/lib/libxxf86vm && \
+    cd libxxf86vm && \
+    ./autogen.sh --prefix=/usr && \
+    make && \
+    make install
+
+# Build and install Mesa from main repository
+RUN git clone https://gitlab.freedesktop.org/mesa/mesa.git && \
+    cd mesa && \
+    meson setup build -Dgallium-drivers=virgl,zink,softpipe -Dvulkan-drivers=virtio -Dplatforms=x11,wayland -Dllvm=disabled --prefix=/usr -Dbuildtype=$BUILD_TYPE && \
+    ninja -C build install
+
+RUN git clone https://github.com/KhronosGroup/VK-GL-CTS.git && \
+    python3 /VK-GL-CTS/external/fetch_sources.py && \
+    cmake -S /VK-GL-CTS -B /VK-GL-CTS/build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_LIBDIR=lib64 -DCMAKE_INSTALL_BINDIR=bin/ && \
+    ninja -C /VK-GL-CTS/build install
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh && chmod +x rustup.sh && ./rustup.sh -y && echo ". $HOME/.cargo/env" >> /root/.profile
+
+RUN git clone https://gitlab.freedesktop.org/mesa/deqp-runner.git && \
+    source $HOME/.cargo/env && cd deqp-runner && cargo build --release --target-dir /deqp-runner/builds/
+
+RUN git clone https://github.com/glmark2/glmark2.git && \
+    cd glmark2 && \
+    meson setup -Dflavors=gbm-glesv2,wayland-gl,wayland-glesv2,x11-gl,x11-glesv2,x11-gl-egl -Dbuildtype=$BUILD_TYPE -Dprefix=/usr -Dlibdir=lib64 -Dlibexecdir=libexec -Dbindir=bin build && \
+    ninja -C build install
+
+FROM registry.access.redhat.com/ubi9
+
+COPY --from=builder /usr /usr
+COPY --from=builder /etc /etc
+COPY --from=builder /root/.cargo/bin/ /usr/bin/
+COPY --from=builder /root/.profile /root/.profile
+COPY --from=builder /VK-GL-CTS/build /VK-GL-CTS
+COPY --from=builder /deqp-runner/builds/release/deqp-runner /usr/bin/deqp-runner
+RUN rustup default stable

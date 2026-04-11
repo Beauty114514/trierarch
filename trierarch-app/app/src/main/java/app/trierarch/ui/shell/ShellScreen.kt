@@ -25,7 +25,7 @@ import app.trierarch.shell.ShellViewClient
 import com.termux.view.TerminalView
 
 /**
- * PTY shell in a Termux [TerminalView]. Uses status-bar and IME window insets: full usable height when the
+ * PTY shell in a [TerminalView]. Uses status-bar and IME window insets: full usable height when the
  * soft keyboard is hidden, and lays out above the keyboard when it is shown ([AndroidManifest] uses adjustResize).
  */
 @Composable
@@ -33,6 +33,8 @@ fun ShellScreen(
     terminalFontKey: String,
     activeSessionId: Int,
     terminalSessionIds: List<Int>,
+    /** When [app.trierarch.ui.AppScreen] changes graphics mode, this increments so cached PTYs are dropped. */
+    rendererSessionResetEpoch: Int,
     showKeyboardTrigger: Int,
     onKeyboardTriggerConsumed: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -95,6 +97,11 @@ fun ShellScreen(
         },
         update = { root ->
             val controller = root.getTag(R.id.trierarch_shell_controller) as ShellSessionController
+            val prevEpoch = root.getTag(R.id.trierarch_renderer_session_epoch) as? Int ?: 0
+            if (rendererSessionResetEpoch != prevEpoch) {
+                root.setTag(R.id.trierarch_renderer_session_epoch, rendererSessionResetEpoch)
+                controller.invalidateAllSessions()
+            }
             controller.pruneSessionsExcept(terminalSessionIds.toSet())
             controller.attachSessionIfNeeded(activeSessionId)
             val tv = root.getChildAt(0) as TerminalView
@@ -149,5 +156,16 @@ private class ShellSessionController(
         if (attachedId !in keep) {
             attachedId = -1
         }
+    }
+
+    /** Native [jni_context.close_all_sessions] already killed PTYs; clear Kotlin caches so [sessionFor] builds new [RustPtySession]. */
+    fun invalidateAllSessions() {
+        for (id in sessions.keys.toList()) {
+            NativeBridge.closeSession(id)
+            sessions.remove(id)
+            clients.remove(id)
+            PtyOutputRelay.discardSessionQueue(id)
+        }
+        attachedId = -1
     }
 }

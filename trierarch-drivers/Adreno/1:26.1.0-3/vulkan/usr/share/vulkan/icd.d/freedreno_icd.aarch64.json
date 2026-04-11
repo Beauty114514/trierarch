@@ -1,8 +1,0 @@
-{
-    "ICD": {
-        "api_version": "1.4.344",
-        "library_arch": "64",
-        "library_path": "/usr/lib/libvulkan_freedreno.so"
-    },
-    "file_format_version": "1.0.1"
-}

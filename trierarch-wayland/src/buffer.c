@@ -222,12 +222,21 @@ static void egl_buffer_release(struct egl_buffer_ref *egl) {
     free(egl);
 }
 
+static void dmabuf_buffer_release(struct dmabuf_buffer *db) {
+    if (!db) return;
+    if (db->resource)
+        wl_resource_post_event(db->resource, WL_BUFFER_RELEASE);
+    db->owner = NULL;
+}
+
 void buffer_ref_release(struct compositor_buffer_ref *ref) {
     if (!ref) return;
     if (ref->type == BUF_SHM && ref->u.shm)
         shm_buffer_release(ref->u.shm);
     else if (ref->type == BUF_EGL && ref->u.egl)
         egl_buffer_release(ref->u.egl);
+    else if (ref->type == BUF_DMABUF && ref->u.dmabuf)
+        dmabuf_buffer_release(ref->u.dmabuf);
     free(ref);
 }
 
@@ -245,6 +254,8 @@ void buffer_ref_release_no_post(struct compositor_buffer_ref *ref) {
         egl->surf = NULL;
         egl->ref = NULL;
         free(egl);
+    } else if (ref->type == BUF_DMABUF && ref->u.dmabuf) {
+        ref->u.dmabuf->owner = NULL;
     }
     free(ref);
 }
@@ -259,6 +270,7 @@ int32_t buffer_ref_width(struct compositor_buffer_ref *ref) {
     if (!ref) return 0;
     if (ref->type == BUF_SHM && ref->u.shm) return ref->u.shm->width;
     if (ref->type == BUF_EGL && ref->u.egl) return ref->u.egl->width;
+    if (ref->type == BUF_DMABUF && ref->u.dmabuf) return ref->u.dmabuf->width;
     return 0;
 }
 
@@ -266,6 +278,7 @@ int32_t buffer_ref_height(struct compositor_buffer_ref *ref) {
     if (!ref) return 0;
     if (ref->type == BUF_SHM && ref->u.shm) return ref->u.shm->height;
     if (ref->type == BUF_EGL && ref->u.egl) return ref->u.egl->height;
+    if (ref->type == BUF_DMABUF && ref->u.dmabuf) return ref->u.dmabuf->height;
     return 0;
 }
 
@@ -273,6 +286,7 @@ int32_t buffer_ref_stride(struct compositor_buffer_ref *ref) {
     if (!ref) return 0;
     if (ref->type == BUF_SHM && ref->u.shm) return ref->u.shm->stride;
     if (ref->type == BUF_EGL && ref->u.egl) return ref->u.egl->width * 4;
+    if (ref->type == BUF_DMABUF && ref->u.dmabuf) return (int32_t)ref->u.dmabuf->stride;
     return 0;
 }
 
@@ -280,6 +294,7 @@ uint32_t buffer_ref_format(struct compositor_buffer_ref *ref) {
     if (!ref) return 0;
     if (ref->type == BUF_SHM && ref->u.shm) return ref->u.shm->format;
     if (ref->type == BUF_EGL && ref->u.egl) return WL_SHM_FORMAT_XRGB8888;
+    if (ref->type == BUF_DMABUF && ref->u.dmabuf) return WL_SHM_FORMAT_ARGB8888;
     return 0;
 }
 
@@ -287,17 +302,24 @@ void buffer_ref_set_owner(struct compositor_buffer_ref *ref, struct compositor_s
     if (!ref) return;
     if (ref->type == BUF_SHM && ref->u.shm) ref->u.shm->owner = surf;
     if (ref->type == BUF_EGL && ref->u.egl) ref->u.egl->surf = surf;
+    if (ref->type == BUF_DMABUF && ref->u.dmabuf) ref->u.dmabuf->owner = surf;
 }
 
 void buffer_ref_clear_owner(struct compositor_buffer_ref *ref) {
     if (!ref) return;
     if (ref->type == BUF_SHM && ref->u.shm) ref->u.shm->owner = NULL;
     if (ref->type == BUF_EGL && ref->u.egl) ref->u.egl->surf = NULL;
+    if (ref->type == BUF_DMABUF && ref->u.dmabuf) ref->u.dmabuf->owner = NULL;
 }
 
 struct wl_resource *buffer_ref_get_egl_resource(struct compositor_buffer_ref *ref) {
     if (!ref || ref->type != BUF_EGL || !ref->u.egl) return NULL;
     return ref->u.egl->resource;
+}
+
+struct dmabuf_buffer *buffer_ref_get_dmabuf(struct compositor_buffer_ref *ref) {
+    if (!ref || ref->type != BUF_DMABUF || !ref->u.dmabuf) return NULL;
+    return ref->u.dmabuf;
 }
 
 struct compositor_buffer_ref *buffer_attach_egl_buffer(struct wl_client *client,

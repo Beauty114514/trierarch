@@ -1,0 +1,13 @@
+diff --git a/src/mesa/util/u_thread.h b/src/mesa/util/u_thread.h
+index 2f5d9bd..e9863f2 100644
+--- a/src/mesa/util/u_thread.h
++++ b/src/mesa/util/u_thread.h
+@@ -289,7 +289,7 @@ u_thread_is_self(UNUSED thrd_t thread)
+  * util_barrier
+  */
+ 
+-#if defined(HAVE_PTHREAD) && !defined(__APPLE__) && !defined(__HAIKU__)
++#if defined(HAVE_PTHREAD) && !defined(__APPLE__) && !defined(__HAIKU__) && !defined(__ANDROID__)
+ 
+ typedef pthread_barrier_t util_barrier;
+ 

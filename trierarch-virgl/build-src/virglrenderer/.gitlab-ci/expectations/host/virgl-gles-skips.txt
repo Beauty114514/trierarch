@@ -1,0 +1,176 @@
+# Take too long to run
+spec@arb_compute_shader@local-id-explosion
+
+glx@.*
+
+# Skip because we don't care for fp64 for now
+spec@arb_gpu_shader_fp64@.*
+
+# Skip, this is expected
+# Refer to src/mesa/main/drawpix.c:100
+spec@ext_texture_integer@fbo-integer
+
+# Fails on iris too
+spec@arb_direct_state_access@gettextureimage-formats
+
+spec@nv_primitive_restart@primitive-restart-draw-mode-polygon
+spec@nv_primitive_restart@primitive-restart-draw-mode-quad_strip
+spec@nv_primitive_restart@primitive-restart-draw-mode-quads
+spec@ext_framebuffer_multisample@clip-and-scissor-blit.*
+
+# Skip any fp64 tests, this is not supported on GLES hosts
+spec@glsl-4.*@*dmat*
+spec@glsl-4.*@*dvec*
+spec@glsl-4.*@*double*
+spec@arb_enhanced_layouts@execution@component-layout@vs-gs-fs-double
+
+# GLES doesn't support more than one stream
+spec@arb_enhanced_layouts@gs-stream-location-aliasing
+
+# All these tests use a RGBA32F RW image and this is not supported on GLES
+# so skip the tests
+spec@arb_shader_image_load_store@host-mem-barrier@Atomic counter/RaW/full barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Atomic counter/RaW/full barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Atomic counter/RaW/full barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Atomic counter/RaW/one bit barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Atomic counter/RaW/one bit barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Atomic counter/RaW/one bit barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Atomic counter/WaR/full barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Atomic counter/WaR/full barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Atomic counter/WaR/full barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Atomic counter/WaR/one bit barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Atomic counter/WaR/one bit barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Atomic counter/WaR/one bit barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Buffer update/RaW/full barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Buffer update/RaW/full barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Buffer update/RaW/full barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Buffer update/RaW/one bit barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Buffer update/RaW/one bit barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Buffer update/RaW/one bit barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Buffer update/WaW/full barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Buffer update/WaW/full barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Buffer update/WaW/full barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Buffer update/WaW/one bit barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Buffer update/WaW/one bit barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Buffer update/WaW/one bit barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Element array/RaW/full barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Element array/RaW/full barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Element array/RaW/full barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Element array/RaW/one bit barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Element array/RaW/one bit barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier
+spec@arb_shader_image_load_store@host-mem-barrier@Framebuffer/RaW/full barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Framebuffer/RaW/full barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Framebuffer/RaW/full barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Framebuffer/RaW/one bit barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Framebuffer/RaW/one bit barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Framebuffer/RaW/one bit barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Framebuffer/WaW/full barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Framebuffer/WaW/full barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Framebuffer/WaW/full barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Framebuffer/WaW/one bit barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Framebuffer/WaW/one bit barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Framebuffer/WaW/one bit barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Image/RaW/full barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Image/RaW/full barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Image/RaW/full barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Image/RaW/one bit barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Image/RaW/one bit barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Image/RaW/one bit barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Image/WaR/full barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Image/WaR/full barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Image/WaR/full barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Image/WaR/one bit barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Image/WaR/one bit barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Image/WaR/one bit barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Indirect/RaW/full barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Indirect/RaW/full barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Indirect/RaW/full barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Indirect/RaW/one bit barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Indirect/RaW/one bit barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Indirect/RaW/one bit barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Pixel/RaW/full barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Pixel/RaW/full barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Pixel/RaW/full barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Pixel/RaW/one bit barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Pixel/RaW/one bit barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Pixel/RaW/one bit barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Texture fetch/RaW/full barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Texture fetch/RaW/full barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Texture fetch/RaW/full barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Texture fetch/RaW/one bit barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Texture fetch/RaW/one bit barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Texture update/RaW/full barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Texture update/RaW/full barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Texture update/RaW/full barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Texture update/RaW/one bit barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Texture update/RaW/one bit barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Texture update/RaW/one bit barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Texture update/WaW/full barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Texture update/WaW/full barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Texture update/WaW/full barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Texture update/WaW/one bit barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Texture update/WaW/one bit barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Texture update/WaW/one bit barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Transform feedback/WaW/full barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Transform feedback/WaW/full barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Transform feedback/WaW/full barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Transform feedback/WaW/one bit barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Transform feedback/WaW/one bit barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Transform feedback/WaW/one bit barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Uniform buffer/RaW/full barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Uniform buffer/RaW/full barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Uniform buffer/RaW/full barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Uniform buffer/RaW/one bit barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Uniform buffer/RaW/one bit barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Vertex array/RaW/full barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Vertex array/RaW/full barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Vertex array/RaW/full barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Vertex array/RaW/one bit barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Vertex array/RaW/one bit barrier test/64x64
+spec@arb_shader_image_load_store@host-mem-barrier@Atomic counter/RaW/full barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Atomic counter/RaW/one bit barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Element array/RaW/full barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Image/RaW/full barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Image/RaW/one bit barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Indirect/RaW/full barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Indirect/RaW/one bit barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Texture fetch/RaW/full barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Uniform buffer/RaW/full barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Vertex array/RaW/full barrier test/4x4
+spec@arb_shader_image_load_store@layer
+spec@arb_shader_image_load_store@layer@image1DArray/layered binding test
+spec@arb_shader_image_load_store@layer@image1DArray/non-layered binding test
+spec@arb_shader_image_load_store@layer@image1D/layered binding test
+spec@arb_shader_image_load_store@layer@image1D/non-layered binding test
+spec@arb_shader_image_load_store@layer@image2DArray/layered binding test
+spec@arb_shader_image_load_store@layer@image2DArray/non-layered binding test
+spec@arb_shader_image_load_store@layer@image2D/layered binding test
+spec@arb_shader_image_load_store@layer@image2D/non-layered binding test
+spec@arb_shader_image_load_store@layer@image2DRect/layered binding test
+spec@arb_shader_image_load_store@layer@image2DRect/non-layered binding test
+spec@arb_shader_image_load_store@layer@image3D/layered binding test
+spec@arb_shader_image_load_store@layer@image3D/non-layered binding test
+spec@arb_shader_image_load_store@layer@imageBuffer/layered binding test
+spec@arb_shader_image_load_store@layer@imageBuffer/non-layered binding test
+spec@arb_shader_image_load_store@layer@imageCubeArray/layered binding test
+spec@arb_shader_image_load_store@layer@imageCubeArray/non-layered binding test
+spec@arb_shader_image_load_store@layer@imageCube/layered binding test
+spec@arb_shader_image_load_store@layer@imageCube/non-layered binding test
+spec@arb_shader_image_load_store@level@1DArray level binding test
+spec@arb_shader_image_load_store@level@1D level binding test
+spec@arb_shader_image_load_store@level@2DArray level binding test
+spec@arb_shader_image_load_store@level@2D level binding test
+spec@arb_shader_image_load_store@level@3D level binding test
+spec@arb_shader_image_load_store@level@CubeArray level binding test
+spec@arb_shader_image_load_store@level@Cube level binding test
+spec@arb_shader_image_load_store@level
+
+# Test uses a RGBA8 RW image and this is not supported on GLES
+spec@arb_shader_image_load_store@execution@disable_early_z
+spec@arb_texture_multisample@arb_texture_multisample-dsa-texelfetch@Texture type: GL_RGB9_E5
+
+# Crashed llvmpipe
+spec@glsl-1.50@execution@geometry@dynamic_input_array_index
+spec@glsl-1.50@execution@variable-indexing@vs-output-array-vec4-index-wr-before-gs
+spec@glsl-1.50@execution@variable-indexing@vs-output-array-vec3-index-wr-before-gs

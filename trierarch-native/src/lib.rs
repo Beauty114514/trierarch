@@ -1,4 +1,4 @@
-// JNI library for Compose UI. Exposes proot, rootfs, PTY I/O via NativeBridge.
+//! `libtrierarch`: JNI (`NativeBridge`), proot PTY, rootfs, host services.
 
 #[cfg(target_os = "android")]
 mod android;

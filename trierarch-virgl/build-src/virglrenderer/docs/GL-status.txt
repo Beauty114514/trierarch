@@ -1,0 +1,121 @@
+
+This is the status of GL extension support in the virglrenderer code base.
+
+The initial codebase has GL3.3 feature complete.
+
+Some features don't require renderer support and are handled in the
+guest driver completely.
+
+Feature                                               Status
+----------------------------------------------------- ------------------------
+GL 3.3, GLSL 3.30 --- renderer complete support.
+
+GL 4.0, GLSL 4.00 ---
+
+  GL_ARB_draw_buffers_blend                            DONE
+  GL_ARB_draw_indirect                                 DONE
+  GL_ARB_gpu_shader5                                   DONE
+  - 'precise' qualifier                                GUEST
+  - Dynamically uniform sampler array indices          
+  - Dynamically uniform UBO array indices              
+  - Implicit signed -> unsigned conversions            GUEST
+  - Fused multiply-add                                 
+  - Packing/bitfield/conversion functions              
+  - Enhanced textureGather                             
+  - Geometry shader instancing                         
+  - Geometry shader multiple streams                   
+  - Enhanced per-sample shading                        
+  - Interpolation functions                            
+  - New overload resolution rules                      GUEST
+  GL_ARB_gpu_shader_fp64                               DONE
+  GL_ARB_sample_shading                                DONE
+  GL_ARB_shader_subroutine                             GUEST
+  GL_ARB_tessellation_shader                           DONE
+  GL_ARB_texture_buffer_object_rgb32                   DONE
+  GL_ARB_texture_cube_map_array                        DONE
+  GL_ARB_texture_gather                                DONE
+  GL_ARB_texture_query_lod                             DONE
+  GL_ARB_transform_feedback2                           DONE
+  GL_ARB_transform_feedback3                           DONE
+
+
+GL 4.1, GLSL 4.10 ---
+
+  GL_ARB_ES2_compatibility                             GUEST
+  GL_ARB_get_program_binary                            GUEST
+  GL_ARB_separate_shader_objects                       GUEST
+  GL_ARB_shader_precision                              GUEST
+  GL_ARB_vertex_attrib_64bit                           DONE
+  GL_ARB_viewport_array                                DONE
+
+
+GL 4.2, GLSL 4.20:
+
+  GL_ARB_texture_compression_bptc                      DONE
+  GL_ARB_compressed_texture_pixel_storage              DONE
+  GL_ARB_shader_atomic_counters                        DONE
+  GL_ARB_texture_storage                               DONE
+  GL_ARB_transform_feedback_instanced                  DONE
+  GL_ARB_base_instance                                 DONE
+  GL_ARB_shader_image_load_store                       DONE
+  GL_ARB_conservative_depth                            DONE
+  GL_ARB_shading_language_420pack                      DONE
+  GL_ARB_shading_language_packing                      DONE
+  GL_ARB_internalformat_query                          DONE
+  GL_ARB_map_buffer_alignment                          DONE
+
+
+GL 4.3, GLSL 4.30:
+
+  GL_ARB_arrays_of_arrays                              DONE
+  GL_ARB_ES3_compatibility                             DONE
+  GL_ARB_clear_buffer_object                           DONE
+  GL_ARB_compute_shader                                DONE
+  GL_ARB_copy_image                                    DONE
+  GL_KHR_debug                                         DONE
+  GL_ARB_explicit_uniform_location                     DONE
+  GL_ARB_fragment_layer_viewport                       DONE
+  GL_ARB_framebuffer_no_attachments                    DONE
+  GL_ARB_internalformat_query2                         DONE
+  GL_ARB_invalidate_subdata                            DONE
+  GL_ARB_multi_draw_indirect                           DONE
+  GL_ARB_program_interface_query                       DONE
+  GL_ARB_robust_buffer_access_behavior                 DONE
+  GL_ARB_shader_image_size                             DONE
+  GL_ARB_shader_storage_buffer_object                  DONE
+  GL_ARB_stencil_texturing                             DONE
+  GL_ARB_texture_buffer_range                          DONE
+  GL_ARB_texture_query_levels                          DONE
+  GL_ARB_texture_storage_multisample                   DONE
+  GL_ARB_texture_view                                  DONE
+  GL_ARB_vertex_attrib_binding                         GUEST
+
+
+GL 4.4, GLSL 4.40:
+
+  GL_MAX_VERTEX_ATTRIB_STRIDE                          
+  GL_ARB_buffer_storage                                
+  GL_ARB_clear_texture                                 
+  GL_ARB_enhanced_layouts                              DONE
+  GL_ARB_multi_bind                                    DONE
+  GL_ARB_query_buffer_object                           
+  GL_ARB_texture_mirror_clamp_to_edge                  DONE
+  GL_ARB_texture_stencil8                              DONE
+  GL_ARB_vertex_type_10f_11f_11f_rev                   DONE
+
+GL 4.5, GLSL 4.50:
+
+  GL_ARB_ES3_1_compatibility                           DONE
+  GL_ARB_clip_control                                  DONE
+  GL_ARB_conditional_render_inverted                   DONE
+  GL_ARB_cull_distance                                 DONE
+  GL_ARB_derivative_control                            DONE
+  GL_ARB_direct_state_access                           GUEST
+  GL_ARB_get_texture_sub_image                         DONE
+  GL_ARB_shader_texture_image_samples                  DONE
+  GL_ARB_texture_barrier                               DONE
+  GL_KHR_context_flush_control                         DONE
+  GL_KHR_robust_buffer_access_behavior                 DONE
+  GL_KHR_robustness                                    DONE
+  GL_EXT_shader_integer_mix                            DONE
+

@@ -1,0 +1,14 @@
+Disable memfd_create and timespec_get detection for Android NDK compatibility.
+Adapted from Termux: 0010-disable-memfd_create-timespec_get.patch
+
+--- a/meson.build
++++ b/meson.build
+@@ -244,7 +244,7 @@
+ endif
+ endforeach
+ 
+-foreach f : ['memfd_create', 'strtok_r', 'timespec_get']
++foreach f : ['strtok_r']
+   if cc.has_function(f)
+     conf_data.set('HAVE_@0@'.format(f.to_upper()), 1)
+   endif

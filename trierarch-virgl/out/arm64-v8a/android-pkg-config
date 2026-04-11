@@ -1,0 +1,4 @@
+#!/bin/sh
+export PKG_CONFIG_DIR=
+export PKG_CONFIG_LIBDIR=/home/Beauty/Code/Trierarch/trierarch-virgl/out/arm64-v8a/prefix/lib/pkgconfig
+exec /usr/bin/pkg-config "$@"

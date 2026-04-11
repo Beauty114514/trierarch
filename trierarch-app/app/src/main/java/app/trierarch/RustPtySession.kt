@@ -122,7 +122,7 @@ class RustPtySession(
 
     private companion object {
         private const val TAG = "RustPtySession"
-        // Termux treats LF as line-down only; without CR the cursor stays in the same column.
+        // This terminal treats LF as line-down only; without CR the cursor stays in the same column.
         private val WELCOME_LINE =
             "\u001b[34mWelcome to Trierarch!\u001b[0m\n\r".toByteArray(Charsets.UTF_8)
     }

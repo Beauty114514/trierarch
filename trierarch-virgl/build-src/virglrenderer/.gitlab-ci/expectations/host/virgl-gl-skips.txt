@@ -1,0 +1,50 @@
+# Sometimes crashes, e.g. https://gitlab.freedesktop.org/kusma/mesa/-/jobs/4109419
+dEQP-GLES31.functional.compute.basic.empty
+
+# Take too long to run
+KHR-GL43.texture_swizzle.smoke
+KHR-GL43.texture_swizzle.functional
+KHR-GL43.copy_image.functional
+KHR-GL43.packed_pixels.varied_rectangle.compressed_*
+spec@arb_compute_shader@local-id-explosion
+
+glx@.*
+
+# Skip because we don't care for fp64 for now
+spec@arb_gpu_shader_fp64@.*
+
+# Skip, this is expected
+# Refer to src/mesa/main/drawpix.c:100
+spec@ext_texture_integer@fbo-integer
+
+# Fails on iris too
+spec@arb_direct_state_access@gettextureimage-formats
+
+# Skip for now
+spec@arb_vertex_attrib_64bit.*
+
+# Reported as crash, but no obvious crash
+spec@intel_shader_integer_functions2@execution@built-in-functions*
+
+# Skip because they pass with the Intel driver
+spec@arb_shader_texture_image_samples@texturesamples@.*
+spec@nv_primitive_restart@primitive-restart-draw-mode-polygon
+spec@nv_primitive_restart@primitive-restart-draw-mode-quad_strip
+spec@nv_primitive_restart@primitive-restart-draw-mode-quads
+spec@glsl-4.00@execution@conversion.*
+spec@ext_framebuffer_multisample@clip-and-scissor-blit.*
+
+# Skip any fp64 tests, it's not working properly, and there is
+# no priority in fixing this
+spec@glsl-4.*@*dmat*
+spec@glsl-4.*@*dvec*
+spec@glsl-4.*@*double*
+
+# uprev Mesa in Virglrenderer
+spec@egl_ext_protected_content@conformance
+
+# Crashed llvmpipe
+spec@glsl-1.50@execution@geometry@dynamic_input_array_index
+spec@glsl-1.50@execution@interface-blocks-api-access-members
+spec@glsl-1.50@execution@variable-indexing@vs-output-array-vec4-index-wr-before-gs
+spec@glsl-1.50@execution@variable-indexing@vs-output-array-vec3-index-wr-before-gs

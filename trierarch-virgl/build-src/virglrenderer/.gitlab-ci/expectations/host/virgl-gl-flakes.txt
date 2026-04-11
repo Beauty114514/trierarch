@@ -1,0 +1,87 @@
+dEQP-GLES31.functional.draw_buffers_indexed.random.max_implementation_draw_buffers.8
+dEQP-GLES31.functional.ssbo.layout.random.all_shared_buffer.36
+# https://gitlab.freedesktop.org/mesa/mesa/-/issues/4651
+KHR-GL30.shaders30.glsl_constructors.bvec4_from_bool_mat3_vs
+KHR-GL30.shaders30.glsl_constructors.bvec4_from_bool_mat4x3_vs
+KHR-GL30.shaders30.glsl_constructors.bvec4_from_mat4x2_vs
+KHR-GL30.shaders30.glsl_constructors.bvec4_from_mat4x3_vs
+KHR-GL31.transform_feedback.capture_special_interleaved_test
+
+shaders@glsl-uniform-interstage-limits@subdivide 5
+shaders@glsl-uniform-interstage-limits@subdivide 5- statechanges
+spec@arb_fragment_layer_viewport@layer-gs-writes-in-range
+spec@arb_fragment_layer_viewport@viewport-gs-writes-in-range
+spec@arb_framebuffer_no_attachments@arb_framebuffer_no_attachments-atomic@Basic
+spec@arb_framebuffer_no_attachments@arb_framebuffer_no_attachments-atomic
+spec@arb_framebuffer_no_attachments@arb_framebuffer_no_attachments-atomic@MS4
+spec@arb_framebuffer_no_attachments@arb_framebuffer_no_attachments-atomic@Per-sample
+spec@arb_framebuffer_no_attachments@arb_framebuffer_no_attachments-atomic@glScissor
+spec@arb_framebuffer_no_attachments@arb_framebuffer_no_attachments-atomic@glViewport
+spec@arb_framebuffer_no_attachments@arb_framebuffer_no_attachments-roundup-samples
+spec@arb_get_texture_sub_image@arb_get_texture_sub_image-getcompressed
+spec@arb_shader_atomic_counter_ops@execution@add
+spec@arb_shader_atomic_counter_ops@execution@atomic-counter-array-out-of-bounds-access
+spec@arb_shader_image_load_store@execution@image-array-out-of-bounds-access-store
+spec@arb_shader_image_load_store@execution@image-array-out-of-bounds-access-load
+spec@arb_shader_storage_buffer_object@execution@memory-layouts-struct-deref
+spec@arb_shader_storage_buffer_object@execution@ssbo-atomicadd-int
+spec@arb_shader_storage_buffer_object@execution@ssbo-atomicexchange-int
+spec@arb_shader_storage_buffer_object@layout-std140-write-shader
+spec@arb_timer_query@query gl_timestamp
+spec@arb_timer_query@timestamp-get
+spec@ext_timer_query@time-elapsed
+spec@ext_framebuffer_blit@fbo-blit-check-limits
+spec@ext_framebuffer_blit@fbo-sys-blit
+spec@ext_framebuffer_blit@fbo-sys-sub-blit
+spec@oes_viewport_array@viewport-gs-writes-in-range
+spec@!opengl 1.0@gl-1.0-drawbuffer-modes
+spec@!opengl 1.0@gl-1.0-front-invalidate-back
+spec@!opengl 1.0@gl-1.0-swapbuffers-behavior
+spec@!opengl 1.1@masked-clear
+spec@!opengl 1.1@ppgtt_memory_alignment
+spec@!opengl 1.1@read-front
+spec@!opengl 1.1@read-front clear-front-first
+spec@!opengl 1.1@read-front clear-front-first samples=2
+spec@!opengl 1.1@read-front clear-front-first samples=4
+spec@!opengl 1.1@read-front samples=2
+spec@!opengl 1.1@read-front samples=4
+spec@!opengl 2.0@vertex-program-two-side enabled front front2@tes-out and fs
+spec@!opengl 2.0@vertex-program-two-side enabled front front2@vs- gs and fs
+spec@!opengl 2.0@vertex-program-two-side front2 back2@gs-out and fs
+spec@!opengl 2.0@vertex-program-two-side front2 back2@vs- gs and fs
+spec@!opengl 3.0@gl30basic
+spec@!opengl 1.1@ppgtt_memory_alignment
+spec@!opengl 1.0@gl-1.0-drawbuffer-modes
+spec@ext_framebuffer_blit@fbo-blit-check-limits
+spec@arb_shader_storage_buffer_object@layout-std140-write-shader
+spec@ext_framebuffer_blit@fbo-sys-blit
+spec@arb_shader_atomic_counter_ops@execution@add
+spec@ext_framebuffer_blit@fbo-sys-sub-blit
+spec@!opengl 3.0@gl30basic
+spec@!opengl 1.0@gl-1.0-front-invalidate-back
+spec@arb_get_texture_sub_image@arb_get_texture_sub_image-getcompressed
+spec@!opengl 1.1@masked-clear
+shaders@glsl-uniform-interstage-limits@subdivide 5
+spec@ext_framebuffer_blit@fbo-sys-blit
+spec@!opengl 1.1@masked-clear
+shaders@glsl-uniform-interstage-limits@subdivide 5- statechanges
+spec@ext_framebuffer_blit@fbo-sys-sub-blit
+spec@!opengl 1.0@gl-1.0-drawbuffer-modes
+spec@!opengl 1.1@ppgtt_memory_alignment
+spec@!opengl 1.0@gl-1.0-front-invalidate-back
+spec@!opengl 3.0@gl30basic
+spec@ext_framebuffer_blit@fbo-blit-check-limits
+spec@ext_framebuffer_blit@fbo-sys-blit
+spec@ext_framebuffer_blit@fbo-sys-sub-blit
+shaders@glsl-uniform-interstage-limits@subdivide 5- statechanges
+spec@!opengl 1.0@gl-1.0-drawbuffer-modes
+spec@!opengl 1.0@gl-1.0-front-invalidate-back
+spec@ext_framebuffer_blit@fbo-blit-check-limits
+spec@!opengl 1.1@ppgtt_memory_alignment
+spec@!opengl 1.1@masked-clear
+spec@!opengl 3.0@gl30basic
+
+# uprev Mesa in Virglrenderer
+spec@arb_occlusion_query@occlusion_query_conform
+spec@arb_occlusion_query@occlusion_query_conform@GetObjivAval_multi1
+

@@ -28,9 +28,6 @@ trierarch-app/app/src/main/assets/pulse/
 trierarch-audio/third_party/
 trierarch-audio/out/
 
-# --- Drivers (currently not used in app build pipeline) ---
-trierarch-drivers/
-
 # Release APK signing secrets (see trierarch-app/keystore.properties.example)
 trierarch-app/keystore.properties
 trierarch-app/*.jks

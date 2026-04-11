@@ -32,18 +32,8 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/**
- * Frosted panel layout shared by the launcher orb and glass overlays.
- *
- * Layout flow:
- * - Caller provides [BoxWithConstraints] under a full-screen overlay (see [GlassOverlayLayer]); constraints are usually bounded.
- * - [OrbStyleGlassPanel] centers a width-capped scrollable card; shell clicks go to [panelConsume] so the scrim stays usable.
- * - [OrbStyleGlassFillPanel] fixes card height so column children can use vertical weight.
- * - If width or height constraints are unbounded, layout clamps to [LocalView] size so vertical max constraints stay finite.
- */
 @Composable
 private fun BoxWithConstraintsScope.glassLayoutBudget(): Pair<Dp, Dp> {
-    // Defensive: unbounded max occurs outside a typical AppScreen overlay; host view keeps caps and centering stable.
     if (constraints.hasBoundedWidth && constraints.hasBoundedHeight) {
         return maxWidth to maxHeight
     }
@@ -62,12 +52,6 @@ private fun BoxWithConstraintsScope.glassLayoutBudget(): Pair<Dp, Dp> {
     return w to h
 }
 
-/**
- * Centered frosted card with vertical scroll; optional [GlassVerticalScrollbar] ([showVerticalScrollbar], e.g. tier‑3 pickers).
- *
- * Preconditions: [BoxWithConstraintsScope] under an overlay root (typically bounded).
- * [panelConsume]: [MutableInteractionSource] for the shell [clickable] (no-op); isolates panel from scrim gestures.
- */
 @Composable
 fun BoxWithConstraintsScope.OrbStyleGlassPanel(
     widthCap: Dp,
@@ -78,11 +62,8 @@ fun BoxWithConstraintsScope.OrbStyleGlassPanel(
     minPanelWidth: Dp = 48.dp,
     panelMinHeight: Dp = 48.dp,
     viewportMinHeight: Dp = 120.dp,
-    /** When set, fixes card height (clamped to the panel min/max height range) so sub-panels match a parent sheet. */
     cardHeight: Dp? = null,
-    /** Invoked with the laid-out card height; use to record parent sheet size for [cardHeight] on pickers. */
     onCardHeightChanged: ((Dp) -> Unit)? = null,
-    /** Tier‑3 option lists: show track + thumb. Tier‑1/2 omit to avoid scroll measure trade-offs and one-frame height jumps. */
     showVerticalScrollbar: Boolean = false,
     contentPadding: PaddingValues = PaddingValues(12.dp),
     verticalArrangement: Arrangement.Vertical = Arrangement.Top,
@@ -171,61 +152,6 @@ fun BoxWithConstraintsScope.OrbStyleGlassPanel(
                             )
                     )
                 }
-            }
-        }
-    }
-}
-
-/**
- * Centered frosted card with fixed vertical band; inner [Column] fills the card for [Modifier.weight] children.
- *
- * [panelConsume]: same contract as [OrbStyleGlassPanel].
- */
-@Composable
-fun BoxWithConstraintsScope.OrbStyleGlassFillPanel(
-    widthCap: Dp,
-    panelConsume: MutableInteractionSource,
-    columnModifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(FloatingGlassCornerDp),
-    edge: Dp = GlassDialogScreenInsetDp,
-    minPanelWidth: Dp = 48.dp,
-    panelMinHeight: Dp = 200.dp,
-    viewportMinHeight: Dp = 200.dp,
-    contentPadding: PaddingValues = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    val (effMaxW, effMaxH) = glassLayoutBudget()
-    val menuWidth = minOf(widthCap, effMaxW - edge * 2).coerceAtLeast(minPanelWidth)
-    val panelMaxHeight = (effMaxH - edge * 2).coerceAtLeast(viewportMinHeight)
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Box(
-            modifier = Modifier
-                .width(menuWidth)
-                .heightIn(min = panelMinHeight, max = panelMaxHeight)
-                .clip(shape)
-                .border(
-                    width = FloatingGlassRimDp,
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = FloatingGlassRimAlpha),
-                    shape = shape
-                )
-                .clickable(
-                    interactionSource = panelConsume,
-                    indication = null,
-                    onClick = { }
-                )
-        ) {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .then(glassBlurModifier())
-                    .background(brush = floatingGlassBrush(), shape = shape)
-            )
-            Column(
-                columnModifier
-                    .fillMaxSize()
-                    .padding(contentPadding)
-            ) {
-                content()
             }
         }
     }

@@ -1,0 +1,14 @@
+prefix=/home/Beauty/Code/Trierarch/trierarch-virgl/out/arm64-v8a/prefix
+includedir=${prefix}/include
+libdir=${prefix}/lib
+
+epoxy_has_glx=0
+epoxy_has_egl=1
+epoxy_has_wgl=0
+
+Name: epoxy
+Description: GL dispatch library
+Version: 1.5.10
+Libs: -L${libdir} -lepoxy
+Libs.private: -ldl
+Cflags: -I${includedir}

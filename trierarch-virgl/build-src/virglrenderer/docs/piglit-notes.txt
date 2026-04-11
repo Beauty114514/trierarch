@@ -1,0 +1,18 @@
+Some notes on piglit failures running on virgl.
+
+(core profile) All the GL_CLAMP texwrap tests fail,
+due to core profile not supporting GL_CLAMP. In theory
+virglrenderer could emulate GL_CLAMP, in practice
+I'm not sure we should bother.
+	- texwrap bordercolor tests
+
+Edgeflag support - we would need to somehow emulate
+edgeflags if we really want this feature, so for now
+we don't. This affects:
+	- point-vertex-id tests
+	- gl-1.0-edgeflag
+	- gl-1.0-edgeflag-quads
+	- gl-2.0-edgeflag
+	- gl-2.0-edgeflag-immediate
+
+

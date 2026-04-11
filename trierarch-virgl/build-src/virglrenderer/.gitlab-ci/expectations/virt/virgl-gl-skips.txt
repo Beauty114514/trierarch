@@ -1,0 +1,33 @@
+# Sometimes crashes, e.g. https://gitlab.freedesktop.org/kusma/mesa/-/jobs/4109419
+dEQP-GLES31.functional.compute.basic.empty
+
+glx@.*
+
+# Skip because we don't care for fp64 for now
+spec@arb_gpu_shader_fp64@.*
+
+# Skip for now
+spec@arb_vertex_attrib_64bit.*
+
+# Skip because they pass with the Intel driver
+spec@arb_shader_texture_image_samples@texturesamples@.*
+spec@glsl-4.00@execution@conversion.*
+spec@ext_framebuffer_multisample@clip-and-scissor-blit.*
+
+# Skip any fp64 tests, it's not working properly, and there is
+# no priority in fixing this
+spec@glsl-4.*@*dmat*
+spec@glsl-4.*@*dvec*
+spec@glsl-4.*@*double*
+
+#OOM
+spec@!opengl 1.1@streaming-texture-leak
+
+# uprev Mesa in Virglrenderer
+spec@egl_ext_protected_content@conformance
+
+# Crashed llvmpipe
+spec@glsl-1.50@execution@geometry@dynamic_input_array_index
+spec@glsl-1.50@execution@interface-blocks-api-access-members
+spec@glsl-1.50@execution@variable-indexing@vs-output-array-vec4-index-wr-before-gs
+spec@glsl-1.50@execution@variable-indexing@vs-output-array-vec3-index-wr-before-gs

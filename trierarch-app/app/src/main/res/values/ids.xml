@@ -2,4 +2,5 @@
 <resources>
     <item name="trierarch_terminal_font_applied" type="id" />
     <item name="trierarch_shell_controller" type="id" />
+    <item name="trierarch_renderer_session_epoch" type="id" />
 </resources>
