@@ -17,7 +17,9 @@ pub fn host_virgl_runtime_dir(data_dir: &Path) -> PathBuf {
 
 fn exe_candidates(ctx: &application_context::ApplicationContext) -> [PathBuf; 3] {
     [
-        ctx.data_dir.join(VIRGL).join("bin/virgl_test_server_android"),
+        ctx.data_dir
+            .join(VIRGL)
+            .join("bin/virgl_test_server_android"),
         ctx.native_library_dir.join("virgl_test_server_android"),
         ctx.data_dir.join("bin/virgl_test_server_android"),
     ]
@@ -199,14 +201,13 @@ pub fn start_if_possible() {
 
     let render = ctx.data_dir.join(VIRGL).join("bin/virgl_render_server");
     if render.is_file() {
-        cmd.env(
-            "RENDER_SERVER_EXEC_PATH",
-            render.to_string_lossy().as_ref(),
-        );
+        cmd.env("RENDER_SERVER_EXEC_PATH", render.to_string_lossy().as_ref());
     }
 
     let angle_dir = ctx.data_dir.join(VIRGL).join("angle/vulkan");
-    let angle_resolved = angle_dir.is_dir().then(|| std::fs::canonicalize(&angle_dir).unwrap_or(angle_dir));
+    let angle_resolved = angle_dir
+        .is_dir()
+        .then(|| std::fs::canonicalize(&angle_dir).unwrap_or(angle_dir));
     if let Some(ref p) = angle_resolved {
         cmd.env("ANGLE_LIBS_DIR", p.to_string_lossy().as_ref());
     }
@@ -244,7 +245,8 @@ pub fn start_if_possible() {
             match child.try_wait() {
                 Ok(Some(st)) => {
                     log::warn!("virgl: process exited immediately ({:?})", st);
-                    if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&log_path) {
+                    if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&log_path)
+                    {
                         let _ = writeln!(f, "early exit: {:?}", st);
                     }
                 }

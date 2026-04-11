@@ -3,7 +3,9 @@
 //! With a prepared rootfs: bind `/dev`, `/proc`, `/sys`, Wayland and Pulse runtime dirs, shim files
 //! from extraction, then `bash -i`. Without rootfs: `/system/bin/sh` for a minimal shell.
 
-use super::super::application_context::{get_application_context, get_renderer_mode, has_rootfs, RendererMode};
+use super::super::application_context::{
+    get_application_context, get_renderer_mode, has_rootfs, RendererMode,
+};
 use super::super::pulse_host;
 use anyhow::{Context, Result};
 use std::ffi::CString;
@@ -190,9 +192,13 @@ pub(super) fn build_exec_args(rootfs: &std::path::Path) -> Result<(Vec<CString>,
             env.push(CString::new("GALLIUM_DRIVER=virpipe").unwrap());
             env.push(CString::new("MESA_LOADER_DRIVER_OVERRIDE=virpipe").unwrap());
             env.push(CString::new("VTEST_SOCKET_NAME=/run/trierarch-virgl/vtest.sock").unwrap());
-            env.push(CString::new("VTEST_RENDERER_SOCKET_NAME=/run/trierarch-virgl/vtest.sock").unwrap());
+            env.push(
+                CString::new("VTEST_RENDERER_SOCKET_NAME=/run/trierarch-virgl/vtest.sock").unwrap(),
+            );
             env.push(CString::new("LIBGL_ALWAYS_SOFTWARE=0").unwrap());
-            env.push(CString::new("VK_DRIVER_FILES=/usr/share/vulkan/icd.d/virtio_icd.json").unwrap());
+            env.push(
+                CString::new("VK_DRIVER_FILES=/usr/share/vulkan/icd.d/virtio_icd.json").unwrap(),
+            );
             env.push(CString::new("VN_DEBUG=vtest").unwrap());
         }
         RendererMode::LlvmPipe => {
