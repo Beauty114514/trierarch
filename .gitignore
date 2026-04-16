@@ -18,6 +18,7 @@ app/build
 captures/
 .idea/
 .cursor/
+docs/WINE_MODE_ROADMAP.md
 # Aggregated native build outputs copied into app module for packaging
 trierarch-app/app/src/main/jniLibs/
 # Pulse prefix synced by trierarch-audio/build-android/build-pulse-android.sh
