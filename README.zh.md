@@ -86,6 +86,10 @@ EDITOR=nano visudo
 
 ## 5. 进入桌面后：View Settings 与终端 / 桌面切换
 
+### 硬件加速
+
+目前 Trierarch 已支持适配多种芯片的**通用硬件加速**（见渲染器模式 **UNIVERSAL**），但更多**高性能**的专项方案仍在**开发中**。
+
 ### View Settings（视图设置）
 
 在悬浮球菜单中打开 **View Settings**，可调整合成器画面与指针行为：

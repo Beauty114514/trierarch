@@ -86,6 +86,10 @@ The **Terminal** shortcut is for **first-time setup** (e.g. installing the deskt
 
 ## 5. After Plasma starts: View Settings and terminal ↔ desktop switching
 
+### Hardware acceleration
+
+Trierarch currently supports **cross-chip** hardware acceleration (see renderer mode **UNIVERSAL**). More **high-performance** device-specific paths are still **in development**.
+
 ### View Settings
 
 Open **View Settings** from the orb menu to tune the compositor and pointer behavior:
