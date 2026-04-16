@@ -315,6 +315,10 @@ fun AppScreen(startInTerminal: Boolean = false) {
         InputRouteState.waylandVisible = showWayland
         if (showWayland) {
             desktopLaunchBlackout = false
+            try {
+                WaylandBridge.nativeResetKeyboardState()
+            } catch (_: Throwable) {
+            }
         }
     }
 

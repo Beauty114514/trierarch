@@ -60,6 +60,29 @@ class SoftKeyboardView(context: android.content.Context) : View(context) {
                 return true
             }
 
+            override fun deleteSurroundingText(beforeLength: Int, afterLength: Int): Boolean {
+                val before = beforeLength.coerceAtLeast(0).coerceAtMost(256)
+                val after = afterLength.coerceAtLeast(0).coerceAtMost(256)
+                if (before > 0 || after > 0) {
+                    commitExecutor.execute {
+                        var time = System.currentTimeMillis()
+                        repeat(before) {
+                            WaylandBridge.nativeOnKeyEvent(KeyEvent.KEYCODE_DEL, 0, true, time)
+                            time++
+                            WaylandBridge.nativeOnKeyEvent(KeyEvent.KEYCODE_DEL, 0, false, time)
+                            time++
+                        }
+                        repeat(after) {
+                            WaylandBridge.nativeOnKeyEvent(KeyEvent.KEYCODE_FORWARD_DEL, 0, true, time)
+                            time++
+                            WaylandBridge.nativeOnKeyEvent(KeyEvent.KEYCODE_FORWARD_DEL, 0, false, time)
+                            time++
+                        }
+                    }
+                }
+                return super.deleteSurroundingText(beforeLength, afterLength)
+            }
+
             override fun commitText(text: CharSequence?, newCursorPosition: Int): Boolean {
                 if (text.isNullOrEmpty()) return true
                 val t = text.toString()
@@ -157,6 +180,7 @@ class SoftKeyboardView(context: android.content.Context) : View(context) {
             code == 96 -> return Pair(KeyEvent.KEYCODE_GRAVE, false)
             code in 33..47 -> return Pair(symbolToKeyCode(code), true)
             code in 58..64 -> return Pair(symbolToKeyCode(code), true)
+            code in 94..95 -> return Pair(symbolToKeyCode(code), true)
             code in 123..126 -> return Pair(symbolToKeyCode(code), true)
             else -> return Pair(0, false)
         }

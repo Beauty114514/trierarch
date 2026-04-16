@@ -224,3 +224,40 @@ void compositor_keyboard_key_event(wayland_server_t *srv_opaque, uint32_t time_m
         wl_keyboard_send_key(node->resource, serial, time_ms, key_linux, state);
     }
 }
+
+void compositor_keyboard_reset_state(wayland_server_t *srv_opaque) {
+    if (!srv_opaque) return;
+    struct wayland_server *srv = (struct wayland_server *)srv_opaque;
+
+    srv->keyboard_mods_depressed = 0;
+    srv->keyboard_mods_locked = 0;
+
+    srv->keyboard_lshift_down = false;
+    srv->keyboard_rshift_down = false;
+    srv->keyboard_lctrl_down = false;
+    srv->keyboard_rctrl_down = false;
+    srv->keyboard_lalt_down = false;
+    srv->keyboard_ralt_down = false;
+    srv->keyboard_lmeta_down = false;
+    srv->keyboard_rmeta_down = false;
+
+    srv->keyboard_capslock_down = false;
+    srv->keyboard_numlock_down = false;
+    srv->keyboard_scrolllock_down = false;
+    srv->keyboard_capslock_enabled = false;
+    srv->keyboard_numlock_enabled = false;
+    srv->keyboard_scrolllock_enabled = false;
+
+    struct compositor_surface *focus = srv->keyboard_focus;
+    if (!focus || !focus->resource) return;
+    struct wl_client *focus_client = wl_resource_get_client(focus->resource);
+    struct input_resource_node *node;
+    wl_list_for_each(node, &srv->keyboard_resources, link) {
+        if (wl_resource_get_client(node->resource) != focus_client)
+            continue;
+        if (wl_resource_get_version(node->resource) >= 4) {
+            wl_keyboard_send_modifiers(node->resource, wl_display_next_serial(srv->display),
+                srv->keyboard_mods_depressed, 0, srv->keyboard_mods_locked, 0);
+        }
+    }
+}

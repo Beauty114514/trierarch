@@ -5,10 +5,15 @@
 set -e
 cd "$(dirname "$0")/.."
 
-# NDK: prefer ANDROID_NDK_HOME, then first NDK in Sdk
+# NDK: prefer ANDROID_NDK_HOME, then first NDK in Sdk (pick one dir; multiple versions break `echo * | head -1`)
 NDK="${ANDROID_NDK_HOME:-${NDK:-}}"
-[ -n "$NDK" ] && [ -d "$NDK" ] || NDK=$(echo "$HOME/Android/Sdk/ndk/"* 2>/dev/null | head -1)
-[ -d "$NDK" ] || { echo "Android NDK not found. Set ANDROID_NDK_HOME or install NDK."; exit 1; }
+if [ -z "$NDK" ] || [ ! -d "$NDK" ]; then
+    NDK_BASE="$HOME/Android/Sdk/ndk"
+    if [ -d "$NDK_BASE" ]; then
+        NDK=$(find "$NDK_BASE" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort -V | tail -1)
+    fi
+fi
+[ -n "$NDK" ] && [ -d "$NDK" ] || { echo "Android NDK not found. Set ANDROID_NDK_HOME or install NDK."; exit 1; }
 
 # Toolchain host: linux-x86_64 or darwin-x86_64 / darwin-arm64
 UNAME_S=$(uname -s | tr '[:upper:]' '[:lower:]')

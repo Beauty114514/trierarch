@@ -47,6 +47,25 @@ class HardwareKeyboardRouter {
         }
     }
 
+    // Android repeat: multiple ACTION_DOWN; Wayland expects release between presses.
+    private fun forwardHardwareKeyEvent(event: KeyEvent) {
+        val keyCode = event.keyCode
+        val meta = event.metaState
+        val t = event.eventTime
+        if (!isModifierKey(keyCode) && !isLockKey(keyCode)) {
+            if (event.action != KeyEvent.ACTION_DOWN) return
+            forwardKey(keyCode, meta, true, t)
+            forwardKey(keyCode, meta, false, t + 1)
+            return
+        }
+
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            forwardKey(keyCode, meta, true, t)
+        } else if (event.action == KeyEvent.ACTION_UP) {
+            forwardKey(keyCode, meta, false, t)
+        }
+    }
+
     private fun injectWindowSwitch(timeMs: Long) {
         forwardKey(KeyEvent.KEYCODE_TAB, 0, true, timeMs)
         forwardKey(KeyEvent.KEYCODE_TAB, 0, false, timeMs)
@@ -79,7 +98,7 @@ class HardwareKeyboardRouter {
                 injectWindowSwitch(timeMs)
                 return true
             }
-            forwardKey(keyCode, event.metaState, isDown, timeMs)
+            forwardHardwareKeyEvent(event)
             return true
         }
 
@@ -91,11 +110,11 @@ class HardwareKeyboardRouter {
         val isAltTab = keyCode == KeyEvent.KEYCODE_TAB && altPressed
         val isAppSwitch = keyCode == KeyEvent.KEYCODE_APP_SWITCH
         if (isAltTab || isAppSwitch) {
-            forwardKey(keyCode, event.metaState, isDown, timeMs)
+            forwardHardwareKeyEvent(event)
             return true
         }
 
-        forwardKey(keyCode, event.metaState, isDown, timeMs)
+        forwardHardwareKeyEvent(event)
         return true
     }
 }

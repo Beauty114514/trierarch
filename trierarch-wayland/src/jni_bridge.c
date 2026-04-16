@@ -430,3 +430,10 @@ JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeOnKeyEvent(JNIEnv 
     uint32_t state = isDown ? 1 : 0;  /* WL_KEYBOARD_KEY_STATE_PRESSED / RELEASED */
     keyq_push(time, key_linux, state);
 }
+
+JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeResetKeyboardState(JNIEnv *env, jobject thiz) {
+    (void)env;
+    (void)thiz;
+    if (!g_server) return;
+    compositor_keyboard_reset_state(g_server);
+}

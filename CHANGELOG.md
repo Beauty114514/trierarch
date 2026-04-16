@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **UNIVERSAL** renderer mode: host-side VirGL (`virgl_test_server_android` with ANGLE where applicable), guest OpenGL via **virpipe** over a Unix socket, guest Vulkan via **Venus** (virtio ICD) with `virgl_render_server`; renderer menu includes **LLVMPIPE** and **UNIVERSAL**. Saved **VIRGL** / **VENUS** preferences migrate to **UNIVERSAL**.
 
+### Fixed
+- **Keyboard:** fix soft keyboard mapping for `_` / `^` and improve Backspace handling for IMEs that use `deleteSurroundingText()`.
+
 ## [0.4.0] — 2026-04-07
 
 ### Added

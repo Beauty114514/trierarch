@@ -198,6 +198,7 @@ void compositor_pointer_right_click(wayland_server_t *srv, uint32_t time_ms, flo
 /* keyboard_input.c: keyboard focus follows pointer; deliver key events to focused client */
 void keyboard_focus_update(struct wayland_server *srv, struct compositor_surface *surf);
 void compositor_keyboard_key_event(wayland_server_t *srv, uint32_t time_ms, uint32_t key_linux, uint32_t state);
+void compositor_keyboard_reset_state(wayland_server_t *srv);
 
 /* output.c, seat.c, xdg_shell.c */
 void output_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id);

@@ -49,4 +49,7 @@ object WaylandBridge {
     external fun nativeHasActiveClients(): Boolean
 
     external fun nativeOnKeyEvent(keyCode: Int, metaState: Int, isDown: Boolean, timeMs: Long)
+
+    /** Clear stuck modifiers (Shift/Ctrl/Alt/Meta/Caps/Num/Scroll) in the in-process compositor. */
+    external fun nativeResetKeyboardState()
 }
