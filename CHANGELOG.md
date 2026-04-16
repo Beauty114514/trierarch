@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-04-16
+
 ### Added
 - **UNIVERSAL** renderer mode: host-side VirGL (`virgl_test_server_android` with ANGLE where applicable), guest OpenGL via **virpipe** over a Unix socket, guest Vulkan via **Venus** (virtio ICD) with `virgl_render_server`; renderer menu includes **LLVMPIPE** and **UNIVERSAL**. Saved **VIRGL** / **VENUS** preferences migrate to **UNIVERSAL**.
 
