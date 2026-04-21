@@ -1,97 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
-  Black background, flat blue triangle (#2F6FCC). Robot = luminance-mask cutout; eyes/mouth = white punches (blue on screen).
-  Larger head, neck pinch lower. Left: >_ (underscore centered to CPU outer cy). Right: CPU only.
-  Mouth: smooth sinusoid, two periods: y = 97.0 − 2.75·cos(4π(x−50)/28).
-  Ears: flat crown; left = 10‑tooth gear with hub hole; right = multi‑curve antenna (stroke). Bottom: two arm triangles (very wide base on body, sharp outward tip).
-  Companion: trierarch_abstract_mark_foreground.svg — same mask/artwork, no black rect (Android adaptive-icon foreground export).
--->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="512" height="512">
-  <defs>
-    <mask id="robotCut" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="0" y="0" width="128" height="128">
-      <rect width="128" height="128" fill="white"/>
-      <!-- Robot silhouette + ears (all black = one combined cutout; union in mask) -->
-      <path fill="black"
-            d="M 44 100
-               L 44 92.5
-               C 44 83.5, 49.5 77, 57 76
-               C 60 76, 68 76, 72 76
-               C 78.5 77, 84 83.5, 84 92.5
-               L 84 100
-               Z"/>
-      <!-- Left ear: full gear below face punches (y &lt; ~80) so outline stays fully visible; tiny gap to head -->
-      <path fill="black"
-            d="M 49.25 77.30
-               L 48.20 79.11
-               L 46.36 78.52
-               L 46.58 76.43
-               L 44.66 77.28
-               L 43.52 75.71
-               L 44.92 74.16
-               L 42.87 73.72
-               L 42.87 71.78
-               L 44.92 71.34
-               L 43.52 69.79
-               L 44.66 68.22
-               L 46.58 69.07
-               L 46.36 66.98
-               L 48.20 66.39
-               L 49.25 68.20
-               L 50.30 66.39
-               L 52.14 66.98
-               L 51.92 69.07
-               L 53.84 68.22
-               L 54.98 69.79
-               L 53.58 71.34
-               L 55.63 71.78
-               L 55.63 73.72
-               L 53.58 74.16
-               L 54.98 75.71
-               L 53.84 77.28
-               L 51.92 76.43
-               L 52.14 78.52
-               L 50.30 79.11
-               Z"/>
-      <!-- Right ear: antenna (curved stroke) -->
-      <path fill="none" stroke="black" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"
-            d="M 72.0 76.0
-               C 73.0 67.0, 75.4 57.0, 74.2 48.0
-               C 73.0 42.5, 66.0 38.0, 60.5 35.6
-               C 59.8 35.1, 59.35 34.65, 59.1305 34.28"/>
-      <!-- Hands: long triangles, very wide base on body, sharp tip -->
-      <path fill="black"
-            d="M 49.5 100.0
-               L 40.5 98.60
-               L 32.35 92.35
-               Z"/>
-      <path fill="black"
-            d="M 78.5 100.0
-               L 87.5 98.60
-               L 95.65 92.35
-               Z"/>
-      <!-- White punches triangle back in for facial features + gear hub hole -->
-      <g fill="white" stroke="white">
-        <circle cx="49.25" cy="72.75" r="2.2" fill="white" stroke="none"/>
-        <!-- CPU outer cy = 86.8 → underscore rect y = 86.275 -->
-        <path d="M 49.5 80.8 L 53.2 83.8 L 49.5 85.5 Z"/>
-        <rect x="53.8" y="86.275" width="4.8" height="1.05" rx="0.25"/>
-        <!-- CPU -->
-        <rect x="65.2" y="81.8" width="13" height="10" rx="1.15" fill="none" stroke-width="1.35"/>
-        <line x1="67.8" y1="81.8" x2="67.8" y2="79.8" stroke-width="1.15" stroke-linecap="round"/>
-        <line x1="71.7" y1="81.8" x2="71.7" y2="79.8" stroke-width="1.15" stroke-linecap="round"/>
-        <line x1="75.6" y1="81.8" x2="75.6" y2="79.8" stroke-width="1.15" stroke-linecap="round"/>
-        <line x1="67.8" y1="91.8" x2="67.8" y2="93.6" stroke-width="1.15" stroke-linecap="round"/>
-        <line x1="71.7" y1="91.8" x2="71.7" y2="93.6" stroke-width="1.15" stroke-linecap="round"/>
-        <line x1="75.6" y1="91.8" x2="75.6" y2="93.6" stroke-width="1.15" stroke-linecap="round"/>
-        <rect x="67.4" y="83.8" width="8.6" height="6" rx="0.5" fill="none" stroke-width="0.9"/>
-        <!-- Mouth: two cycles of cosine (phase-shifted sine), same amplitude -->
-        <path fill="none" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"
-              d="M 50.00 94.25 L 50.64 94.36 L 51.27 94.69 L 51.91 95.20 L 52.55 95.86 L 53.18 96.61 L 53.82 97.39 L 54.45 98.14 L 55.09 98.80 L 55.73 99.31 L 56.36 99.64 L 57.00 99.75 L 57.64 99.64 L 58.27 99.31 L 58.91 98.80 L 59.55 98.14 L 60.18 97.39 L 60.82 96.61 L 61.45 95.86 L 62.09 95.20 L 62.73 94.69 L 63.36 94.36 L 64.00 94.25 L 64.64 94.36 L 65.27 94.69 L 65.91 95.20 L 66.55 95.86 L 67.18 96.61 L 67.82 97.39 L 68.45 98.14 L 69.09 98.80 L 69.73 99.31 L 70.36 99.64 L 71.00 99.75 L 71.64 99.64 L 72.27 99.31 L 72.91 98.80 L 73.55 98.14 L 74.18 97.39 L 74.82 96.61 L 75.45 95.86 L 76.09 95.20 L 76.73 94.69 L 77.36 94.36 L 78.00 94.25"/>
-      </g>
-    </mask>
-  </defs>
-
   <rect width="128" height="128" fill="#000000"/>
-
-  <path fill="#2F6FCC" mask="url(#robotCut)" d="M 64 24 L 100 100 L 28 100 Z"/>
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 896 856" width="128" height="128" preserveAspectRatio="xMidYMid meet">
+      <g transform="translate(0,856) scale(0.1,-0.1)" fill="#004A9E">
+        <path shape-rendering="geometricPrecision" d="M4445 7305 c-19 -43 -35 -80 -35 -82 0 -2 -23 -55 -51 -116 -61 -136 -117 -260 -137 -307 -8 -19 -27 -62 -42 -95 -16 -33 -78 -170 -138 -305 -61 -135 -133 -293 -161 -352 -28 -59 -51 -110 -51 -113 0 -6 -112 -243 -136 -287 -25 -47 -17 -62 79 -153 88 -84 320 -308 495 -479 45 -44 78 -82 73 -84 -9 -3 -129 60 -216 114 -22 13 -65 37 -97 54 -31 16 -143 79 -249 140 -106 60 -200 110 -210 110 -14 0 -53 -70 -157 -277 -77 -153 -166 -330 -199 -393 -93 -178 -182 -348 -221 -420 -19 -36 -59 -112 -90 -170 -30 -58 -59 -109 -63 -115 -5 -5 -9 -17 -9 -27 0 -10 -4 -18 -9 -18 -5 0 -23 -28 -39 -62 -17 -35 -52 -101 -78 -148 -25 -47 -69 -128 -96 -180 -28 -52 -58 -108 -68 -125 -10 -16 -40 -73 -67 -125 -77 -145 -122 -229 -163 -300 -21 -36 -55 -96 -75 -135 -21 -38 -61 -110 -88 -160 -27 -49 -62 -112 -77 -140 -15 -27 -69 -124 -120 -215 -51 -91 -104 -187 -119 -215 -15 -27 -61 -111 -102 -185 -42 -74 -100 -180 -129 -235 -29 -55 -77 -140 -105 -190 -29 -49 -62 -108 -72 -130 -11 -22 -28 -53 -37 -70 -25 -46 2 -45 84 4 38 23 72 41 76 41 4 0 15 6 23 14 9 7 63 38 121 68 148 78 223 119 235 128 6 4 21 11 34 15 14 4 88 38 165 75 163 77 178 84 308 139 53 23 101 41 106 41 4 0 26 9 48 19 21 10 99 39 171 64 73 25 137 48 142 51 5 3 12 45 16 93 35 430 272 830 653 1098 39 28 71 55 72 60 0 6 -16 36 -35 68 -19 32 -35 61 -35 64 0 3 -22 42 -48 87 -144 241 -163 292 -116 322 37 25 74 9 99 -41 11 -22 35 -64 53 -93 17 -29 32 -55 32 -58 0 -4 61 -111 100 -174 5 -8 19 -34 32 -58 32 -63 35 -64 113 -30 218 94 393 130 645 131 252 0 414 -30 644 -122 91 -37 94 -36 121 15 11 22 46 83 77 137 32 53 58 100 58 103 0 3 16 29 34 59 19 30 44 72 56 94 24 48 58 61 95 37 44 -29 34 -60 -91 -278 -64 -112 -125 -218 -135 -236 l-19 -32 58 -37 c31 -21 59 -40 62 -44 3 -3 14 -12 26 -20 91 -62 277 -257 342 -359 134 -209 215 -436 243 -676 6 -54 15 -103 19 -108 5 -5 60 -26 122 -46 163 -54 394 -146 578 -232 193 -91 522 -259 615 -315 11 -7 30 -17 43 -22 12 -6 46 -26 75 -44 28 -18 60 -36 69 -40 21 -7 34 9 20 26 -5 7 -27 46 -49 87 -23 41 -109 199 -193 350 -84 151 -180 326 -214 387 -51 96 -68 118 -111 147 -27 19 -95 66 -150 105 -55 39 -165 114 -245 168 -80 53 -166 114 -191 135 -26 21 -50 38 -54 38 -4 0 -37 21 -74 48 -36 26 -91 64 -121 85 -30 20 -68 49 -85 63 l-30 25 38 -6 c21 -3 71 -19 110 -34 205 -80 579 -212 584 -207 9 8 -31 91 -94 199 -29 49 -53 91 -53 94 0 3 -24 48 -54 102 -29 53 -67 121 -83 151 -30 55 -64 116 -120 220 -17 30 -59 109 -93 175 -35 66 -74 136 -86 156 -12 20 -52 94 -88 165 -36 71 -89 172 -116 224 -28 52 -75 140 -104 195 -156 292 -458 888 -578 1140 -44 94 -112 234 -149 312 -38 78 -69 145 -69 148 0 3 -25 57 -55 120 -30 62 -55 116 -55 118 0 3 -45 102 -100 221 -55 119 -100 218 -100 221 0 2 -14 35 -31 72 -17 38 -49 109 -71 158 -22 50 -51 115 -65 145 -14 30 -54 120 -89 199 -36 80 -67 147 -69 149 -2 3 -20 -30 -40 -73z"/>
+        <path shape-rendering="geometricPrecision" d="M3711 2767 c-154 -54 -114 -291 49 -291 160 0 202 228 54 290 -40 17 -58 17 -103 1z"/>
+        <path shape-rendering="geometricPrecision" d="M5165 2765 c-135 -48 -132 -248 4 -285 180 -48 266 215 94 286 -39 17 -47 17 -98 -1z"/>
+      </g>
+  </svg>
 </svg>
