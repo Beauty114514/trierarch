@@ -5,37 +5,12 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 pub const ARCH_ROOTFS_SUBDIR: &str = "arch";
+pub const DEBIAN_ROOTFS_SUBDIR: &str = "debian";
+pub const WINE_ROOTFS_SUBDIR: &str = "wine";
 /// Sentinel file written after successful extract; if present, rootfs is ready.
 pub const ROOTFS_READY_SENTINEL: &str = ".trierarch_rootfs_ok";
 
 static APPLICATION_CONTEXT: Mutex<Option<ApplicationContext>> = Mutex::new(None);
-static RENDERER_MODE: Mutex<RendererMode> = Mutex::new(RendererMode::LlvmPipe);
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum RendererMode {
-    LlvmPipe,
-    Universal,
-}
-
-impl RendererMode {
-    pub fn from_str(s: &str) -> RendererMode {
-        match s.trim().to_ascii_uppercase().as_str() {
-            "UNIVERSAL" | "VIRGL" | "VENUS" => RendererMode::Universal,
-            _ => RendererMode::LlvmPipe,
-        }
-    }
-
-    pub fn as_env_value(&self) -> &'static str {
-        match self {
-            RendererMode::LlvmPipe => "LLVMPIPE",
-            RendererMode::Universal => "UNIVERSAL",
-        }
-    }
-
-    pub fn needs_virgl_server(&self) -> bool {
-        matches!(self, RendererMode::Universal)
-    }
-}
 
 #[derive(Clone, Debug)]
 pub struct ApplicationContext {
@@ -75,21 +50,16 @@ pub fn get_application_context() -> Result<ApplicationContext> {
         .ok_or_else(|| anyhow::anyhow!("ApplicationContext not initialized"))
 }
 
-pub fn set_renderer_mode(mode: RendererMode) -> Result<()> {
-    *RENDERER_MODE
-        .lock()
-        .map_err(|e| anyhow::anyhow!("RendererMode lock poisoned: {:?}", e))? = mode;
-    Ok(())
-}
-
-pub fn get_renderer_mode() -> Result<RendererMode> {
-    Ok(*RENDERER_MODE
-        .lock()
-        .map_err(|e| anyhow::anyhow!("RendererMode lock poisoned: {:?}", e))?)
-}
-
-pub fn rootfs_dir() -> Result<PathBuf> {
+pub fn arch_rootfs_dir() -> Result<PathBuf> {
     Ok(get_application_context()?.data_dir.join(ARCH_ROOTFS_SUBDIR))
+}
+
+pub fn debian_rootfs_dir() -> Result<PathBuf> {
+    Ok(get_application_context()?.data_dir.join(DEBIAN_ROOTFS_SUBDIR))
+}
+
+pub fn wine_rootfs_dir() -> Result<PathBuf> {
+    Ok(get_application_context()?.data_dir.join(WINE_ROOTFS_SUBDIR))
 }
 
 /// Rootfs is ready iff the extract sentinel exists.

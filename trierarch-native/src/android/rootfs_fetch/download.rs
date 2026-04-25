@@ -6,16 +6,15 @@ use std::fs::File;
 use std::io::{BufReader, Read, Write};
 use std::path::Path;
 
-const TARBALL_URL: &str =
-    "https://github.com/termux/proot-distro/releases/download/v4.34.2/archlinux-aarch64-pd-v4.34.2.tar.xz";
-const TARBALL_SHA256: &str = "dabc2382ddcb725969cf7b9e2f3b102ec862ea6e0294198a30c71e9a4b837f81";
-
 pub(super) fn download_tarball_with_progress<F>(
     tmp_path: &Path,
     final_path: &Path,
     pct_min: u32,
     pct_max: u32,
     report: &F,
+    url: &str,
+    expected_sha256: &str,
+    label: &str,
 ) -> Result<()>
 where
     F: Fn(u32, &str),
@@ -25,7 +24,7 @@ where
         .build()
         .context("create HTTP client")?;
 
-    let mut response = client.get(TARBALL_URL).send().context("download request")?;
+    let mut response = client.get(url).send().context("download request")?;
     if !response.status().is_success() {
         anyhow::bail!(
             "download failed: {} {}",
@@ -39,6 +38,7 @@ where
     let mut downloaded: u64 = 0;
     let mut buf = [0u8; 8192];
     let mut last_reported_pct = 0u8;
+    let mut last_reported_bytes: u64 = 0;
     let mut hasher = Sha256::new();
 
     loop {
@@ -54,27 +54,34 @@ where
             if percent != last_reported_pct {
                 let downloaded_mb = downloaded as f64 / 1024.0 / 1024.0;
                 let total_mb = total as f64 / 1024.0 / 1024.0;
-                let msg = format!(
-                    "Downloading Arch Linux FS... {}% ({:.2} MB / {:.2} MB)",
-                    percent, downloaded_mb, total_mb
-                );
+                let msg = format!("{label} {percent}% ({downloaded_mb:.2} MB / {total_mb:.2} MB)");
                 let pct = pct_min + ((percent as u32) * (pct_max - pct_min) / 100);
                 report(pct, &msg);
                 last_reported_pct = percent;
             }
+        } else {
+            // Some mirrors do not send Content-Length. Still emit periodic progress so UI doesn't
+            // look frozen at 0%.
+            const STEP_BYTES: u64 = 2 * 1024 * 1024;
+            if downloaded.saturating_sub(last_reported_bytes) >= STEP_BYTES {
+                last_reported_bytes = downloaded;
+                let downloaded_mb = downloaded as f64 / 1024.0 / 1024.0;
+                let pct = (pct_min + 1).min(pct_max.saturating_sub(1));
+                report(pct, &format!("{label} ({downloaded_mb:.2} MB)"));
+            }
         }
     }
 
-    report(pct_max, "Downloading Arch Linux FS... 100%");
+    report(pct_max, &format!("{label} 100%"));
     file.flush().context("flush temp file")?;
     drop(file);
 
     let actual = format!("{:x}", hasher.finalize());
-    if actual != TARBALL_SHA256 {
+    if actual != expected_sha256 {
         let _ = std::fs::remove_file(tmp_path);
         anyhow::bail!(
             "tarball sha256 mismatch: expected={}, got={}",
-            TARBALL_SHA256,
+            expected_sha256,
             actual
         );
     }

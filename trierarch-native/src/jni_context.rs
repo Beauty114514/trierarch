@@ -57,10 +57,38 @@ pub fn init_pty_output_jni(env: &mut JNIEnv) -> Result<()> {
     Ok(())
 }
 
-pub fn has_rootfs() -> bool {
-    application_context::rootfs_dir()
+pub fn has_arch_rootfs() -> bool {
+    application_context::arch_rootfs_dir()
         .map(|root| application_context::has_rootfs(&root))
         .unwrap_or(false)
+}
+
+pub fn has_debian_rootfs() -> bool {
+    application_context::debian_rootfs_dir()
+        .map(|root| application_context::has_rootfs(&root))
+        .unwrap_or(false)
+}
+
+pub fn has_wine_rootfs() -> bool {
+    application_context::wine_rootfs_dir()
+        .map(|root| application_context::has_rootfs(&root))
+        .unwrap_or(false)
+}
+
+#[repr(i32)]
+pub enum RootfsKind {
+    Arch = 0,
+    Debian = 1,
+    Wine = 2,
+}
+
+fn rootfs_dir_for_kind(kind: i32) -> Result<std::path::PathBuf> {
+    match kind {
+        x if x == RootfsKind::Arch as i32 => application_context::arch_rootfs_dir(),
+        x if x == RootfsKind::Debian as i32 => application_context::debian_rootfs_dir(),
+        x if x == RootfsKind::Wine as i32 => application_context::wine_rootfs_dir(),
+        _ => application_context::arch_rootfs_dir(),
+    }
 }
 
 pub fn spawn_session(session_id: i32, initial_rows: u16, initial_cols: u16) -> Result<()> {
@@ -71,6 +99,36 @@ pub fn spawn_session(session_id: i32, initial_rows: u16, initial_cols: u16) -> R
         return Ok(());
     }
     let (child, read_file, stdin, master_fd) = proot::fork_pty_shell(initial_rows, initial_cols)?;
+    map.insert(
+        session_id,
+        PtySession {
+            _child: child,
+            stdin,
+            master_fd,
+        },
+    );
+    drop(map);
+    std::thread::spawn(move || {
+        pty_master_reader_loop(session_id, read_file);
+    });
+    Ok(())
+}
+
+pub fn spawn_session_in_rootfs(
+    session_id: i32,
+    initial_rows: u16,
+    initial_cols: u16,
+    rootfs_kind: i32,
+) -> Result<()> {
+    let mut map = SESSIONS
+        .lock()
+        .map_err(|e| anyhow::anyhow!("SESSIONS lock: {:?}", e))?;
+    if map.contains_key(&session_id) {
+        return Ok(());
+    }
+    let rootfs = rootfs_dir_for_kind(rootfs_kind)?;
+    let (child, read_file, stdin, master_fd) =
+        proot::fork_pty_shell_in_rootfs(&rootfs, initial_rows, initial_cols)?;
     map.insert(
         session_id,
         PtySession {

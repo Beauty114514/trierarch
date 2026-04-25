@@ -29,8 +29,16 @@ pub fn fork_pty_shell(
     initial_rows: u16,
     initial_cols: u16,
 ) -> Result<(ChildProcess, std::fs::File, Box<dyn Write + Send>, RawFd)> {
-    let rootfs = super::application_context::rootfs_dir()?;
-    let (argv, env) = args::build_exec_args(&rootfs)?;
+    let rootfs = super::application_context::arch_rootfs_dir()?;
+    fork_pty_shell_in_rootfs(&rootfs, initial_rows, initial_cols)
+}
+
+pub fn fork_pty_shell_in_rootfs(
+    rootfs: &std::path::Path,
+    initial_rows: u16,
+    initial_cols: u16,
+) -> Result<(ChildProcess, std::fs::File, Box<dyn Write + Send>, RawFd)> {
+    let (argv, env) = args::build_exec_args(rootfs)?;
 
     let argv_refs: Vec<&std::ffi::CStr> = argv.iter().map(|s| s.as_c_str()).collect();
     let env_refs: Vec<&std::ffi::CStr> = env.iter().map(|s| s.as_c_str()).collect();

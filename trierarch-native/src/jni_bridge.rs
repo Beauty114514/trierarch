@@ -6,7 +6,6 @@ use jni::JNIEnv;
 use std::path::PathBuf;
 use std::thread;
 
-use crate::android::application_context::{set_renderer_mode, RendererMode};
 use crate::android::pulse_host;
 use crate::android::rootfs_fetch;
 use crate::android::virgl_host;
@@ -81,41 +80,45 @@ pub extern "system" fn Java_app_trierarch_NativeBridge_stopVirglHost(_env: JNIEn
 }
 
 #[no_mangle]
-pub extern "system" fn Java_app_trierarch_NativeBridge_setRendererMode(
-    mut env: JNIEnv,
+pub extern "system" fn Java_app_trierarch_NativeBridge_startVirglHostIfPossible(
+    _env: JNIEnv,
     _: JObject,
-    mode: JString,
 ) {
-    let mode_str: String = match env.get_string(&mode) {
-        Ok(s) => s.into(),
-        Err(e) => {
-            log::warn!("setRendererMode get_string: {:?}", e);
-            return;
-        }
-    };
-    let parsed = RendererMode::from_str(&mode_str);
-    if let Err(e) = set_renderer_mode(parsed) {
-        log::warn!("setRendererMode: {:?}", e);
-    }
-    if let Err(e) = jni_context::close_all_sessions() {
-        log::warn!("setRendererMode close_all_sessions: {:?}", e);
-    }
-    virgl_host::stop_if_running();
-    if parsed.needs_virgl_server() {
-        virgl_host::start_if_possible();
-    }
+    virgl_host::start_if_possible();
 }
 
 #[no_mangle]
-pub extern "system" fn Java_app_trierarch_NativeBridge_hasRootfs(
+pub extern "system" fn Java_app_trierarch_NativeBridge_hasArchRootfs(
     _env: JNIEnv,
     _: JObject,
 ) -> jboolean {
-    jni_context::has_rootfs() as jboolean
+    jni_context::has_arch_rootfs() as jboolean
 }
 
 #[no_mangle]
-pub extern "system" fn Java_app_trierarch_NativeBridge_downloadRootfs(
+pub extern "system" fn Java_app_trierarch_NativeBridge_hasDebianRootfs(
+    _env: JNIEnv,
+    _: JObject,
+) -> jboolean {
+    match crate::android::application_context::debian_rootfs_dir() {
+        Ok(root) => crate::android::application_context::has_rootfs(&root) as jboolean,
+        Err(_) => 0,
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_app_trierarch_NativeBridge_hasWineRootfs(
+    _env: JNIEnv,
+    _: JObject,
+) -> jboolean {
+    match crate::android::application_context::wine_rootfs_dir() {
+        Ok(root) => crate::android::application_context::has_rootfs(&root) as jboolean,
+        Err(_) => 0,
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_app_trierarch_NativeBridge_downloadArchRootfs(
     env: JNIEnv,
     _: JObject,
     callback: JObject,
@@ -152,6 +155,80 @@ pub extern "system" fn Java_app_trierarch_NativeBridge_downloadRootfs(
 }
 
 #[no_mangle]
+pub extern "system" fn Java_app_trierarch_NativeBridge_downloadDebianRootfs(
+    env: JNIEnv,
+    _: JObject,
+    callback: JObject,
+) -> jboolean {
+    let vm = env.get_java_vm().expect("get JavaVM");
+    let callback_global = env
+        .new_global_ref(callback)
+        .expect("global ref for callback");
+
+    let result = thread::spawn(move || {
+        let progress_fn = Box::new(move |pct: u32, msg: &str| {
+            let mut env = vm.attach_current_thread().expect("attach thread");
+            let callback = callback_global.as_obj();
+            let msg_j = env.new_string(msg).expect("new string");
+            let msg_obj: JObject = msg_j.into();
+            let args = [JValue::Int(pct as jint), JValue::Object(&msg_obj)];
+            let _ = env.call_method(callback, "onProgress", "(ILjava/lang/String;)V", &args);
+        });
+        rootfs_fetch::ensure_debian_rootfs_with_progress(Some(progress_fn))
+    })
+    .join();
+
+    match result {
+        Ok(Ok(())) => 1,
+        Ok(Err(e)) => {
+            log::error!("downloadDebianRootfs failed: {:?}", e);
+            0
+        }
+        Err(e) => {
+            log::error!("downloadDebianRootfs thread panic: {:?}", e);
+            0
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_app_trierarch_NativeBridge_downloadWineRootfs(
+    env: JNIEnv,
+    _: JObject,
+    callback: JObject,
+) -> jboolean {
+    let vm = env.get_java_vm().expect("get JavaVM");
+    let callback_global = env
+        .new_global_ref(callback)
+        .expect("global ref for callback");
+
+    let result = thread::spawn(move || {
+        let progress_fn = Box::new(move |pct: u32, msg: &str| {
+            let mut env = vm.attach_current_thread().expect("attach thread");
+            let callback = callback_global.as_obj();
+            let msg_j = env.new_string(msg).expect("new string");
+            let msg_obj: JObject = msg_j.into();
+            let args = [JValue::Int(pct as jint), JValue::Object(&msg_obj)];
+            let _ = env.call_method(callback, "onProgress", "(ILjava/lang/String;)V", &args);
+        });
+        rootfs_fetch::ensure_wine_rootfs_with_progress(Some(progress_fn))
+    })
+    .join();
+
+    match result {
+        Ok(Ok(())) => 1,
+        Ok(Err(e)) => {
+            log::error!("downloadWineRootfs failed: {:?}", e);
+            0
+        }
+        Err(e) => {
+            log::error!("downloadWineRootfs thread panic: {:?}", e);
+            0
+        }
+    }
+}
+
+#[no_mangle]
 pub extern "system" fn Java_app_trierarch_NativeBridge_spawnSession(
     _env: JNIEnv,
     _: JObject,
@@ -165,6 +242,26 @@ pub extern "system" fn Java_app_trierarch_NativeBridge_spawnSession(
         Ok(()) => 1,
         Err(e) => {
             log::error!("spawnSession failed: {:?}", e);
+            0
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_app_trierarch_NativeBridge_spawnSessionInRootfs(
+    _env: JNIEnv,
+    _: JObject,
+    session_id: jint,
+    rows: jint,
+    cols: jint,
+    rootfs_kind: jint,
+) -> jboolean {
+    let r = rows.max(1).min(i32::from(u16::MAX)) as u16;
+    let c = cols.max(1).min(i32::from(u16::MAX)) as u16;
+    match jni_context::spawn_session_in_rootfs(session_id, r, c, rootfs_kind) {
+        Ok(()) => 1,
+        Err(e) => {
+            log::error!("spawnSessionInRootfs failed: {:?}", e);
             0
         }
     }

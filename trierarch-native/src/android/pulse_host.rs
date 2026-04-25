@@ -98,6 +98,9 @@ fn run_until_exit(exe: PathBuf, runtime_dir: PathBuf, pulse_prefix: Option<PathB
     let unix_sock = runtime_dir.join("native");
     let _ = std::fs::remove_file(runtime_dir.join("pulse/native"));
     let _ = std::fs::remove_file(&unix_sock);
+    // Avoid stale pid-file state causing "daemon already running" mis-detection.
+    let _ = std::fs::remove_file(runtime_dir.join("pulse/pid"));
+    let _ = std::fs::remove_file(runtime_dir.join("pulse/pid.lock"));
 
     let err_path = runtime_dir.join("pulseaudio-stderr.log");
     let mut log = match OpenOptions::new().create(true).append(true).open(&err_path) {
@@ -126,11 +129,15 @@ fn run_until_exit(exe: PathBuf, runtime_dir: PathBuf, pulse_prefix: Option<PathB
     };
 
     cmd.arg("-n")
+        // Pulse's pid-file is unreliable in this environment (stale pid, /proc races).
+        .arg("--use-pid-file=no")
         .arg("--disable-shm=yes")
         .arg("--exit-idle-time=-1")
         .arg("--daemonize=no")
         .arg("--log-target=stderr")
-        .arg("--log-level=notice")
+        // Keep at debug: this log is written to `pulse-run/pulseaudio-stderr.log` and is the
+        // primary way to diagnose "connection refused" from guest `pactl`/libpulse.
+        .arg("--log-level=debug")
         .arg("-L")
         .arg("module-null-sink sink_name=trierarch-mix")
         .arg("-L")
