@@ -62,6 +62,17 @@ Builds the minimal Wayland server `.so` files so Linux GUI clients in the rootfs
 
 ---
 
+### In-app X11 server (Xlorie)
+
+Builds the embedded Xorg-based X11 server library used for X11 sessions.
+
+- **Role:** X11 server + renderer (`libXlorie.so`).
+- **Source:** Git tracks only `trierarch-x11/scripts/` (and README); the script clones **`trierarch-x11/termux-x11/`** (gitignored) and can refresh upstream with **`TX11_UPDATE_UPSTREAM=1`** (see that README).
+- **Artifacts:** `trierarch-x11/out/arm64-v8a/libXlorie.so` → copy into `trierarch-app/app/src/main/jniLibs/arm64-v8a/`.
+- **Details:** [`trierarch-x11/README.md`](trierarch-x11/README.md)
+
+---
+
 ### Host PulseAudio (optional)
 
 Build a **bionic** `pulseaudio` prefix for the app’s internal storage layout (`filesDir/pulse/`). Guest `libpulse` connects over a **Unix socket** exposed by the host daemon.
@@ -82,6 +93,7 @@ cp trierarch-proot/build-android/out/aarch64/proot   trierarch-app/app/src/main/
 cp trierarch-proot/build-android/out/aarch64/loader trierarch-app/app/src/main/jniLibs/arm64-v8a/libproot_loader.so
 cp trierarch-native/target/aarch64-linux-android/release/libtrierarch.so trierarch-app/app/src/main/jniLibs/arm64-v8a/
 cp trierarch-wayland/out/arm64-v8a/*.so trierarch-app/app/src/main/jniLibs/arm64-v8a/
+cp trierarch-x11/out/arm64-v8a/libXlorie.so trierarch-app/app/src/main/jniLibs/arm64-v8a/
 ```
 
 Optional: build and sync the host PulseAudio prefix into app assets:
