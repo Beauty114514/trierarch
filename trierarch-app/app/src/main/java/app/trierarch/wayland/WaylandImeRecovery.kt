@@ -9,7 +9,7 @@ import android.provider.Settings
 import android.view.inputmethod.InputMethodManager
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
-import app.trierarch.input.SoftKeyboardView
+import app.trierarch.wayland.input.SoftKeyboardView
 
 /**
  * Keeps a hidden IME sink reliably visible across app focus changes and IME app switches.

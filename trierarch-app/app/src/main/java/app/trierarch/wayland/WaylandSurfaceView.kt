@@ -9,7 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
 import app.trierarch.WaylandBridge
-import app.trierarch.input.SoftKeyboardView
+import app.trierarch.wayland.input.SoftKeyboardView
 
 @Composable
 fun WaylandSurfaceView(

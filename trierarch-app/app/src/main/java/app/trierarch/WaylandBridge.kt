@@ -5,6 +5,9 @@ import android.view.Surface
 /** JNI to `libwayland-compositor.so`. Start proot before [nativeStartServer]. */
 object WaylandBridge {
 
+    const val WM_MODE_NESTED = 0
+    const val WM_MODE_DIRECT = 1
+
     const val POINTER_ACTION_DOWN = 0
     const val POINTER_ACTION_MOVE = 1
     const val POINTER_ACTION_UP = 2
@@ -20,6 +23,12 @@ object WaylandBridge {
     }
 
     external fun nativeStartServer(runtimeDir: String)
+
+    /** Create an additional in-process Wayland server instance (separate socket). */
+    external fun nativeCreateServer(runtimeDir: String, socketName: String): Long
+
+    /** Switch active server for rendering + input routing. */
+    external fun nativeSetActiveServer(serverId: Long)
 
     /** @param skipEglWaylandBind keep false unless all buffers are linux-dmabuf import path. */
     external fun nativeSurfaceCreated(
@@ -52,4 +61,11 @@ object WaylandBridge {
 
     /** Clear stuck modifiers (Shift/Ctrl/Alt/Meta/Caps/Num/Scroll) in the in-process compositor. */
     external fun nativeResetKeyboardState()
+
+    /**
+     * Switch window-management mode.
+     * [WM_MODE_NESTED]: nested compositor; toplevels are configured fullscreen.
+     * [WM_MODE_DIRECT]: app-window mode; toplevels get windowed configure + drag support.
+     */
+    external fun nativeSetWmMode(mode: Int)
 }

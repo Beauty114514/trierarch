@@ -36,7 +36,8 @@ class RustPtySession(
     }
 
     override fun updateSize(columns: Int, rows: Int) {
-        if (!NativeBridge.spawnSession(sessionId, rows, columns)) {
+        val rootfsKind = TerminalSessionIds.rootfsKindForNativeId(sessionId)
+        if (!NativeBridge.spawnSessionInRootfs(sessionId, rows, columns, rootfsKind)) {
             Log.e(TAG, "spawnSession failed ($sessionId)")
             return
         }
@@ -51,7 +52,8 @@ class RustPtySession(
             )
             if (!didAppendWelcomeBanner) {
                 didAppendWelcomeBanner = true
-                emulator!!.append(WELCOME_LINE, WELCOME_LINE.size)
+                val welcome = buildWelcomeLine(sessionId)
+                emulator!!.append(welcome, welcome.size)
             }
         } else {
             emulator!!.resize(columns, rows)
@@ -123,7 +125,16 @@ class RustPtySession(
     private companion object {
         private const val TAG = "RustPtySession"
         // This terminal treats LF as line-down only; without CR the cursor stays in the same column.
-        private val WELCOME_LINE =
-            "\u001b[34mWelcome to Trierarch!\u001b[0m\n\r".toByteArray(Charsets.UTF_8)
+        private fun buildWelcomeLine(sessionId: Int): ByteArray {
+            val rgb = when (TerminalSessionIds.namespaceOf(sessionId)) {
+                TerminalSessionIds.NS_ARCH -> intArrayOf(0x17, 0x93, 0xD1)
+                TerminalSessionIds.NS_DEBIAN -> intArrayOf(0xD7, 0x0A, 0x53)
+                TerminalSessionIds.NS_WINE -> intArrayOf(0x00, 0x4E, 0x8C)
+                else -> intArrayOf(0x17, 0x93, 0xD1)
+            }
+            val (r, g, b) = rgb
+            val s = "\u001b[38;2;${r};${g};${b}mWelcome to Trierarch!\u001b[0m\n\r"
+            return s.toByteArray(Charsets.UTF_8)
+        }
     }
 }

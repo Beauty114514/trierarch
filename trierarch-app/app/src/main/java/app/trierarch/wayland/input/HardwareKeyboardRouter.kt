@@ -1,4 +1,4 @@
-package app.trierarch.input
+package app.trierarch.wayland.input
 
 import android.view.KeyEvent
 import app.trierarch.WaylandBridge
@@ -121,6 +121,9 @@ class HardwareKeyboardRouter {
 
 object InputRouteState {
     @Volatile var waylandVisible: Boolean = false
+
+    /** Lorie (in-process :0) is the top full-screen view over the shell, same role as [waylandVisible]. */
+    @Volatile var lorieX11DisplayVisible: Boolean = false
 
     /** Active shell [TerminalView]; non-null while the terminal surface is composed. */
     @Volatile var shellTerminalView: TerminalView? = null

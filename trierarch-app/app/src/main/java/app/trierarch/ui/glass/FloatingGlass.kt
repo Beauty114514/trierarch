@@ -16,7 +16,6 @@ val GlassDialogScreenInsetDp = 8.dp
 val GlassDialogWidthStandardDp = 400.dp
 val GlassDialogWidthPickerDp = 280.dp
 
-val GlassPickerPanelMinHeightDp = 300.dp
 const val FloatingOverlayScrimAlpha = 0.22f
 
 fun floatingOverlayScrimColor(): Color = Color.Black.copy(alpha = FloatingOverlayScrimAlpha)

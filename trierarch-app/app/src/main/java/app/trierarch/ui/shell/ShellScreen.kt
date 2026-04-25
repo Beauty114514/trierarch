@@ -18,7 +18,7 @@ import app.trierarch.NativeBridge
 import app.trierarch.PtyOutputRelay
 import app.trierarch.R
 import app.trierarch.RustPtySession
-import app.trierarch.input.InputRouteState
+import app.trierarch.wayland.input.InputRouteState
 import app.trierarch.shell.ShellFonts
 import app.trierarch.shell.ShellSessionClient
 import app.trierarch.shell.ShellViewClient

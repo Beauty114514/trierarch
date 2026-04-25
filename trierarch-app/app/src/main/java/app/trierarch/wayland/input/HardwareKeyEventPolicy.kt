@@ -1,4 +1,4 @@
-package app.trierarch.input
+package app.trierarch.wayland.input
 
 import android.view.InputDevice
 import android.view.KeyCharacterMap

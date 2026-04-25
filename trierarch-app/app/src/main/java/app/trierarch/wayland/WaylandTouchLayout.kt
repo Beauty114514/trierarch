@@ -9,7 +9,7 @@ import android.view.MotionEvent
 import android.widget.FrameLayout
 import androidx.lifecycle.LifecycleOwner
 import app.trierarch.WaylandBridge
-import app.trierarch.input.SoftKeyboardView
+import app.trierarch.wayland.input.SoftKeyboardView
 import app.trierarch.ui.dialog.MOUSE_MODE_TABLET
 import app.trierarch.ui.dialog.MOUSE_MODE_TOUCHPAD
 
