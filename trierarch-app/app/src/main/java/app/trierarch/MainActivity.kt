@@ -8,9 +8,9 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import app.trierarch.input.HardwareKeyEventPolicy
-import app.trierarch.input.HardwareKeyboardRouter
-import app.trierarch.input.InputRouteState
+import app.trierarch.wayland.input.HardwareKeyEventPolicy
+import app.trierarch.wayland.input.HardwareKeyboardRouter
+import app.trierarch.wayland.input.InputRouteState
 import app.trierarch.ui.AppScreen
 import app.trierarch.ui.theme.TrierarchTheme
 
@@ -41,7 +41,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (hardwareKeyboardRouter.handleHardwareKeyboardEvent(event)) return true
-        if (!InputRouteState.waylandVisible && HardwareKeyEventPolicy.isLikelyFromHardwareKeyboard(event)) {
+        if (!InputRouteState.waylandVisible &&
+            !InputRouteState.lorieX11DisplayVisible &&
+            HardwareKeyEventPolicy.isLikelyFromHardwareKeyboard(event)) {
             val tv = InputRouteState.shellTerminalView
             if (tv != null) {
                 tv.requestFocus()
@@ -53,7 +55,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
         if (hardwareKeyboardRouter.handleHardwareKeyboardEvent(event)) return true
-        if (!InputRouteState.waylandVisible && HardwareKeyEventPolicy.isLikelyFromHardwareKeyboard(event)) {
+        if (!InputRouteState.waylandVisible &&
+            !InputRouteState.lorieX11DisplayVisible &&
+            HardwareKeyEventPolicy.isLikelyFromHardwareKeyboard(event)) {
             val tv = InputRouteState.shellTerminalView
             if (tv != null) {
                 tv.requestFocus()
@@ -65,7 +69,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onKeyShortcut(keyCode: Int, event: KeyEvent): Boolean {
         if (hardwareKeyboardRouter.handleHardwareKeyboardEvent(event)) return true
-        if (!InputRouteState.waylandVisible && HardwareKeyEventPolicy.isLikelyFromHardwareKeyboard(event)) {
+        if (!InputRouteState.waylandVisible &&
+            !InputRouteState.lorieX11DisplayVisible &&
+            HardwareKeyEventPolicy.isLikelyFromHardwareKeyboard(event)) {
             val tv = InputRouteState.shellTerminalView
             if (tv != null) {
                 tv.requestFocus()
@@ -73,5 +79,9 @@ class MainActivity : ComponentActivity() {
             }
         }
         return super.onKeyShortcut(keyCode, event)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
     }
 }

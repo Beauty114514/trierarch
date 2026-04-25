@@ -9,15 +9,20 @@ object NativeBridge {
     external fun init(dataDir: String, cacheDir: String, nativeLibraryDir: String, externalStorageDir: String?): Boolean
 
     external fun stopVirglHost()
+    external fun startVirglHostIfPossible()
 
-    /** `"LLVMPIPE"` | `"UNIVERSAL"`. */
-    external fun setRendererMode(mode: String)
+    external fun hasArchRootfs(): Boolean
 
-    external fun hasRootfs(): Boolean
+    external fun hasDebianRootfs(): Boolean
+    external fun hasWineRootfs(): Boolean
 
-    external fun downloadRootfs(callback: ProgressCallback): Boolean
+    external fun downloadArchRootfs(callback: ProgressCallback): Boolean
+
+    external fun downloadDebianRootfs(callback: ProgressCallback): Boolean
+    external fun downloadWineRootfs(callback: ProgressCallback): Boolean
 
     external fun spawnSession(sessionId: Int, rows: Int, cols: Int): Boolean
+    external fun spawnSessionInRootfs(sessionId: Int, rows: Int, cols: Int, rootfsKind: Int): Boolean
 
     external fun closeSession(sessionId: Int)
 
