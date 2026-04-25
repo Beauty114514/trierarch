@@ -1,3 +1,0 @@
-[submodule "trierarch-x11"]
-	path = trierarch-x11
-	url = https://github.com/termux/termux-x11.git
