@@ -17,6 +17,7 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 
 import com.termux.x11.input.InputEventSender;
 import com.termux.x11.input.InputStub;
@@ -268,12 +269,7 @@ public final class EmbeddedX11Controller {
             }
         };
         IntentFilter filter = new IntentFilter(CmdEntryPoint.ACTION_START);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ctx.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED);
-        } else {
-            //noinspection deprecation
-            ctx.registerReceiver(receiver, filter);
-        }
+        ContextCompat.registerReceiver(ctx, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED);
         registered = true;
     }
 

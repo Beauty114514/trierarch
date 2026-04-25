@@ -116,8 +116,10 @@ pub(super) fn build_exec_args(rootfs: &std::path::Path) -> Result<(Vec<CString>,
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let _ = std::fs::set_permissions(&host_x11_dir, std::fs::Permissions::from_mode(0o1777));
-            let _ = std::fs::set_permissions(&guest_x11_dir, std::fs::Permissions::from_mode(0o1777));
+            let _ =
+                std::fs::set_permissions(&host_x11_dir, std::fs::Permissions::from_mode(0o1777));
+            let _ =
+                std::fs::set_permissions(&guest_x11_dir, std::fs::Permissions::from_mode(0o1777));
         }
         argv.push(
             CString::new(format!("--bind={}:/run/user/0", wayland_runtime.display())).unwrap(),

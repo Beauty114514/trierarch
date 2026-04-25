@@ -55,7 +55,9 @@ pub fn arch_rootfs_dir() -> Result<PathBuf> {
 }
 
 pub fn debian_rootfs_dir() -> Result<PathBuf> {
-    Ok(get_application_context()?.data_dir.join(DEBIAN_ROOTFS_SUBDIR))
+    Ok(get_application_context()?
+        .data_dir
+        .join(DEBIAN_ROOTFS_SUBDIR))
 }
 
 pub fn wine_rootfs_dir() -> Result<PathBuf> {

@@ -14,13 +14,17 @@ mod extract;
 static DOWNLOAD_LOCK: Mutex<()> = Mutex::new(());
 // proot-distro plugin (master as of 2026-04): Arch Linux rootfs is served via easycli mirror.
 const ARCH_TARBALL_NAME: &str = "archlinux-aarch64-pd-v4.37.0.tar.xz";
-const ARCH_TARBALL_SHA256: &str = "718151cc4adad701223c689a7e4690cb7710b7b16e9b23617b671856ff04d563";
-const ARCH_TARBALL_URL: &str = "https://easycli.sh/proot-distro/archlinux-aarch64-pd-v4.37.0.tar.xz";
+const ARCH_TARBALL_SHA256: &str =
+    "718151cc4adad701223c689a7e4690cb7710b7b16e9b23617b671856ff04d563";
+const ARCH_TARBALL_URL: &str =
+    "https://easycli.sh/proot-distro/archlinux-aarch64-pd-v4.37.0.tar.xz";
 
 // Debian plugin (proot-distro master as of 2026-04): Debian (trixie) stable.
 const DEBIAN_TARBALL_NAME: &str = "debian-trixie-aarch64-pd-v4.37.0.tar.xz";
-const DEBIAN_TARBALL_SHA256: &str = "9bd3b19ff7cd300c7c7bf33124b726eb199f4bab9a3b1472f34749c6d12c9195";
-const DEBIAN_TARBALL_URL: &str = "https://easycli.sh/proot-distro/debian-trixie-aarch64-pd-v4.37.0.tar.xz";
+const DEBIAN_TARBALL_SHA256: &str =
+    "9bd3b19ff7cd300c7c7bf33124b726eb199f4bab9a3b1472f34749c6d12c9195";
+const DEBIAN_TARBALL_URL: &str =
+    "https://easycli.sh/proot-distro/debian-trixie-aarch64-pd-v4.37.0.tar.xz";
 
 // Wine plugin: currently the same base as Debian (trixie) but extracted into its own rootfs dir.
 const WINE_TARBALL_NAME: &str = DEBIAN_TARBALL_NAME;
@@ -328,7 +332,8 @@ pub fn ensure_wine_rootfs_with_progress(progress: Option<ProgressFn>) -> Result<
 
     loop {
         if tarball_path.exists() {
-            let existing = download::sha256_file(&tarball_path).context("sha256 existing tarball")?;
+            let existing =
+                download::sha256_file(&tarball_path).context("sha256 existing tarball")?;
             if existing == WINE_TARBALL_SHA256 {
                 break;
             }
@@ -409,8 +414,8 @@ pub fn ensure_wine_rootfs_with_progress(progress: Option<ProgressFn>) -> Result<
         }
         Err(e) => {
             if let Some(ref backup_path) = backup_rootfs_path {
-                let _ =
-                    std::fs::rename(backup_path, &rootfs_path).context("rollback backup rootfs -> wine")?;
+                let _ = std::fs::rename(backup_path, &rootfs_path)
+                    .context("rollback backup rootfs -> wine")?;
             }
             return Err(e).context("atomic rootfs swap failed");
         }

@@ -886,7 +886,9 @@ public class MainActivity extends AppCompatActivity {
         ((FrameLayout) findViewById(android.R.id.content)).getChildAt(0).setFitsSystemWindows(!fullscreen);
     }
 
+    // No super: back must not finish this host (vendored Termux X11); see lint ids on @SuppressLint.
     @Override
+    @SuppressLint({ "MissingSuperCall", "GestureBackNavigation" })
     public void onBackPressed() {
     }
 
@@ -905,6 +907,7 @@ public class MainActivity extends AppCompatActivity {
         if (prefs.PIP.get() && hasPipPermission(this)) {
             enterPictureInPictureMode();
         }
+        super.onUserLeaveHint();
     }
 
     @Override
