@@ -20,6 +20,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <time.h>
+#include <limits.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <android/log.h>
@@ -93,6 +95,7 @@ typedef EGLBoolean (*PFN_eglQueryWaylandBufferWL)(EGLDisplay, void *, EGLint, EG
 typedef void *(*PFN_eglCreateImageKHR)(EGLDisplay, EGLContext, EGLenum, EGLClientBuffer, const EGLint *);
 typedef EGLBoolean (*PFN_eglDestroyImageKHR)(EGLDisplay, void *);
 typedef void (*PFN_glEGLImageTargetTexture2DOES)(GLenum, void *);
+typedef EGLClientBuffer (*PFN_eglGetNativeClientBufferANDROID)(void *buffer);
 
 struct renderer_context {
     EGLDisplay display;
@@ -102,16 +105,23 @@ struct renderer_context {
     ANativeWindow *window;
     int width, height;
     bool valid;
-    GLuint tex_prog_rgba, tex_prog_rgbx, bg_prog, tex_id;
+    bool dmabuf_egl_import_supported;
+    GLuint tex_prog_rgba, tex_prog_rgbx;
+    GLuint tex_prog_ext_rgba, tex_prog_ext_rgbx;
+    GLuint bg_prog;
+    GLuint tex2d_id, texext_id;
     PFN_eglQueryWaylandBufferWL eglQueryWaylandBufferWL;
     PFN_eglCreateImageKHR eglCreateImageKHR;
     PFN_eglDestroyImageKHR eglDestroyImageKHR;
     PFN_glEGLImageTargetTexture2DOES glEGLImageTargetTexture2DOES;
+    PFN_eglGetNativeClientBufferANDROID eglGetNativeClientBufferANDROID;
 };
 
 static const char *vert_src = "attribute vec4 a_position; void main() { gl_Position = a_position; }\n";
 static const char *vert_tex_src = "attribute vec4 a_position; attribute vec2 a_texcoord; varying vec2 v_texcoord; void main() { gl_Position = a_position; v_texcoord = a_texcoord; }\n";
-static const char *frag_bg_src = "precision mediump float; void main() { gl_FragColor = vec4(0.0,0.0,0.0,1.0); }\n";
+/* Diagnostic: dark magenta so an uncovered/unrendered region is visually distinct
+ * from any surface that legitimately draws a black area. */
+static const char *frag_bg_src = "precision mediump float; void main() { gl_FragColor = vec4(0.20,0.00,0.20,1.0); }\n";
 /* u_swizzle=1: SHM BGRA memory as GL_RGBA sample fix (same idea as upload swizzle elsewhere). */
 static const char *frag_tex_rgba_src =
     "precision mediump float; varying vec2 v_texcoord; uniform sampler2D u_tex; uniform float u_swizzle; "
@@ -122,17 +132,64 @@ static const char *frag_tex_rgbx_src =
     "void main() { vec4 c = texture2D(u_tex, v_texcoord); vec4 s = mix(c, vec4(c.b, c.g, c.r, c.a), u_swizzle); "
     "gl_FragColor = vec4(s.rgb, 1.0); }\n";
 
+/* Some Android EGL implementations expose imported images only via GL_TEXTURE_EXTERNAL_OES.
+ * Binding the EGLImage as GL_TEXTURE_2D then yields black when sampling. Provide an
+ * external-texture variant as a best-effort fallback. */
+static const char *frag_tex_ext_rgba_src =
+    "#extension GL_OES_EGL_image_external : require\n"
+    "precision mediump float; varying vec2 v_texcoord; uniform samplerExternalOES u_tex; uniform float u_swizzle; "
+    "void main() { vec4 c = texture2D(u_tex, v_texcoord); vec4 bgra = vec4(c.b, c.g, c.r, c.a); gl_FragColor = mix(c, bgra, u_swizzle); }\n";
+static const char *frag_tex_ext_rgbx_src =
+    "#extension GL_OES_EGL_image_external : require\n"
+    "precision mediump float; varying vec2 v_texcoord; uniform samplerExternalOES u_tex; uniform float u_swizzle; "
+    "void main() { vec4 c = texture2D(u_tex, v_texcoord); vec4 s = mix(c, vec4(c.b, c.g, c.r, c.a), u_swizzle); "
+    "gl_FragColor = vec4(s.rgb, 1.0); }\n";
+
 static GLuint make_program(const char *v, const char *f) {
     GLuint vs = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vs, 1, &v, NULL);
     glCompileShader(vs);
+    GLint ok = 0;
+    glGetShaderiv(vs, GL_COMPILE_STATUS, &ok);
+    if (!ok) {
+        char log[2048];
+        GLsizei n = 0;
+        log[0] = '\0';
+        glGetShaderInfoLog(vs, (GLsizei)(sizeof(log) - 1), &n, log);
+        LOGE("vertex shader compile failed: %s", log);
+        glDeleteShader(vs);
+        return 0;
+    }
     GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fs, 1, &f, NULL);
     glCompileShader(fs);
+    glGetShaderiv(fs, GL_COMPILE_STATUS, &ok);
+    if (!ok) {
+        char log[2048];
+        GLsizei n = 0;
+        log[0] = '\0';
+        glGetShaderInfoLog(fs, (GLsizei)(sizeof(log) - 1), &n, log);
+        LOGE("fragment shader compile failed: %s", log);
+        glDeleteShader(vs);
+        glDeleteShader(fs);
+        return 0;
+    }
     GLuint p = glCreateProgram();
     glAttachShader(p, vs);
     glAttachShader(p, fs);
     glLinkProgram(p);
+    glGetProgramiv(p, GL_LINK_STATUS, &ok);
+    if (!ok) {
+        char log[2048];
+        GLsizei n = 0;
+        log[0] = '\0';
+        glGetProgramInfoLog(p, (GLsizei)(sizeof(log) - 1), &n, log);
+        LOGE("program link failed: %s", log);
+        glDeleteProgram(p);
+        glDeleteShader(vs);
+        glDeleteShader(fs);
+        return 0;
+    }
     glDeleteShader(vs);
     glDeleteShader(fs);
     return p;
@@ -167,6 +224,7 @@ renderer_context_t *renderer_create(ANativeWindow *window, struct wayland_server
     ctx->eglDestroyImageKHR = (PFN_eglDestroyImageKHR)eglGetProcAddress("eglDestroyImageKHR");
     ctx->glEGLImageTargetTexture2DOES = (PFN_glEGLImageTargetTexture2DOES)eglGetProcAddress("glEGLImageTargetTexture2DOES");
     ctx->eglQueryWaylandBufferWL = (PFN_eglQueryWaylandBufferWL)eglGetProcAddress("eglQueryWaylandBufferWL");
+    ctx->eglGetNativeClientBufferANDROID = (PFN_eglGetNativeClientBufferANDROID)eglGetProcAddress("eglGetNativeClientBufferANDROID");
     if (!skip_egl_wl_bind && srv && ctx->eglQueryWaylandBufferWL && ctx->eglCreateImageKHR && ctx->glEGLImageTargetTexture2DOES) {
         PFN_eglBindWaylandDisplayWL bind_wl = (PFN_eglBindWaylandDisplayWL)eglGetProcAddress("eglBindWaylandDisplayWL");
         void *wl_display = compositor_get_wl_display((wayland_server_t *)srv);
@@ -178,6 +236,28 @@ renderer_context_t *renderer_create(ANativeWindow *window, struct wayland_server
         LOGI("skip eglBindWaylandDisplayWL: guest buffers must use linux-dmabuf (mmap fallback if EGL import fails)");
     }
     eglSwapInterval(ctx->display, 1);
+    {
+        /* One-time capability snapshot: helps explain why dma-buf EGL import fails with EGL_SUCCESS. */
+        const char *vendor = eglQueryString(ctx->display, EGL_VENDOR);
+        const char *version = eglQueryString(ctx->display, EGL_VERSION);
+        const char *client_apis = eglQueryString(ctx->display, EGL_CLIENT_APIS);
+        const char *ext = eglQueryString(ctx->display, EGL_EXTENSIONS);
+        const char *gl_vendor = (const char *)glGetString(GL_VENDOR);
+        const char *gl_renderer = (const char *)glGetString(GL_RENDERER);
+        const char *gl_version = (const char *)glGetString(GL_VERSION);
+        const char *gl_ext = (const char *)glGetString(GL_EXTENSIONS);
+        LOGI("EGL vendor=%s version=%s client_apis=%s", vendor ? vendor : "?", version ? version : "?", client_apis ? client_apis : "?");
+        if (ext) LOGI("EGL_EXTENSIONS: %s", ext);
+        LOGI("GL vendor=%s renderer=%s version=%s", gl_vendor ? gl_vendor : "?", gl_renderer ? gl_renderer : "?", gl_version ? gl_version : "?");
+        if (gl_ext) LOGI("GL_EXTENSIONS: %s", gl_ext);
+
+        /* If the Android EGL does not advertise dma-buf import, eglCreateImageKHR(EGL_LINUX_DMA_BUF_EXT)
+         * will typically return NULL with EGL_SUCCESS. Avoid spamming logs and go straight to mmap fallback. */
+        ctx->dmabuf_egl_import_supported = false;
+        if (ext && strstr(ext, "EGL_EXT_image_dma_buf_import"))
+            ctx->dmabuf_egl_import_supported = true;
+        LOGI("dmabuf EGL import supported: %s", ctx->dmabuf_egl_import_supported ? "YES" : "NO");
+    }
     eglMakeCurrent(ctx->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
     eglQuerySurface(ctx->display, ctx->surface, EGL_WIDTH, &ctx->width);
     eglQuerySurface(ctx->display, ctx->surface, EGL_HEIGHT, &ctx->height);
@@ -199,9 +279,12 @@ void renderer_destroy(renderer_context_t *ctx) {
 
 void renderer_release_context(renderer_context_t *ctx) {
     if (!ctx || !ctx->valid) return;
-    if (ctx->tex_id) { glDeleteTextures(1, &ctx->tex_id); ctx->tex_id = 0; }
+    if (ctx->tex2d_id) { glDeleteTextures(1, &ctx->tex2d_id); ctx->tex2d_id = 0; }
+    if (ctx->texext_id) { glDeleteTextures(1, &ctx->texext_id); ctx->texext_id = 0; }
     if (ctx->tex_prog_rgba) { glDeleteProgram(ctx->tex_prog_rgba); ctx->tex_prog_rgba = 0; }
     if (ctx->tex_prog_rgbx) { glDeleteProgram(ctx->tex_prog_rgbx); ctx->tex_prog_rgbx = 0; }
+    if (ctx->tex_prog_ext_rgba) { glDeleteProgram(ctx->tex_prog_ext_rgba); ctx->tex_prog_ext_rgba = 0; }
+    if (ctx->tex_prog_ext_rgbx) { glDeleteProgram(ctx->tex_prog_ext_rgbx); ctx->tex_prog_ext_rgbx = 0; }
     if (ctx->bg_prog) { glDeleteProgram(ctx->bg_prog); ctx->bg_prog = 0; }
     eglMakeCurrent(ctx->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 }
@@ -214,23 +297,84 @@ typedef struct { renderer_context_t *ctx; int32_t out_w; int32_t out_h; } draw_u
 static int draw_surface_cb(const compositor_surface_view_t *view, void *user) {
     draw_user_t *ru = user;
     renderer_context_t *ctx = ru->ctx;
-    if (!view || (view->pixels == NULL && view->egl_buffer == NULL && view->dmabuf == NULL)
+    if (!view || (view->pixels == NULL && view->egl_buffer == NULL && view->dmabuf == NULL && view->ahb == NULL)
             || view->width <= 0 || view->height <= 0)
         return 0;
     if (!ctx->tex_prog_rgba) {
         ctx->tex_prog_rgba = make_program(vert_tex_src, frag_tex_rgba_src);
         ctx->tex_prog_rgbx = make_program(vert_tex_src, frag_tex_rgbx_src);
-        glGenTextures(1, &ctx->tex_id);
-        if (!ctx->tex_prog_rgba || !ctx->tex_prog_rgbx || !ctx->tex_id) return 1;
+        /* Optional: external-texture programs. If the extension is missing, compilation may fail. */
+        ctx->tex_prog_ext_rgba = make_program(vert_tex_src, frag_tex_ext_rgba_src);
+        ctx->tex_prog_ext_rgbx = make_program(vert_tex_src, frag_tex_ext_rgbx_src);
+        glGenTextures(1, &ctx->tex2d_id);
+        glGenTextures(1, &ctx->texext_id);
+        if (!ctx->tex_prog_rgba || !ctx->tex_prog_rgbx || !ctx->tex2d_id || !ctx->texext_id) return 1;
     }
 
     int buf_w = view->buf_width > 0 ? view->buf_width : view->width;
     int buf_h = view->buf_height > 0 ? view->buf_height : view->height;
+    {
+        /* Time-throttled per-size log of which buffer path a surface uses.
+         * Lets us verify whether a client's buffer is actually reaching the
+         * shm/dmabuf/egl-wayland-buffer branch we think it is. */
+        struct route_slot { int w, h; long last_ms; };
+        static struct route_slot rslots[32];
+        int rs = -1, rfree = -1, roldest = 0;
+        long roldest_ms = LONG_MAX;
+        for (int i = 0; i < 32; i++) {
+            if (rslots[i].w == buf_w && rslots[i].h == buf_h) { rs = i; break; }
+            if (rfree < 0 && rslots[i].w == 0 && rslots[i].h == 0) rfree = i;
+            if (rslots[i].last_ms < roldest_ms) { roldest_ms = rslots[i].last_ms; roldest = i; }
+        }
+        if (rs < 0) { rs = (rfree >= 0) ? rfree : roldest; rslots[rs].w = buf_w; rslots[rs].h = buf_h; rslots[rs].last_ms = 0; }
+        struct timespec rts;
+        clock_gettime(CLOCK_MONOTONIC, &rts);
+        long rnow = (long)rts.tv_sec * 1000 + rts.tv_nsec / 1000000;
+        if (rnow - rslots[rs].last_ms >= 1000) {
+            rslots[rs].last_ms = rnow;
+            LOGI("draw: buf=%dx%d logical=%dx%d fmt=0x%x route=%s pixels=%p egl=%p dmabuf=%p pos=(%d,%d)",
+                    (int)buf_w, (int)buf_h, (int)view->width, (int)view->height, (unsigned)view->format,
+                    view->dmabuf ? "dmabuf" : view->egl_buffer ? "egl-wl-buffer" : view->pixels ? "shm" : "none",
+                    view->pixels, view->egl_buffer, (void *)view->dmabuf,
+                    (int)view->x, (int)view->y);
+        }
+    }
     void *egl_image_to_destroy = NULL;
     float swizzle = 1.0f;
     bool tex_uploaded = false;
+    GLenum tex_target = GL_TEXTURE_2D;
+    GLuint tex_id = ctx->tex2d_id;
+    bool force_opaque = false;
 
-    if (view->dmabuf && ctx->eglCreateImageKHR && ctx->eglDestroyImageKHR && ctx->glEGLImageTargetTexture2DOES) {
+    /* Android native buffer (AHardwareBuffer) import: EGL_NATIVE_BUFFER_ANDROID */
+    if (view->ahb && ctx->eglCreateImageKHR && ctx->eglDestroyImageKHR
+            && ctx->glEGLImageTargetTexture2DOES && ctx->eglGetNativeClientBufferANDROID) {
+        EGLClientBuffer cb = ctx->eglGetNativeClientBufferANDROID(view->ahb);
+        if (cb) {
+            const EGLint imageAttributes[] = { EGL_IMAGE_PRESERVED_KHR, EGL_TRUE, EGL_NONE };
+            void *img = ctx->eglCreateImageKHR(ctx->display, EGL_NO_CONTEXT,
+                    EGL_NATIVE_BUFFER_ANDROID, cb, imageAttributes);
+            if (img) {
+                tex_target = GL_TEXTURE_2D;
+                tex_id = ctx->tex2d_id;
+                glBindTexture(GL_TEXTURE_2D, ctx->tex2d_id);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                glGetError(); /* clear */
+                ctx->glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, img);
+                if (glGetError() == GL_NO_ERROR) {
+                    egl_image_to_destroy = img;
+                    swizzle = 0.0f; /* EGLImage sampling is RGBA */
+                    tex_uploaded = true;
+                } else {
+                    ctx->eglDestroyImageKHR(ctx->display, img);
+                }
+            }
+        }
+    }
+
+    if (view->dmabuf && ctx->dmabuf_egl_import_supported
+            && ctx->eglCreateImageKHR && ctx->eglDestroyImageKHR && ctx->glEGLImageTargetTexture2DOES) {
         struct dmabuf_buffer *db = view->dmabuf;
         void *img = NULL;
         int fd = dup(db->dmabuf_fd);
@@ -266,13 +410,22 @@ static int draw_surface_cb(const compositor_surface_view_t *view, void *user) {
                     };
                     img = ctx->eglCreateImageKHR(ctx->display, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, NULL, attrs_m);
                     close(fd);
-                    if (!img)
-                        LOGE("eglCreateImageKHR dma-buf+modifier failed fmt=0x%x mod=0x%llx err=0x%x",
-                                db->drm_format, (unsigned long long)db->modifier, eglGetError());
+                    if (!img) {
+                        static unsigned dmabuf_mod_fail_logged;
+                        if (dmabuf_mod_fail_logged < 64) {
+                            LOGE("eglCreateImageKHR dma-buf+modifier failed fmt=0x%x mod=0x%llx err=0x%x",
+                                    db->drm_format, (unsigned long long)db->modifier, eglGetError());
+                            dmabuf_mod_fail_logged++;
+                        }
+                    }
                 }
             } else if (!img) {
-                LOGE("eglCreateImageKHR dma-buf failed (fmt=0x%x err=0x%x); mmap fallback",
-                        db->drm_format, eglGetError());
+                static unsigned dmabuf_fail_logged;
+                if (dmabuf_fail_logged < 32) {
+                    LOGE("eglCreateImageKHR dma-buf failed (fmt=0x%x err=0x%x); mmap fallback",
+                            db->drm_format, eglGetError());
+                    dmabuf_fail_logged++;
+                }
             }
             if (img) {
                 static unsigned egl_import_ok_logged;
@@ -282,13 +435,41 @@ static int draw_surface_cb(const compositor_surface_view_t *view, void *user) {
                             (unsigned long long)db->modifier);
                     egl_import_ok_logged++;
                 }
-                glBindTexture(GL_TEXTURE_2D, ctx->tex_id);
+                /* Prefer GL_TEXTURE_2D; fall back to GL_TEXTURE_EXTERNAL_OES if 2D binding fails. */
+                glBindTexture(GL_TEXTURE_2D, ctx->tex2d_id);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                glGetError(); /* clear */
                 ctx->glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, img);
-                egl_image_to_destroy = img;
-                swizzle = 0.0f;
-                tex_uploaded = true;
+                GLenum err = glGetError();
+                if (err == GL_NO_ERROR) {
+                    tex_target = GL_TEXTURE_2D;
+                    tex_id = ctx->tex2d_id;
+                    egl_image_to_destroy = img;
+                    swizzle = 0.0f;
+                    tex_uploaded = true;
+                } else {
+                    static unsigned ext_logged;
+                    glBindTexture(GL_TEXTURE_EXTERNAL_OES, ctx->texext_id);
+                    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                    glGetError(); /* clear */
+                    ctx->glEGLImageTargetTexture2DOES(GL_TEXTURE_EXTERNAL_OES, img);
+                    if (glGetError() == GL_NO_ERROR) {
+                        if (ext_logged < 32) {
+                            LOGI("dmabuf EGLImage bound via EXTERNAL_OES (2D err=0x%x) — sampling uses samplerExternalOES", (unsigned)err);
+                            ext_logged++;
+                        }
+                        tex_target = GL_TEXTURE_EXTERNAL_OES;
+                        tex_id = ctx->texext_id;
+                        egl_image_to_destroy = img;
+                        swizzle = 0.0f;
+                        tex_uploaded = true;
+                    } else {
+                        LOGE("EGLImage bind failed as 2D (err=0x%x) and EXTERNAL_OES; dropping frame", (unsigned)err);
+                        ctx->eglDestroyImageKHR(ctx->display, img);
+                    }
+                }
             }
         }
     }
@@ -310,7 +491,9 @@ static int draw_surface_cb(const compositor_surface_view_t *view, void *user) {
                 if (map != MAP_FAILED) {
                     const unsigned char *pixels = (const unsigned char *)map + db->offset;
                     int row = db->width * 4;
-                    glBindTexture(GL_TEXTURE_2D, ctx->tex_id);
+                    tex_target = GL_TEXTURE_2D;
+                    tex_id = ctx->tex2d_id;
+                    glBindTexture(GL_TEXTURE_2D, ctx->tex2d_id);
                     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
                     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
                     if ((int)db->stride == row) {
@@ -365,7 +548,9 @@ static int draw_surface_cb(const compositor_surface_view_t *view, void *user) {
         void *img = ctx->eglCreateImageKHR(ctx->display, ctx->context, EGL_WAYLAND_BUFFER_WL,
                 (EGLClientBuffer)view->egl_buffer, NULL);
         if (img) {
-            glBindTexture(GL_TEXTURE_2D, ctx->tex_id);
+            tex_target = GL_TEXTURE_2D;
+            tex_id = ctx->tex2d_id;
+            glBindTexture(GL_TEXTURE_2D, ctx->tex2d_id);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
             ctx->glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, img);
@@ -373,27 +558,119 @@ static int draw_surface_cb(const compositor_surface_view_t *view, void *user) {
             swizzle = 0.0f;
             tex_uploaded = true;
         } else {
-            LOGE("EGL_WAYLAND_BUFFER_WL eglCreateImageKHR failed err=0x%x", eglGetError());
+            static unsigned egl_wl_buf_fail_logged;
+            if (egl_wl_buf_fail_logged < 64) {
+                LOGE("EGL_WAYLAND_BUFFER_WL eglCreateImageKHR failed err=0x%x", eglGetError());
+                egl_wl_buf_fail_logged++;
+            }
         }
     }
 
     if (view->pixels && egl_image_to_destroy == NULL) {
         int row = buf_w * 4;
         if (view->stride < row) return 0;
-        glBindTexture(GL_TEXTURE_2D, ctx->tex_id);
+        tex_target = GL_TEXTURE_2D;
+        tex_id = ctx->tex2d_id;
+        glBindTexture(GL_TEXTURE_2D, ctx->tex2d_id);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        if (view->stride == row)
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, buf_w, buf_h, 0, GL_RGBA, GL_UNSIGNED_BYTE, view->pixels);
-        else {
-            unsigned char *buf = malloc((size_t)buf_h * row);
-            if (!buf) return 0;
-            const unsigned char *src = view->pixels;
-            for (int y = 0; y < buf_h; y++) { memcpy(buf + y * row, src, row); src += view->stride; }
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, buf_w, buf_h, 0, GL_RGBA, GL_UNSIGNED_BYTE, buf);
-            free(buf);
+        {
+            /* Diagnostic: time-throttled per-size sample. Emit at most one log every
+             * ~500ms for EACH unique (w,h). This guarantees we see every surface size
+             * regardless of traffic from others (e.g. weston-terminal would otherwise
+             * starve glmark2's 800x600 signal). Sample the CENTER pixel + a middle
+             * row hash + a cheap scan for any non-zero byte. */
+            struct shm_sample_slot { int w, h; long last_ms; };
+            static struct shm_sample_slot slots[32];
+            int slot = -1;
+            int free_slot = -1;
+            int oldest_slot = 0;
+            long oldest_ms = LONG_MAX;
+            for (int i = 0; i < 32; i++) {
+                if (slots[i].w == buf_w && slots[i].h == buf_h) { slot = i; break; }
+                if (free_slot < 0 && slots[i].w == 0 && slots[i].h == 0) free_slot = i;
+                if (slots[i].last_ms < oldest_ms) { oldest_ms = slots[i].last_ms; oldest_slot = i; }
+            }
+            if (slot < 0) {
+                slot = (free_slot >= 0) ? free_slot : oldest_slot;
+                slots[slot].w = buf_w;
+                slots[slot].h = buf_h;
+                slots[slot].last_ms = 0;
+            }
+            struct timespec ts;
+            clock_gettime(CLOCK_MONOTONIC, &ts);
+            long now_ms = (long)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+            if (view->pixels && buf_w > 0 && buf_h > 0 && (now_ms - slots[slot].last_ms) >= 500) {
+                slots[slot].last_ms = now_ms;
+                const unsigned char *base = (const unsigned char *)view->pixels;
+                int cx = buf_w / 2;
+                int cy = buf_h / 2;
+                const unsigned char *pc = base + (size_t)cy * (size_t)view->stride + (size_t)cx * 4;
+                const unsigned char *pr = base + (size_t)cy * (size_t)view->stride;
+                size_t samp_len = (size_t)view->stride;
+                if (samp_len > 256) samp_len = 256;
+                unsigned x = 0;
+                for (size_t i = 0; i < samp_len; i++) x = (x * 131u) ^ (unsigned)pr[i];
+                /* cheap scan for any non-zero byte (stride rows of step 64 across full height) */
+                unsigned any_nonzero = 0;
+                for (int y = 0; y < buf_h && any_nonzero == 0; y += 8) {
+                    const unsigned char *row_p = base + (size_t)y * (size_t)view->stride;
+                    for (int bx = 0; bx < view->stride && any_nonzero == 0; bx += 64)
+                        any_nonzero |= row_p[bx];
+                }
+                LOGI("shm sample: buf=%dx%d stride=%d fmt=0x%x center@(%d,%d)=%02x%02x%02x%02x row_hash=0x%x any_nz=%u",
+                        (int)buf_w, (int)buf_h, (int)view->stride, (unsigned)view->format,
+                        cx, cy, pc[0], pc[1], pc[2], pc[3], x, any_nonzero);
+            }
+        }
+        glGetError(); /* clear */
+        const void *upload_pixels = view->pixels;
+        unsigned char *tmp = NULL;
+        /* If client renders ARGB but leaves alpha at 0, premultiplied buffers become invisible/black.
+         * Make a temporary copy with alpha forced to 255 so RGB becomes visible. */
+        if (force_opaque && view->format == WL_SHM_FORMAT_ARGB8888) {
+            tmp = (unsigned char *)malloc((size_t)buf_h * (size_t)row);
+            if (tmp) {
+                const unsigned char *src = (const unsigned char *)view->pixels;
+                for (int y = 0; y < buf_h; y++) {
+                    memcpy(tmp + (size_t)y * (size_t)row, src, (size_t)row);
+                    src += view->stride;
+                }
+                uint32_t *px = (uint32_t *)tmp;
+                size_t npx = ((size_t)buf_h * (size_t)row) / 4u;
+                for (size_t i = 0; i < npx; i++) px[i] |= 0xFF000000u;
+                upload_pixels = tmp;
+            }
+        }
+        if (!tmp && view->stride != row) {
+            tmp = (unsigned char *)malloc((size_t)buf_h * (size_t)row);
+            if (!tmp) return 0;
+            const unsigned char *src = (const unsigned char *)view->pixels;
+            for (int y = 0; y < buf_h; y++) {
+                memcpy(tmp + (size_t)y * (size_t)row, src, (size_t)row);
+                src += view->stride;
+            }
+            upload_pixels = tmp;
+        }
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, buf_w, buf_h, 0, GL_RGBA, GL_UNSIGNED_BYTE, upload_pixels);
+        if (tmp) free(tmp);
+        {
+            GLenum te = glGetError();
+            static unsigned shm_upload_err_logged;
+            if (te != GL_NO_ERROR && shm_upload_err_logged < 64) {
+                LOGE("shm glTexImage2D failed err=0x%x buf=%dx%d stride=%d row=%d fmt=0x%x",
+                        (unsigned)te, (int)buf_w, (int)buf_h, (int)view->stride, (int)row, (unsigned)view->format);
+                shm_upload_err_logged++;
+            }
         }
         tex_uploaded = true;
+        /*
+         * Practical compatibility: many clients render into ARGB8888 buffers but leave the alpha
+         * channel undefined/zero. If we blend that, the surface becomes fully transparent and
+         * appears "invisible" (glmark2 is a common example). Until we implement proper opaque
+         * region tracking, treat wl_shm buffers as opaque by default.
+         */
+        force_opaque = true;
     }
 
     if (!tex_uploaded) {
@@ -445,11 +722,23 @@ static int draw_surface_cb(const compositor_surface_view_t *view, void *user) {
     };
 
     bool wl_shm_xrgb = view->pixels && view->format == WL_SHM_FORMAT_XRGB8888;
-    GLuint tex_prog = wl_shm_xrgb ? ctx->tex_prog_rgbx : ctx->tex_prog_rgba;
+    bool wl_force_rgbx = view->pixels && force_opaque;
+    GLuint tex_prog = (wl_shm_xrgb || wl_force_rgbx) ? ctx->tex_prog_rgbx : ctx->tex_prog_rgba;
+    if (tex_target == GL_TEXTURE_EXTERNAL_OES) {
+        if ((wl_shm_xrgb || wl_force_rgbx) && ctx->tex_prog_ext_rgbx) tex_prog = ctx->tex_prog_ext_rgbx;
+        else if (!(wl_shm_xrgb || wl_force_rgbx) && ctx->tex_prog_ext_rgba) tex_prog = ctx->tex_prog_ext_rgba;
+    }
+    GLboolean blend_enabled = glIsEnabled(GL_BLEND);
+    if (wl_force_rgbx && blend_enabled) glDisable(GL_BLEND);
     glUseProgram(tex_prog);
+    {
+        /* Some drivers don't guarantee sampler uniforms default to 0. Bind explicitly. */
+        GLint ut = glGetUniformLocation(tex_prog, "u_tex");
+        if (ut >= 0) glUniform1i(ut, 0);
+    }
     glUniform1f(glGetUniformLocation(tex_prog, "u_swizzle"), swizzle);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, ctx->tex_id);
+    glBindTexture(tex_target, tex_id);
     GLint apos = glGetAttribLocation(tex_prog, "a_position");
     GLint atc = glGetAttribLocation(tex_prog, "a_texcoord");
     glEnableVertexAttribArray(apos);
@@ -457,8 +746,19 @@ static int draw_surface_cb(const compositor_surface_view_t *view, void *user) {
     glVertexAttribPointer(apos, 3, GL_FLOAT, GL_FALSE, 20, verts);
     glVertexAttribPointer(atc, 2, GL_FLOAT, GL_FALSE, 20, verts + 3);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    {
+        GLenum ge = glGetError();
+        static unsigned draw_err_logged;
+        if (ge != GL_NO_ERROR && draw_err_logged < 32) {
+            LOGE("glDrawArrays error=0x%x (tex_target=0x%x buf=%dx%d logical=%dx%d)",
+                    (unsigned)ge, (unsigned)tex_target,
+                    (int)buf_w, (int)buf_h, (int)view->width, (int)view->height);
+            draw_err_logged++;
+        }
+    }
     glDisableVertexAttribArray(apos);
     glDisableVertexAttribArray(atc);
+    if (wl_force_rgbx && blend_enabled) glEnable(GL_BLEND);
 
     if (egl_image_to_destroy && ctx->eglDestroyImageKHR)
         ctx->eglDestroyImageKHR(ctx->display, egl_image_to_destroy);
@@ -488,7 +788,7 @@ bool renderer_render(renderer_context_t *ctx, struct wayland_server *srv) {
     if (!ctx->bg_prog) ctx->bg_prog = make_program(vert_src, frag_bg_src);
     if (!ctx->bg_prog) return false;
     glUseProgram(ctx->bg_prog);
-    glClearColor(0, 0, 0, 1);
+    glClearColor(0.20f, 0.00f, 0.20f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     GLfloat bg[] = { -1,-1,0, 1,-1,0, -1,1,0, 1,1,0 };
     GLint apos = glGetAttribLocation(ctx->bg_prog, "a_position");
@@ -497,6 +797,22 @@ bool renderer_render(renderer_context_t *ctx, struct wayland_server *srv) {
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glDisableVertexAttribArray(apos);
     if (srv) {
+        /* Periodic (rate-limited) render summary: tells whether we are actually drawing anything. */
+        static struct timespec last_sum;
+        static int last_sum_init;
+        static uint32_t frames;
+        frames++;
+        struct timespec now;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        if (!last_sum_init) { last_sum = now; last_sum_init = 1; }
+        long elapsed_ms = (long)(now.tv_sec - last_sum.tv_sec) * 1000 +
+                         (long)(now.tv_nsec - last_sum.tv_nsec) / 1000000;
+        if (elapsed_ms >= 1000) {
+            int sc = compositor_get_surface_count((wayland_server_t *)srv);
+            LOGI("render heartbeat: frames=%u surfaces=%d out=%dx%d phys=%dx%d",
+                    frames, sc, (int)srv->output_width, (int)srv->output_height, (int)ctx->width, (int)ctx->height);
+            last_sum = now;
+        }
         int32_t out_w = 0, out_h = 0;
         compositor_get_output_size((wayland_server_t *)srv, &out_w, &out_h);
         draw_user_t ru = { ctx, out_w, out_h };

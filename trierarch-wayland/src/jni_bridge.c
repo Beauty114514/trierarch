@@ -38,12 +38,22 @@ static void crash_handler(int sig, siginfo_t *info, void *uctx) {
     raise(sig);
 }
 
-static wayland_server_t *g_server;
+/* Multiple in-process Wayland servers ("tabs"): Desktop vs Container. */
+struct server_node {
+    jlong id;
+    wayland_server_t *srv;
+    struct server_node *next;
+};
+static pthread_mutex_t g_srv_mutex = PTHREAD_MUTEX_INITIALIZER;
+static struct server_node *g_servers = NULL;
+static jlong g_next_server_id = 1;
+static wayland_server_t *g_server; /* active server for rendering + input */
 static renderer_context_t *g_renderer;
 static ANativeWindow *g_window;
 static pthread_t g_render_thread, g_dispatch_thread;
 static int g_render_created, g_dispatch_created;
 static volatile int g_running, g_stop_dispatch;
+static int g_skip_egl_wl_bind;
 
 /* ---- Key event queue (JNI thread -> Wayland thread) ----
  *
@@ -166,21 +176,59 @@ static void drain_key_events_on_wayland_thread(void) {
     }
 }
 
+static wayland_server_t *find_server_by_id(jlong id) {
+    pthread_mutex_lock(&g_srv_mutex);
+    struct server_node *n = g_servers;
+    while (n) {
+        if (n->id == id) { pthread_mutex_unlock(&g_srv_mutex); return n->srv; }
+        n = n->next;
+    }
+    pthread_mutex_unlock(&g_srv_mutex);
+    return NULL;
+}
+
+static jlong register_server(wayland_server_t *srv) {
+    if (!srv) return 0;
+    struct server_node *n = (struct server_node *)calloc(1, sizeof(*n));
+    if (!n) return 0;
+    pthread_mutex_lock(&g_srv_mutex);
+    n->id = g_next_server_id++;
+    n->srv = srv;
+    n->next = g_servers;
+    g_servers = n;
+    pthread_mutex_unlock(&g_srv_mutex);
+    return n->id;
+}
+
 static void *dispatch_loop(void *arg) {
     (void)arg;
     struct timespec last;
     clock_gettime(CLOCK_MONOTONIC, &last);
-    while (!g_stop_dispatch && g_server) {
+    while (!g_stop_dispatch) {
         drain_key_events_on_wayland_thread();
-        compositor_dispatch_timeout(g_server, 16);
+        /* Drive all servers so background tabs keep running. */
+        pthread_mutex_lock(&g_srv_mutex);
+        struct server_node *n = g_servers;
+        pthread_mutex_unlock(&g_srv_mutex);
+        while (n) {
+            compositor_dispatch_timeout(n->srv, 0);
+            n = n->next;
+        }
         struct timespec now;
         clock_gettime(CLOCK_MONOTONIC, &now);
         long ms = (now.tv_sec - last.tv_sec) * 1000 + (now.tv_nsec - last.tv_nsec) / 1000000;
         if (ms >= 16) {
-            compositor_send_frame_callbacks(g_server);
-            compositor_send_ping_to_clients(g_server);
+            pthread_mutex_lock(&g_srv_mutex);
+            struct server_node *m = g_servers;
+            pthread_mutex_unlock(&g_srv_mutex);
+            while (m) {
+                compositor_send_frame_callbacks(m->srv);
+                compositor_send_ping_to_clients(m->srv);
+                m = m->next;
+            }
             last = now;
         }
+        usleep(1000);
     }
     return NULL;
 }
@@ -212,11 +260,66 @@ static void stop_dispatch(void) {
     g_stop_dispatch = 0;
 }
 static void start_dispatch(void) {
-    if (g_dispatch_created || !g_server) return;
+    if (g_dispatch_created) return;
     g_stop_dispatch = 0;
     if (pthread_create(&g_dispatch_thread, NULL, dispatch_loop, NULL) == 0) {
         g_dispatch_created = 1;
     }
+}
+
+static void recreate_renderer_for_active_server(int skip_egl_wl_bind) {
+    stop_dispatch();
+    g_running = 0;
+    if (g_render_created) {
+        pthread_join(g_render_thread, NULL);
+        g_render_created = 0;
+    }
+    if (g_renderer) {
+        renderer_destroy(g_renderer);
+        g_renderer = NULL;
+    }
+    if (g_window && g_server) {
+        g_renderer = renderer_create(g_window, (struct wayland_server *)g_server, skip_egl_wl_bind);
+        if (g_renderer) {
+            g_running = 1;
+            if (pthread_create(&g_render_thread, NULL, render_loop, NULL) == 0) {
+                g_render_created = 1;
+            }
+        }
+    }
+    start_dispatch();
+}
+
+JNIEXPORT jlong JNICALL Java_app_trierarch_WaylandBridge_nativeCreateServer(JNIEnv *env, jobject thiz,
+        jstring runtime_dir, jstring socket_name) {
+    (void)thiz;
+    if (!runtime_dir || !socket_name) return 0;
+    const char *dir = (*env)->GetStringUTFChars(env, runtime_dir, NULL);
+    const char *sock = (*env)->GetStringUTFChars(env, socket_name, NULL);
+    if (!dir || !sock) {
+        if (dir) (*env)->ReleaseStringUTFChars(env, runtime_dir, dir);
+        if (sock) (*env)->ReleaseStringUTFChars(env, socket_name, sock);
+        return 0;
+    }
+    mkdir(dir, 0755);
+    chmod(dir, 0755);
+    wayland_server_t *srv = compositor_create_named(dir, sock);
+    (*env)->ReleaseStringUTFChars(env, runtime_dir, dir);
+    (*env)->ReleaseStringUTFChars(env, socket_name, sock);
+    jlong id = register_server(srv);
+    if (id && !g_server) g_server = srv;
+    if (id) start_dispatch();
+    return id;
+}
+
+JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeSetActiveServer(JNIEnv *env, jobject thiz, jlong id) {
+    (void)env;
+    (void)thiz;
+    wayland_server_t *srv = find_server_by_id(id);
+    if (!srv) return;
+    if (srv == g_server) return;
+    g_server = srv;
+    if (g_window) recreate_renderer_for_active_server(g_skip_egl_wl_bind);
 }
 
 JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeStartServer(JNIEnv *env, jobject thiz, jstring runtime_dir) {
@@ -274,7 +377,8 @@ JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeSurfaceCreated(JNI
         start_dispatch();
         return;
     }
-    g_renderer = renderer_create(g_window, (struct wayland_server *)g_server, skip_egl_wl_bind == JNI_TRUE ? 1 : 0);
+    g_skip_egl_wl_bind = (skip_egl_wl_bind == JNI_TRUE ? 1 : 0);
+    g_renderer = renderer_create(g_window, (struct wayland_server *)g_server, g_skip_egl_wl_bind);
     if (!g_renderer) {
         LOGI_WL("nativeSurfaceCreated: renderer_create failed — no EGL. Falling back to dispatch-only.");
         ANativeWindow_release(g_window);
@@ -436,4 +540,12 @@ JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeResetKeyboardState
     (void)thiz;
     if (!g_server) return;
     compositor_keyboard_reset_state(g_server);
+}
+
+/* 0 = WM_MODE_NESTED, 1 = WM_MODE_DIRECT */
+JNIEXPORT void JNICALL Java_app_trierarch_WaylandBridge_nativeSetWmMode(JNIEnv *env, jobject thiz, jint mode) {
+    (void)env;
+    (void)thiz;
+    if (!g_server) return;
+    compositor_set_wm_mode(g_server, mode == 1 ? WM_MODE_DIRECT : WM_MODE_NESTED);
 }

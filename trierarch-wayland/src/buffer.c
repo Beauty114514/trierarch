@@ -7,6 +7,10 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <errno.h>
+#include <android/log.h>
+
+#define LOG_TAG "TrierarchBuffer"
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
 /* Set by compositor.c so buffer_resource_destroy can clear surface refs */
 extern struct wayland_server *g_wayland_server;
@@ -205,8 +209,24 @@ void buffer_shm_bind(struct wl_client *client, void *data, uint32_t version, uin
         return;
     }
     wl_resource_set_implementation(resource, &shm_impl, NULL, NULL);
+    /* Advertise both common formats. Some EGL/Wayland clients fail to pick an EGLConfig
+     * if ARGB8888 is not advertised. We handle "alpha=0 makes surface invisible" in the
+     * renderer by forcing SHM buffers to be treated as opaque when needed. */
     wl_shm_send_format(resource, WL_SHM_FORMAT_ARGB8888);
     wl_shm_send_format(resource, WL_SHM_FORMAT_XRGB8888);
+    {
+        static unsigned g_bind_logged;
+        if (g_bind_logged < 128) {
+            pid_t pid = (pid_t)-1;
+            uid_t uid = 0;
+            gid_t gid = 0;
+            wl_client_get_credentials(client, &pid, &uid, &gid);
+            /* wl_shm is a strong indicator the client can fall back to SHM rendering. */
+            LOGI("bind wl_shm v%u pid=%d uid=%u (n=%u)",
+                    version, (int)pid, (unsigned)uid, g_bind_logged + 1);
+            g_bind_logged++;
+        }
+    }
 }
 
 static void egl_buffer_release(struct egl_buffer_ref *egl) {
@@ -229,6 +249,13 @@ static void dmabuf_buffer_release(struct dmabuf_buffer *db) {
     db->owner = NULL;
 }
 
+static void ahb_buffer_release(struct ahb_buffer *ab) {
+    if (!ab) return;
+    if (ab->resource)
+        wl_resource_post_event(ab->resource, WL_BUFFER_RELEASE);
+    ab->owner = NULL;
+}
+
 void buffer_ref_release(struct compositor_buffer_ref *ref) {
     if (!ref) return;
     if (ref->type == BUF_SHM && ref->u.shm)
@@ -237,6 +264,8 @@ void buffer_ref_release(struct compositor_buffer_ref *ref) {
         egl_buffer_release(ref->u.egl);
     else if (ref->type == BUF_DMABUF && ref->u.dmabuf)
         dmabuf_buffer_release(ref->u.dmabuf);
+    else if (ref->type == BUF_AHB && ref->u.ahb)
+        ahb_buffer_release(ref->u.ahb);
     free(ref);
 }
 
@@ -256,6 +285,8 @@ void buffer_ref_release_no_post(struct compositor_buffer_ref *ref) {
         free(egl);
     } else if (ref->type == BUF_DMABUF && ref->u.dmabuf) {
         ref->u.dmabuf->owner = NULL;
+    } else if (ref->type == BUF_AHB && ref->u.ahb) {
+        ref->u.ahb->owner = NULL;
     }
     free(ref);
 }
@@ -271,6 +302,7 @@ int32_t buffer_ref_width(struct compositor_buffer_ref *ref) {
     if (ref->type == BUF_SHM && ref->u.shm) return ref->u.shm->width;
     if (ref->type == BUF_EGL && ref->u.egl) return ref->u.egl->width;
     if (ref->type == BUF_DMABUF && ref->u.dmabuf) return ref->u.dmabuf->width;
+    if (ref->type == BUF_AHB && ref->u.ahb) return ref->u.ahb->width;
     return 0;
 }
 
@@ -279,6 +311,7 @@ int32_t buffer_ref_height(struct compositor_buffer_ref *ref) {
     if (ref->type == BUF_SHM && ref->u.shm) return ref->u.shm->height;
     if (ref->type == BUF_EGL && ref->u.egl) return ref->u.egl->height;
     if (ref->type == BUF_DMABUF && ref->u.dmabuf) return ref->u.dmabuf->height;
+    if (ref->type == BUF_AHB && ref->u.ahb) return ref->u.ahb->height;
     return 0;
 }
 
@@ -287,6 +320,7 @@ int32_t buffer_ref_stride(struct compositor_buffer_ref *ref) {
     if (ref->type == BUF_SHM && ref->u.shm) return ref->u.shm->stride;
     if (ref->type == BUF_EGL && ref->u.egl) return ref->u.egl->width * 4;
     if (ref->type == BUF_DMABUF && ref->u.dmabuf) return (int32_t)ref->u.dmabuf->stride;
+    if (ref->type == BUF_AHB && ref->u.ahb) return ref->u.ahb->stride;
     return 0;
 }
 
@@ -295,6 +329,7 @@ uint32_t buffer_ref_format(struct compositor_buffer_ref *ref) {
     if (ref->type == BUF_SHM && ref->u.shm) return ref->u.shm->format;
     if (ref->type == BUF_EGL && ref->u.egl) return WL_SHM_FORMAT_XRGB8888;
     if (ref->type == BUF_DMABUF && ref->u.dmabuf) return WL_SHM_FORMAT_ARGB8888;
+    if (ref->type == BUF_AHB && ref->u.ahb) return ref->u.ahb->format;
     return 0;
 }
 
@@ -303,6 +338,7 @@ void buffer_ref_set_owner(struct compositor_buffer_ref *ref, struct compositor_s
     if (ref->type == BUF_SHM && ref->u.shm) ref->u.shm->owner = surf;
     if (ref->type == BUF_EGL && ref->u.egl) ref->u.egl->surf = surf;
     if (ref->type == BUF_DMABUF && ref->u.dmabuf) ref->u.dmabuf->owner = surf;
+    if (ref->type == BUF_AHB && ref->u.ahb) ref->u.ahb->owner = surf;
 }
 
 void buffer_ref_clear_owner(struct compositor_buffer_ref *ref) {
@@ -310,6 +346,7 @@ void buffer_ref_clear_owner(struct compositor_buffer_ref *ref) {
     if (ref->type == BUF_SHM && ref->u.shm) ref->u.shm->owner = NULL;
     if (ref->type == BUF_EGL && ref->u.egl) ref->u.egl->surf = NULL;
     if (ref->type == BUF_DMABUF && ref->u.dmabuf) ref->u.dmabuf->owner = NULL;
+    if (ref->type == BUF_AHB && ref->u.ahb) ref->u.ahb->owner = NULL;
 }
 
 struct wl_resource *buffer_ref_get_egl_resource(struct compositor_buffer_ref *ref) {

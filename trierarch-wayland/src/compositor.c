@@ -23,6 +23,7 @@
 #include "relative-pointer-unstable-v1-server-protocol.h"
 #include "presentation-time-server-protocol.h"
 #include "linux-dmabuf-v1-server-protocol.h"
+#include "android-wlegl-server-protocol.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -53,8 +54,8 @@ static void client_created_notify(struct wl_listener *listener, void *data) {
             (int)pid, (unsigned)uid);
 }
 
-wayland_server_t *compositor_create(const char *runtime_dir) {
-    if (!runtime_dir) return NULL;
+static wayland_server_t *compositor_create_impl(const char *runtime_dir, const char *socket_name) {
+    if (!runtime_dir || !socket_name || socket_name[0] == '\0') return NULL;
     struct wayland_server *srv = calloc(1, sizeof(*srv));
     if (!srv) return NULL;
     srv->runtime_dir = strdup(runtime_dir);
@@ -107,19 +108,23 @@ wayland_server_t *compositor_create(const char *runtime_dir) {
     srv->output_override_w = srv->output_override_h = 0;
     wl_list_init(&srv->xdg_output_resources);
     srv->egl_buffer_supported = false;
+    srv->next_z_order = 1;
+    srv->cascade_x = 0;
+    srv->cascade_y = 0;
+    srv->wm_mode = WM_MODE_NESTED;  /* default: backward-compatible desktop mode */
     srv->valid = true;
 
     setenv("XDG_RUNTIME_DIR", runtime_dir, 1);
     chmod(runtime_dir, 0755);
 
     {
-        char path[256];
-        snprintf(path, sizeof(path), "%s/wayland-trierarch.lock", runtime_dir);
+        char path[512];
+        snprintf(path, sizeof(path), "%s/%s.lock", runtime_dir, socket_name);
         unlink(path);
-        snprintf(path, sizeof(path), "%s/wayland-trierarch", runtime_dir);
+        snprintf(path, sizeof(path), "%s/%s", runtime_dir, socket_name);
         unlink(path);
     }
-    if (wl_display_add_socket(srv->display, "wayland-trierarch") < 0) {
+    if (wl_display_add_socket(srv->display, socket_name) < 0) {
         LOGE("wl_display_add_socket failed");
         wl_display_destroy(srv->display);
         free(srv->runtime_dir);
@@ -129,14 +134,17 @@ wayland_server_t *compositor_create(const char *runtime_dir) {
     /* Default socket mode can be too restrictive for non-root guest users (Plasma as su user). */
     {
         char sockpath[512];
-        snprintf(sockpath, sizeof(sockpath), "%s/wayland-trierarch", runtime_dir);
+        snprintf(sockpath, sizeof(sockpath), "%s/%s", runtime_dir, socket_name);
         chmod(sockpath, 0666);
     }
 
     wl_global_create(srv->display, &wl_compositor_interface, 4, srv, surface_compositor_bind);
     wl_global_create(srv->display, &wl_subcompositor_interface, 1, srv, subcompositor_bind);
     wl_global_create(srv->display, &wl_shm_interface, 1, srv, buffer_shm_bind);
-    wl_global_create(srv->display, &zwp_linux_dmabuf_v1_interface, 3, srv, linux_dmabuf_bind);
+    /* v4: zwp_linux_dmabuf_feedback_v1 (required by Mesa 26+ Wayland WSI for presentation checks). */
+    wl_global_create(srv->display, &zwp_linux_dmabuf_v1_interface, 4, srv, linux_dmabuf_bind);
+    wl_global_create(srv->display, &android_wlegl_interface, 1, srv, android_wlegl_bind);
+    LOGI("global advertised: android_wlegl v1 (AHardwareBuffer path; requires client support)");
     wl_global_create(srv->display, &wl_seat_interface, 5, srv, seat_bind);
     wl_global_create(srv->display, &wl_output_interface, 4, srv, output_bind);
     wl_global_create(srv->display, &xdg_wm_base_interface, 4, srv, xdg_shell_bind);
@@ -155,8 +163,16 @@ wayland_server_t *compositor_create(const char *runtime_dir) {
 
     srv->loop = wl_display_get_event_loop(srv->display);
     g_wayland_server = srv;
-    LOGI("Wayland server ready: socket=wayland-trierarch, XDG_RUNTIME_DIR=%s", runtime_dir);
+    LOGI("Wayland server ready: socket=%s, XDG_RUNTIME_DIR=%s", socket_name, runtime_dir);
     return (wayland_server_t *)srv;
+}
+
+wayland_server_t *compositor_create(const char *runtime_dir) {
+    return compositor_create_impl(runtime_dir, "wayland-trierarch");
+}
+
+wayland_server_t *compositor_create_named(const char *runtime_dir, const char *socket_name) {
+    return compositor_create_impl(runtime_dir, socket_name);
 }
 
 void compositor_destroy(wayland_server_t *srv_opaque) {
@@ -223,6 +239,9 @@ static void fill_surface_view(const struct compositor_surface *surf,
     view->pixels = buffer_ref_get_data(surf->current_buffer);
     view->egl_buffer = buffer_ref_get_egl_resource(surf->current_buffer);
     view->dmabuf = buffer_ref_get_dmabuf(surf->current_buffer);
+    view->ahb = NULL;
+    if (surf->current_buffer && surf->current_buffer->type == BUF_AHB && surf->current_buffer->u.ahb)
+        view->ahb = surf->current_buffer->u.ahb->ahb;
     int32_t buf_w = buffer_ref_width(surf->current_buffer);
     int32_t buf_h = buffer_ref_height(surf->current_buffer);
     int32_t s = surf->buffer_scale > 1 ? surf->buffer_scale : 1;
@@ -278,7 +297,8 @@ static int foreach_surface_tree(struct compositor_surface *surf, int acc_x, int 
         void *pixels = buffer_ref_get_data(ref);
         void *egl_buf = buffer_ref_get_egl_resource(ref);
         struct dmabuf_buffer *dma = buffer_ref_get_dmabuf(ref);
-        if (pixels || egl_buf || dma) {
+        void *ahb = (ref->type == BUF_AHB && ref->u.ahb) ? ref->u.ahb->ahb : NULL;
+        if (pixels || egl_buf || dma || ahb) {
             compositor_surface_view_t view;
             fill_surface_view(surf, out_w, out_h, scale, &view);
             view.x = acc_x;
@@ -294,6 +314,31 @@ static int foreach_surface_tree(struct compositor_surface *surf, int acc_x, int 
         if (ret != 0) return ret;
     }
     return 0;
+}
+
+/* Logical size of a surface in output coords (preferred: viewport dst > buffer/scale). */
+void compositor_surface_get_logical_size(struct compositor_surface *surf, int32_t *w, int32_t *h) {
+    *w = 0;
+    *h = 0;
+    if (!surf || !surf->current_buffer) return;
+    if (surf->viewport_dst_set && surf->viewport_dst_w > 0 && surf->viewport_dst_h > 0) {
+        *w = surf->viewport_dst_w;
+        *h = surf->viewport_dst_h;
+        return;
+    }
+    int32_t bw = buffer_ref_width(surf->current_buffer);
+    int32_t bh = buffer_ref_height(surf->current_buffer);
+    int32_t s = surf->buffer_scale > 1 ? surf->buffer_scale : 1;
+    *w = bw / s;
+    *h = bh / s;
+    if (*w <= 0) *w = bw;
+    if (*h <= 0) *h = bh;
+}
+
+/* Bump surf to top of stacking order. */
+void compositor_raise_surface(struct wayland_server *srv, struct compositor_surface *surf) {
+    if (!surf || !srv) return;
+    surf->z_order = srv->next_z_order++;
 }
 
 /* KDE stacks a 1x1 (or tiny) buffer + wp_viewport destination above the real desktop if we iterate
@@ -319,15 +364,16 @@ static int surface_is_viewporter_underlay(struct compositor_surface *s, int32_t 
     return dst_a * 100 >= out_a * 75; /* larger tile: treat as underlay only if ~fullscreen dest */
 }
 
-static int cmp_root_surface_underlay_first(const void *aa, const void *bb) {
+/* Primary sort: ascending z_order (lower drawn first = appears below).
+ * Secondary: underlay-first for tied z_order (backward compat for nested KDE). */
+static int cmp_root_surface_zorder(const void *aa, const void *bb) {
     struct compositor_surface *const *a = aa;
     struct compositor_surface *const *b = bb;
+    if ((*a)->z_order != (*b)->z_order)
+        return ((*a)->z_order < (*b)->z_order) ? -1 : 1;
     int ua = surface_is_viewporter_underlay(*a, g_sort_out_w, g_sort_out_h);
     int ub = surface_is_viewporter_underlay(*b, g_sort_out_w, g_sort_out_h);
-    if (ua != ub) {
-        if (ua) return -1; /* underlay first */
-        return 1;
-    }
+    if (ua != ub) return ua ? -1 : 1;
     return 0;
 }
 
@@ -359,10 +405,24 @@ void compositor_foreach_surface(wayland_server_t *srv_opaque,
         }
         g_sort_out_w = out_w;
         g_sort_out_h = out_h;
-        qsort(roots, (size_t)n, sizeof(*roots), cmp_root_surface_underlay_first);
-        for (i = 0; i < n; i++) {
-            if (foreach_surface_tree(roots[i], 0, 0, out_w, out_h, scale, callback, user) != 0)
-                break;
+        if (srv->wm_mode == WM_MODE_DIRECT) {
+            /* Direct mode: sort by z_order (ascending = lower drawn first = visually below).
+             * Secondary: underlay-first for tied z_order. */
+            qsort(roots, (size_t)n, sizeof(*roots), cmp_root_surface_zorder);
+            for (i = 0; i < n; i++) {
+                if (foreach_surface_tree(roots[i], roots[i]->wm_x, roots[i]->wm_y,
+                            out_w, out_h, scale, callback, user) != 0)
+                    break;
+            }
+        } else {
+            /* Nested mode: draw all surfaces at (0,0); use underlay-first sort only
+             * (KDE Plasma 1x1 viewport hack). */
+            qsort(roots, (size_t)n, sizeof(*roots), cmp_root_surface_zorder);
+            for (i = 0; i < n; i++) {
+                if (foreach_surface_tree(roots[i], 0, 0,
+                            out_w, out_h, scale, callback, user) != 0)
+                    break;
+            }
         }
         free(roots);
     }
@@ -493,4 +553,20 @@ void *compositor_get_wl_display(wayland_server_t *srv_opaque) {
 void compositor_set_egl_buffer_supported(wayland_server_t *srv_opaque, bool supported) {
     if (!srv_opaque) return;
     ((struct wayland_server *)srv_opaque)->egl_buffer_supported = supported;
+}
+
+void compositor_set_wm_mode(wayland_server_t *srv_opaque, wm_mode_t mode) {
+    if (!srv_opaque) return;
+    struct wayland_server *srv = (struct wayland_server *)srv_opaque;
+    srv->wm_mode = mode;
+    /* Reset transient WM/input state so switching modes doesn't leak behaviour across modes. */
+    pthread_mutex_lock(&srv->surfaces_mutex);
+    srv->wm_drag_surf = NULL;
+    srv->wm_resize_surf = NULL;
+    srv->wm_last_click_surf = NULL;
+    srv->wm_last_click_time_ms = 0;
+    srv->pointer_focus = NULL;
+    srv->keyboard_focus = NULL;
+    pthread_mutex_unlock(&srv->surfaces_mutex);
+    LOGI("wm_mode set to %s", mode == WM_MODE_DIRECT ? "DIRECT" : "NESTED");
 }

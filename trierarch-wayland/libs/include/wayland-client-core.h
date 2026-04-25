@@ -269,7 +269,14 @@ wl_display_dispatch_queue_pending(struct wl_display *display,
 				  struct wl_event_queue *queue);
 
 int
+wl_display_dispatch_queue_pending_single(struct wl_display *display,
+					 struct wl_event_queue *queue);
+
+int
 wl_display_dispatch_pending(struct wl_display *display);
+
+int
+wl_display_dispatch_pending_single(struct wl_display *display);
 
 int
 wl_display_get_error(struct wl_display *display);

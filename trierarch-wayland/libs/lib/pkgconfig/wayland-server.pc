@@ -7,7 +7,7 @@ pkgdatadir=${pc_sysrootdir}${datarootdir}/wayland
 
 Name: Wayland Server
 Description: Server side implementation of the Wayland protocol
-Version: 1.24.0
+Version: 1.25.0
 Requires.private: libffi
 Libs: -L${libdir} -lwayland-server -lm
 Libs.private: -pthread

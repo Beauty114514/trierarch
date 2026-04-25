@@ -360,6 +360,7 @@ void
 wl_client_add_resource_created_listener(struct wl_client *client,
                                         struct wl_listener *listener);
 
+/** Callback function type for wl_client_for_each_resource() */
 typedef enum wl_iterator_result (*wl_client_for_each_resource_iterator_func_t)(
 						struct wl_resource *resource,
 						void *user_data);
@@ -391,7 +392,7 @@ wl_client_set_max_buffer_size(struct wl_client *client, size_t max_buffer_size);
  * object destruction.
  *
  * Clients should create wl_listener objects manually and can register them as
- * listeners to signals using #wl_signal_add, assuming the signal is
+ * listeners to signals using wl_signal_add(), assuming the signal is
  * directly accessible. For opaque structs like wl_event_loop, adding a
  * listener should be done through provided accessor methods. A listener can
  * only listen to one signal at a time.
@@ -430,7 +431,10 @@ wl_client_set_max_buffer_size(struct wl_client *client, size_t max_buffer_size);
  * \sa wl_signal
  */
 struct wl_listener {
+	/** Part of wl_signal::listener_list */
 	struct wl_list link;
+
+	/** Callback function pointer */
 	wl_notify_func_t notify;
 };
 
@@ -709,6 +713,7 @@ struct wl_protocol_logger_message {
 	const union wl_argument *arguments;
 };
 
+/** Callback function type for wl_display_add_protocol_logger() */
 typedef void (*wl_protocol_logger_func_t)(void *user_data,
 					  enum wl_protocol_logger_type direction,
 					  const struct wl_protocol_logger_message *message);

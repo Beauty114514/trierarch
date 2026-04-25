@@ -23,6 +23,8 @@
 
 #include "compositor.h"
 
+/* wm_mode_t is defined in compositor.h (included above). */
+
 /* --- SHM pool (buffer.c) --- */
 struct shm_pool {
     void *data;
@@ -63,7 +65,20 @@ struct dmabuf_buffer {
     struct compositor_surface *owner;
 };
 
-enum compositor_buffer_type { BUF_SHM, BUF_EGL, BUF_DMABUF };
+/* Android native buffer (AHardwareBuffer) */
+struct ahb_buffer {
+    uint32_t magic;
+    struct wl_resource *resource; /* wl_buffer resource, if any */
+    void *ahb; /* AHardwareBuffer* stored as void* to avoid hard dependency in this header */
+    int32_t width, height, stride;
+    uint32_t format; /* AHardwareBuffer format */
+    uint64_t usage;  /* AHardwareBuffer usage flags */
+    struct compositor_surface *owner;
+};
+
+#define TRIERARCH_AHB_MAGIC 0x544d4148u /* 'TMAH' */
+
+enum compositor_buffer_type { BUF_SHM, BUF_EGL, BUF_DMABUF, BUF_AHB };
 
 struct compositor_buffer_ref {
     enum compositor_buffer_type type;
@@ -71,6 +86,7 @@ struct compositor_buffer_ref {
         struct shm_buffer *shm;
         struct egl_buffer_ref *egl;
         struct dmabuf_buffer *dmabuf;
+        struct ahb_buffer *ahb;
     } u;
 };
 
@@ -110,6 +126,16 @@ struct compositor_surface {
     struct wl_list sub_link;   /* link into parent->children */
     int32_t sub_x, sub_y;
     bool is_cursor;  /* true = cursor surface from wl_pointer.set_cursor, drawn at pointer position */
+    /* Window manager state (windowed/direct mode). */
+    int32_t wm_x, wm_y;         /* window top-left in logical output coords */
+    int32_t z_order;             /* stacking order: higher = drawn on top / gets input first */
+    bool wm_maximized;           /* currently maximized */
+    int32_t wm_saved_x, wm_saved_y; /* pre-maximize position for restore */
+    int32_t wm_saved_w, wm_saved_h; /* pre-maximize size for restore (best-effort) */
+    int32_t wm_req_w, wm_req_h;     /* requested toplevel size (DIRECT); 0 = let client decide */
+    bool wm_resizing;              /* true while compositor-driven resize drag is active */
+    char title[256];             /* from xdg_toplevel.set_title */
+    char app_id[256];            /* from xdg_toplevel.set_app_id */
 };
 
 /* Input: track wl_pointer / zwp_relative_pointer_v1 resources for event delivery */
@@ -170,6 +196,30 @@ struct wayland_server {
     /* Selection (clipboard): current owner and data_device list for selection(offer) */
     struct wl_list data_device_resources;
     struct wl_resource *selection_source;  /* wl_data_source that owns selection */
+    /* Window manager state for windowed/direct mode. */
+    int32_t next_z_order;    /* monotonically increasing; assigned to each new toplevel */
+    int32_t cascade_x;       /* X offset for next cascaded window placement */
+    int32_t cascade_y;       /* Y offset for next cascaded window placement */
+    /* WM mode: controls configure, rendering, and input behaviour. */
+    wm_mode_t wm_mode;
+    /* Interactive window move state (WM_MODE_DIRECT only). */
+    struct compositor_surface *wm_drag_surf;   /* surface being dragged; NULL = no drag */
+    float wm_drag_ptr_start_x;                 /* pointer position when drag was initiated */
+    float wm_drag_ptr_start_y;
+    int32_t wm_drag_surf_start_x;              /* surface wm_x when drag was initiated */
+    int32_t wm_drag_surf_start_y;
+    /* Interactive resize state (WM_MODE_DIRECT only). */
+    struct compositor_surface *wm_resize_surf; /* surface being resized; NULL = no resize */
+    float wm_resize_ptr_start_x;
+    float wm_resize_ptr_start_y;
+    int32_t wm_resize_start_w;
+    int32_t wm_resize_start_h;
+    int32_t wm_resize_start_x;
+    int32_t wm_resize_start_y;
+    uint32_t wm_resize_edges; /* bitmask: 1=LEFT 2=RIGHT 4=TOP 8=BOTTOM */
+    /* Simple WM gestures (DIRECT): track last click for double-click. */
+    uint32_t wm_last_click_time_ms;
+    struct compositor_surface *wm_last_click_surf;
 };
 
 struct output_resource_node {
@@ -184,6 +234,11 @@ struct wm_base_resource_node {
     struct wl_resource *resource;
     struct wl_listener destroy_listener;
 };
+
+/* compositor.c: logical size of a surface in output coords (viewport > buffer/scale). */
+void compositor_surface_get_logical_size(struct compositor_surface *surf, int32_t *w, int32_t *h);
+/* compositor.c: bump surf to top of stacking order. */
+void compositor_raise_surface(struct wayland_server *srv, struct compositor_surface *surf);
 
 /* surface.c */
 void surface_compositor_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id);
@@ -243,6 +298,9 @@ void presentation_bind(struct wl_client *client, void *data, uint32_t version, u
 void linux_dmabuf_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id);
 struct dmabuf_buffer *dmabuf_buffer_try_from_wl_resource(struct wl_resource *buf_res);
 
+/* android_wlegl: AHardwareBuffer-backed wl_buffer */
+struct ahb_buffer *ahb_buffer_try_from_wl_resource(struct wl_resource *buf_res);
+
 /* data_device.c */
 void data_device_manager_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id);
 
@@ -265,5 +323,8 @@ struct dmabuf_buffer *buffer_ref_get_dmabuf(struct compositor_buffer_ref *ref);
 /** Create compositor_buffer_ref for EGL buffer; caller sets surf->pending_buffer. */
 struct compositor_buffer_ref *buffer_attach_egl_buffer(struct wl_client *client,
         struct wl_resource *buffer_res, struct compositor_surface *surf, int32_t w, int32_t h);
+
+/* android_wlegl.c: Android native buffer support */
+void android_wlegl_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id);
 
 #endif

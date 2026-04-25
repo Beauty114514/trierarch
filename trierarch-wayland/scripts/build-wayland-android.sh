@@ -81,14 +81,17 @@ make -C "$FFI_SRC/build-android" -j$(nproc)
 make -C "$FFI_SRC/build-android" install
 export PKG_CONFIG_PATH="$FFI_INSTALL/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
 
-# 2. Clone Wayland 1.24.x (match system wayland-scanner if possible)
+# 2. Clone Wayland (default: match host wayland-scanner)
 mkdir -p "$BUILD_SRC_DIR"
 if [ -d "$WAYLAND_SRC" ]; then
-    echo "Removing existing wayland, re-cloning 1.24.0..."
+    echo "Removing existing wayland, re-cloning..."
     rm -rf "$WAYLAND_SRC"
 fi
-echo "Cloning wayland 1.24.0..."
-git clone --depth 1 --branch 1.24.0 https://gitlab.freedesktop.org/wayland/wayland.git "$WAYLAND_SRC"
+
+HOST_WAYLAND_SCANNER_VER="$(pkg-config --modversion wayland-scanner 2>/dev/null || true)"
+WAYLAND_VERSION="${WAYLAND_VERSION:-${HOST_WAYLAND_SCANNER_VER:-1.25.0}}"
+echo "Cloning wayland $WAYLAND_VERSION..."
+git clone --depth 1 --branch "$WAYLAND_VERSION" https://gitlab.freedesktop.org/wayland/wayland.git "$WAYLAND_SRC"
 rm -rf "$WAYLAND_SRC/.git"
 
 if [ ! -d "$PROTOCOLS_SRC" ]; then
@@ -100,6 +103,7 @@ fi
 # 3. Build Wayland (server lib only)
 echo "Building wayland..."
 mkdir -p "$WAYLAND_SRC/build-android"
+
 meson setup "$WAYLAND_SRC/build-android" "$WAYLAND_SRC" \
     --cross-file "$CROSS_FILE" \
     -Dlibraries=true \
@@ -126,6 +130,7 @@ cp -a "$OUT_DIR/lib"/libwayland-server.so "$OUT_DIR/lib"/libffi.so* "$OUT_UNIFIE
 # 4. Generate xdg-shell server protocol (used by this compositor)
 XDG_XML="$PROTOCOLS_SRC/stable/xdg-shell/xdg-shell.xml"
 FRACTIONAL_XML="$PROTOCOLS_SRC/staging/fractional-scale/fractional-scale-v1.xml"
+ANDROID_WLEGL_XML="$PROJECT_DIR/protocol/xml/android-wlegl.xml"
 PROTO_DIR="$PROJECT_DIR/protocol"
 mkdir -p "$PROTO_DIR"
 if [ -f "$XDG_XML" ]; then
@@ -138,6 +143,11 @@ if [ -f "$FRACTIONAL_XML" ]; then
     "$WAYLAND_SCANNER" private-code "$FRACTIONAL_XML" "$PROTO_DIR/fractional-scale-v1-server-protocol.c"
     echo "Generated fractional-scale-v1 protocol in $PROTO_DIR"
 fi
+if [ -f "$ANDROID_WLEGL_XML" ]; then
+    "$WAYLAND_SCANNER" server-header "$ANDROID_WLEGL_XML" "$PROTO_DIR/android-wlegl-server-protocol.h"
+    "$WAYLAND_SCANNER" private-code "$ANDROID_WLEGL_XML" "$PROTO_DIR/android-wlegl-server-protocol.c"
+    echo "Generated android-wlegl protocol in $PROTO_DIR"
+fi
 
 # 5. Build compositor and copy to unified output (use same NDK as above)
 NDK_BUILD="$NDK/ndk-build"
@@ -145,7 +155,13 @@ if [ ! -x "$NDK_BUILD" ]; then
     echo "ndk-build not found at $NDK_BUILD; skip compositor. Copy libwayland-compositor.so to $OUT_UNIFIED manually after building."
 else
     echo "Building libwayland-compositor.so..."
-    if (cd "$PROJECT_DIR" && "$NDK_BUILD" NDK_PROJECT_PATH=. APP_BUILD_SCRIPT=./Android.mk APP_ABI=arm64-v8a -j"$(nproc)"); then
+    if (cd "$PROJECT_DIR" && "$NDK_BUILD" \
+        NDK_PROJECT_PATH=. \
+        APP_BUILD_SCRIPT=./Android.mk \
+        NDK_APPLICATION_MK=./Application.mk \
+        APP_PLATFORM=android-26 \
+        APP_ABI=arm64-v8a \
+        -j"$(nproc)"); then
         COMPOSITOR_SRC="$PROJECT_DIR/obj/local/arm64-v8a/libwayland-compositor.so"
         [ ! -f "$COMPOSITOR_SRC" ] && COMPOSITOR_SRC="$PROJECT_DIR/libs/arm64-v8a/libwayland-compositor.so"
         if [ -f "$COMPOSITOR_SRC" ]; then

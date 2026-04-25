@@ -104,6 +104,24 @@ static void surface_attach(struct wl_client *client, struct wl_resource *resourc
             return;
         }
     }
+    {
+        struct ahb_buffer *ab = ahb_buffer_try_from_wl_resource(buffer_res);
+        if (ab) {
+            struct compositor_buffer_ref *ref = calloc(1, sizeof(*ref));
+            if (!ref) {
+                wl_client_post_no_memory(client);
+                return;
+            }
+            ref->type = BUF_AHB;
+            ref->u.ahb = ab;
+            if (surf->pending_buffer) {
+                buffer_ref_clear_owner(surf->pending_buffer);
+                buffer_ref_release(surf->pending_buffer);
+            }
+            surf->pending_buffer = ref;
+            return;
+        }
+    }
     void *raw = wl_resource_get_user_data(buffer_res);
     if (!raw) {
         /* EGL buffer (no user_data) */
@@ -236,24 +254,26 @@ static void surface_commit(struct wl_client *client, struct wl_resource *resourc
         int32_t bh = buffer_ref_height(surf->current_buffer);
         int32_t bs = surf->buffer_scale > 0 ? surf->buffer_scale : 1;
         const char *kind = "?";
+        uint32_t fmt = 0;
         switch (surf->current_buffer->type) {
         case BUF_SHM: kind = "shm"; break;
         case BUF_DMABUF: kind = "dmabuf"; break;
         case BUF_EGL: kind = "egl"; break;
         default: break;
         }
+        fmt = buffer_ref_format(surf->current_buffer);
         /* High-frequency commits + LOGI can block the Wayland thread and contribute to black screens. */
         static uint32_t g_commit_log_n;
         g_commit_log_n++;
         int do_log = (g_commit_log_n <= 24u) || ((g_commit_log_n & 255u) == 0u);
         if (do_log) {
             if (surf->viewport_dst_set)
-                LOGI("surface=%p commit kind=%s buf=%dx%d scale=%d vp_dst=%dx%d (n=%u)",
-                        (void *)surf, kind, (int)bw, (int)bh, (int)bs,
+                LOGI("surface=%p commit kind=%s fmt=0x%x buf=%dx%d scale=%d vp_dst=%dx%d (n=%u)",
+                        (void *)surf, kind, (unsigned)fmt, (int)bw, (int)bh, (int)bs,
                         (int)surf->viewport_dst_w, (int)surf->viewport_dst_h, g_commit_log_n);
             else
-                LOGI("surface=%p commit kind=%s buf=%dx%d scale=%d vp_dst=- (n=%u)",
-                        (void *)surf, kind, (int)bw, (int)bh, (int)bs, g_commit_log_n);
+                LOGI("surface=%p commit kind=%s fmt=0x%x buf=%dx%d scale=%d vp_dst=- (n=%u)",
+                        (void *)surf, kind, (unsigned)fmt, (int)bw, (int)bh, (int)bs, g_commit_log_n);
         }
     }
 
@@ -338,6 +358,18 @@ static void compositor_create_surface(struct wl_client *client,
         wl_client_post_no_memory(client);
         return;
     }
+    {
+        static unsigned g_create_surf_logged;
+        if (g_create_surf_logged < 64) {
+            pid_t pid = (pid_t)-1;
+            uid_t uid = 0;
+            gid_t gid = 0;
+            wl_client_get_credentials(client, &pid, &uid, &gid);
+            LOGI("wl_compositor.create_surface: surf=%p pid=%d uid=%u (n=%u)",
+                    (void *)surf, (int)pid, (unsigned)uid, g_create_surf_logged + 1);
+            g_create_surf_logged++;
+        }
+    }
     surf->srv = srv;
     surf->current_buffer = NULL;
     surf->pending_buffer = NULL;
@@ -400,4 +432,15 @@ void surface_compositor_bind(struct wl_client *client, void *data, uint32_t vers
         return;
     }
     wl_resource_set_implementation(resource, &compositor_impl, data, NULL);
+    {
+        static unsigned g_bind_logged;
+        if (g_bind_logged < 128) {
+            pid_t pid = (pid_t)-1;
+            uid_t uid = 0;
+            gid_t gid = 0;
+            wl_client_get_credentials(client, &pid, &uid, &gid);
+            LOGI("bind wl_compositor v%u pid=%d uid=%u (n=%u)", version, (int)pid, (unsigned)uid, g_bind_logged + 1);
+            g_bind_logged++;
+        }
+    }
 }
