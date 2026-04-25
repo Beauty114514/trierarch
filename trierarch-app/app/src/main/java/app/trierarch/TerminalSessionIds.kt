@@ -1,11 +1,12 @@
 package app.trierarch
 
 /**
- * JNI 里 PTY 用单个 Int 做主键；逻辑上按二维管理：**[namespace][slot]**
- * - [0][x] Arch，[1][x] Wine，[2][x] Debian（与产品侧栏分页一致）
- * - 每个 namespace 的 **slot 0** 预留给该环境的「桌面 / 无头启动注入」；**1+** 为交互终端
+ * PTY sessions are keyed by a single `Int` in JNI; conceptually this is a **(namespace, slot)** grid:
+ * - `[0][*]` Arch, `[1][*]` Wine, `[2][*]` Debian (same order as the in-app drawer tabs)
+ * - **slot 0** in each namespace is reserved for that environment’s headless “desktop / inject” session;
+ *   **slot 1+** are interactive terminals
  *
- * 编码：`nativeId = namespace * SESSION_STRIDE + slot`
+ * Encoding: `nativeId = namespace * SESSION_STRIDE + slot`
  */
 object TerminalSessionIds {
     const val SESSION_STRIDE = 64
@@ -23,7 +24,7 @@ object TerminalSessionIds {
     fun namespaceOf(nativeSessionId: Int): Int = nativeSessionId / SESSION_STRIDE
     fun slotOf(nativeSessionId: Int): Int = nativeSessionId % SESSION_STRIDE
 
-    /** 与 `jni_context::RootfsKind` 一致：Arch=0, Debian=1, Wine=2 */
+    /** Matches `jni_context::RootfsKind`: Arch=0, Debian=1, Wine=2 */
     fun rootfsKindForNativeId(nativeSessionId: Int): Int = when (namespaceOf(nativeSessionId)) {
         NS_ARCH -> 0
         NS_DEBIAN -> 1
@@ -43,7 +44,7 @@ object TerminalSessionIds {
         return "$name $slot"
     }
 
-    /** 下拉/解析用：展示名 + 稳定可解析的 native id */
+    /** Picker / round-trip line: display label plus a stable, parseable native id */
     fun sessionPickerLine(nativeSessionId: Int): String =
         "${terminalTabLabel(nativeSessionId)} · $nativeSessionId"
 
@@ -63,7 +64,7 @@ object TerminalSessionIds {
     val FIRST_TERMINAL: Int = ARCH_TERMINAL
 
     /**
-     * 在指定 [namespace] 里分配下一个交互 slot（当前「新建会话」仅向 Arch 命名空间追加）。
+     * Picks the next free interactive slot in [namespace]. New-session only appends in Arch for now.
      */
     fun nextInteractiveNativeId(existing: List<Int>, namespace: Int): Int {
         val used = existing
