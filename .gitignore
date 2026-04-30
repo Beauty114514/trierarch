@@ -89,7 +89,8 @@ trierarch-wayland/wayland/doc/publican/publican-copy.cfg
 trierarch-wayland/wayland/doc/doxygen/doxygen_sqlite3.db
 trierarch-wayland/wayland/doc/doxygen/html/
 trierarch-wayland/wayland/doc/doxygen/wayland.doxygen
-winlator/
+# Upstream Winlator checkout at repo root (do not ignore app-bundled `com/winlator` sources).
+/winlator/
 
 # --- Debug / logs ---
 logcat*.txt
