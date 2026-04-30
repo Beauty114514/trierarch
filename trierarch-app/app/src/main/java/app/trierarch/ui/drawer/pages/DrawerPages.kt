@@ -20,18 +20,18 @@ import androidx.compose.foundation.pager.rememberPagerState
 
 enum class DrawerPage(val accent: Color) {
     ARCH(Color(0xFF1793D1)),
-    ANDROID(Color(0xFF004E8C)),
+    WINE(Color(0xFF8B1E3F)),
     DEBIAN(Color(0xFFD70A53)),
 }
 
 @Composable
 fun DrawerPagedHost(
     archContent: @Composable () -> Unit,
-    androidContent: @Composable () -> Unit,
+    wineContent: @Composable () -> Unit,
     debianContent: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val pages = remember { listOf(DrawerPage.ARCH, DrawerPage.ANDROID, DrawerPage.DEBIAN) }
+    val pages = remember { listOf(DrawerPage.ARCH, DrawerPage.WINE, DrawerPage.DEBIAN) }
     val pagerState = rememberPagerState(initialPage = 0) { pages.size }
     val page = pages[pagerState.currentPage.coerceIn(0, pages.lastIndex)]
 
@@ -49,7 +49,7 @@ fun DrawerPagedHost(
 
                 val activeTop = when (page) {
                     DrawerPage.ARCH -> 0f
-                    DrawerPage.ANDROID -> segH
+                    DrawerPage.WINE -> segH
                     DrawerPage.DEBIAN -> segH * 2f
                 }
                 drawRect(color = page.accent, topLeft = Offset(0f, activeTop), size = Size(w, segH))
@@ -70,7 +70,7 @@ fun DrawerPagedHost(
             ) {
                 when (pages[idx]) {
                     DrawerPage.ARCH -> archContent()
-                    DrawerPage.ANDROID -> androidContent()
+                    DrawerPage.WINE -> wineContent()
                     DrawerPage.DEBIAN -> debianContent()
                 }
             }

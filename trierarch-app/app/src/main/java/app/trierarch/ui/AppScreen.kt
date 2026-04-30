@@ -45,8 +45,9 @@ import app.trierarch.ui.dialog.MOUSE_MODE_TOUCHPAD
 import app.trierarch.ui.drawer.AppDrawer
 import app.trierarch.ui.drawer.pages.DrawerPagedHost
 import app.trierarch.ui.drawer.pages.ArchDrawerPage
-import app.trierarch.ui.drawer.pages.AndroidDrawerPage
+import app.trierarch.ui.containers.ContainersScreen
 import app.trierarch.ui.drawer.pages.DebianDrawerPage
+import app.trierarch.ui.drawer.pages.WineDrawerPage
 import app.trierarch.ui.prefs.AppPrefs
 import app.trierarch.ui.runtime.DisplayOrchestrator
 import app.trierarch.ui.runtime.GraphicsModeController
@@ -99,7 +100,7 @@ private fun x11ResolutionModeInternalForLabel(label: String): String = when (lab
 
 private val X11_CUSTOM_RESOLUTION_PATTERN: Pattern = Pattern.compile("^\\s*(\\d{2,4})\\s*x\\s*(\\d{2,4})\\s*\$")
 
-private enum class UiMode { TERMINAL, ARCH_WAYLAND_DESKTOP, DEBIAN_X11_DESKTOP }
+private enum class UiMode { TERMINAL, ARCH_WAYLAND_DESKTOP, DEBIAN_X11_DESKTOP, CONTAINERS }
 
 @Composable
 fun AppScreen(startInTerminal: Boolean = false) {
@@ -124,7 +125,7 @@ fun AppScreen(startInTerminal: Boolean = false) {
         mutableStateOf(UiMode.TERMINAL)
     }
     var waylandVisible by remember { mutableStateOf(false) }
-    val showWayland = waylandVisible && uiMode != UiMode.TERMINAL
+    val showWayland = waylandVisible && uiMode == UiMode.ARCH_WAYLAND_DESKTOP
     val showX11 = uiMode == UiMode.DEBIAN_X11_DESKTOP
     var settingsOpen by remember { mutableStateOf(false) }
     var waylandScriptEditorOpen by remember { mutableStateOf(false) }
@@ -650,8 +651,15 @@ fun AppScreen(startInTerminal: Boolean = false) {
                         openGLOptions = OPENGL_MODES,
                     )
                 },
-                androidContent = {
-                    AndroidDrawerPage()
+                wineContent = {
+                    WineDrawerPage(
+                        onOpenContainers = {
+                            scope.launch {
+                                uiMode = UiMode.CONTAINERS
+                                drawerState.close()
+                            }
+                        },
+                    )
                 },
                 debianContent = {
                     DebianDrawerPage(
@@ -690,19 +698,28 @@ fun AppScreen(startInTerminal: Boolean = false) {
         },
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Shell (PTY) below; Wayland/X11 surfaces above when enabled.
-            ShellScreen(
-                terminalFontKey = terminalFontKey,
-                activeSessionId = terminalSessionState.activeSessionId,
-                terminalSessionIds = terminalSessionState.sessionIds,
-                rendererSessionResetEpoch = rendererSessionResetEpoch,
-                showKeyboardTrigger = if (showWayland) 0 else showKeyboardTrigger,
-                onKeyboardTriggerConsumed = { showKeyboardTrigger = 0 },
-                modifier = Modifier
-                    .fillMaxSize()
-                    .zIndex(0f),
-            )
-            if (desktopLaunchBlackout) {
+            if (uiMode == UiMode.CONTAINERS) {
+                ContainersScreen(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .zIndex(0f),
+                )
+            }
+            else {
+                // Shell (PTY) below; Wayland/X11 surfaces above when enabled.
+                ShellScreen(
+                    terminalFontKey = terminalFontKey,
+                    activeSessionId = terminalSessionState.activeSessionId,
+                    terminalSessionIds = terminalSessionState.sessionIds,
+                    rendererSessionResetEpoch = rendererSessionResetEpoch,
+                    showKeyboardTrigger = if (showWayland) 0 else showKeyboardTrigger,
+                    onKeyboardTriggerConsumed = { showKeyboardTrigger = 0 },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .zIndex(0f),
+                )
+            }
+            if (desktopLaunchBlackout && uiMode != UiMode.CONTAINERS) {
                 // Dark cover while Wayland display session starts (Lorie is not in this window).
                 Box(
                     modifier = Modifier
