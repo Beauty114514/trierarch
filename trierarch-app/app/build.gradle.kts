@@ -180,4 +180,9 @@ dependencies {
     implementation(libs.androidx.material3)
     debugImplementation(libs.androidx.ui.tooling)
     implementation(libs.kotlinx.coroutines.android)
+    // Winlator-aligned ZSTD tar extract (WineRootFsInstaller / rootfs.tzst)
+    implementation("org.apache.commons:commons-compress:1.26.2")
+    implementation("org.tukaani:xz:1.10")
+    // IMPORTANT: use the AAR so the JNI .so ships in the APK (plain jar will crash at runtime).
+    implementation("com.github.luben:zstd-jni:1.5.2-3@aar")
 }

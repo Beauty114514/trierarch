@@ -6,7 +6,6 @@ use std::sync::Mutex;
 
 pub const ARCH_ROOTFS_SUBDIR: &str = "arch";
 pub const DEBIAN_ROOTFS_SUBDIR: &str = "debian";
-pub const WINE_ROOTFS_SUBDIR: &str = "wine";
 /// Sentinel file written after successful extract; if present, rootfs is ready.
 pub const ROOTFS_READY_SENTINEL: &str = ".trierarch_rootfs_ok";
 
@@ -58,10 +57,6 @@ pub fn debian_rootfs_dir() -> Result<PathBuf> {
     Ok(get_application_context()?
         .data_dir
         .join(DEBIAN_ROOTFS_SUBDIR))
-}
-
-pub fn wine_rootfs_dir() -> Result<PathBuf> {
-    Ok(get_application_context()?.data_dir.join(WINE_ROOTFS_SUBDIR))
 }
 
 /// Rootfs is ready iff the extract sentinel exists.

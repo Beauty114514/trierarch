@@ -107,17 +107,6 @@ pub extern "system" fn Java_app_trierarch_NativeBridge_hasDebianRootfs(
 }
 
 #[no_mangle]
-pub extern "system" fn Java_app_trierarch_NativeBridge_hasWineRootfs(
-    _env: JNIEnv,
-    _: JObject,
-) -> jboolean {
-    match crate::android::application_context::wine_rootfs_dir() {
-        Ok(root) => crate::android::application_context::has_rootfs(&root) as jboolean,
-        Err(_) => 0,
-    }
-}
-
-#[no_mangle]
 pub extern "system" fn Java_app_trierarch_NativeBridge_downloadArchRootfs(
     env: JNIEnv,
     _: JObject,
@@ -186,43 +175,6 @@ pub extern "system" fn Java_app_trierarch_NativeBridge_downloadDebianRootfs(
         }
         Err(e) => {
             log::error!("downloadDebianRootfs thread panic: {:?}", e);
-            0
-        }
-    }
-}
-
-#[no_mangle]
-pub extern "system" fn Java_app_trierarch_NativeBridge_downloadWineRootfs(
-    env: JNIEnv,
-    _: JObject,
-    callback: JObject,
-) -> jboolean {
-    let vm = env.get_java_vm().expect("get JavaVM");
-    let callback_global = env
-        .new_global_ref(callback)
-        .expect("global ref for callback");
-
-    let result = thread::spawn(move || {
-        let progress_fn = Box::new(move |pct: u32, msg: &str| {
-            let mut env = vm.attach_current_thread().expect("attach thread");
-            let callback = callback_global.as_obj();
-            let msg_j = env.new_string(msg).expect("new string");
-            let msg_obj: JObject = msg_j.into();
-            let args = [JValue::Int(pct as jint), JValue::Object(&msg_obj)];
-            let _ = env.call_method(callback, "onProgress", "(ILjava/lang/String;)V", &args);
-        });
-        rootfs_fetch::ensure_wine_rootfs_with_progress(Some(progress_fn))
-    })
-    .join();
-
-    match result {
-        Ok(Ok(())) => 1,
-        Ok(Err(e)) => {
-            log::error!("downloadWineRootfs failed: {:?}", e);
-            0
-        }
-        Err(e) => {
-            log::error!("downloadWineRootfs thread panic: {:?}", e);
             0
         }
     }

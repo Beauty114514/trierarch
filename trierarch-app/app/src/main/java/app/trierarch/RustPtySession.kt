@@ -129,7 +129,6 @@ class RustPtySession(
             val rgb = when (TerminalSessionIds.namespaceOf(sessionId)) {
                 TerminalSessionIds.NS_ARCH -> intArrayOf(0x17, 0x93, 0xD1)
                 TerminalSessionIds.NS_DEBIAN -> intArrayOf(0xD7, 0x0A, 0x53)
-                TerminalSessionIds.NS_WINE -> intArrayOf(0x00, 0x4E, 0x8C)
                 else -> intArrayOf(0x17, 0x93, 0xD1)
             }
             val (r, g, b) = rgb

@@ -20,7 +20,6 @@ object TerminalSessionController {
         sessionIds = listOf(
             TerminalSessionIds.ARCH_TERMINAL,
             TerminalSessionIds.DEBIAN_TERMINAL,
-            TerminalSessionIds.WINE_TERMINAL,
         ),
         activeSessionId = TerminalSessionIds.ARCH_TERMINAL,
     )

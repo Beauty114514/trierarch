@@ -2,7 +2,7 @@ package app.trierarch
 
 /**
  * PTY sessions are keyed by a single `Int` in JNI; conceptually this is a **(namespace, slot)** grid:
- * - `[0][*]` Arch, `[1][*]` Wine, `[2][*]` Debian (same order as the in-app drawer tabs)
+ * - `[0][*]` Arch, `[2][*]` Debian (namespace `1` unused; legacy spacing)
  * - **slot 0** in each namespace is reserved for that environment’s headless “desktop / inject” session;
  *   **slot 1+** are interactive terminals
  *
@@ -12,7 +12,6 @@ object TerminalSessionIds {
     const val SESSION_STRIDE = 64
 
     const val NS_ARCH = 0
-    const val NS_WINE = 1
     const val NS_DEBIAN = 2
 
     const val SLOT_HEADLESS_DISPLAY = 0
@@ -24,11 +23,10 @@ object TerminalSessionIds {
     fun namespaceOf(nativeSessionId: Int): Int = nativeSessionId / SESSION_STRIDE
     fun slotOf(nativeSessionId: Int): Int = nativeSessionId % SESSION_STRIDE
 
-    /** Matches `jni_context::RootfsKind`: Arch=0, Debian=1, Wine=2 */
+    /** Matches `jni_context::RootfsKind`: Arch=0, Debian=1 */
     fun rootfsKindForNativeId(nativeSessionId: Int): Int = when (namespaceOf(nativeSessionId)) {
         NS_ARCH -> 0
         NS_DEBIAN -> 1
-        NS_WINE -> 2
         else -> 0
     }
 
@@ -37,7 +35,6 @@ object TerminalSessionIds {
         val slot = slotOf(nativeSessionId)
         val name = when (ns) {
             NS_ARCH -> "Arch"
-            NS_WINE -> "Wine"
             NS_DEBIAN -> "Debian"
             else -> "?"
         }
@@ -52,11 +49,9 @@ object TerminalSessionIds {
         line.substringAfterLast('·', "").trim().toIntOrNull()
 
     val ARCH_WAYLAND_DISPLAY: Int = nativeId(NS_ARCH, SLOT_HEADLESS_DISPLAY)
-    val WINE_HEADLESS_DISPLAY: Int = nativeId(NS_WINE, SLOT_HEADLESS_DISPLAY)
     val DEBIAN_X11_DISPLAY: Int = nativeId(NS_DEBIAN, SLOT_HEADLESS_DISPLAY)
 
     val ARCH_TERMINAL: Int = nativeId(NS_ARCH, SLOT_FIRST_INTERACTIVE)
-    val WINE_TERMINAL: Int = nativeId(NS_WINE, SLOT_FIRST_INTERACTIVE)
     val DEBIAN_TERMINAL: Int = nativeId(NS_DEBIAN, SLOT_FIRST_INTERACTIVE)
 
     val LEGACY_ARCH_X11_PTY: Int = nativeId(NS_ARCH, SLOT_LEGACY_ARCH_X11)

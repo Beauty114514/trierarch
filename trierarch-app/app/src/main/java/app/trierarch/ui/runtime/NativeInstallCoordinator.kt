@@ -3,11 +3,14 @@ package app.trierarch.ui.runtime
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import app.trierarch.NativeBridge
 import app.trierarch.ProgressCallback
 import app.trierarch.PulseAssets
 import app.trierarch.VirglAssets
 import app.trierarch.ui.prefs.AppPrefs
+import com.winlator.xenvironment.WineRootFsInstaller
 
 /**
  * Initializes the JNI/native layer, syncs bundled assets, and downloads rootfs payloads.
@@ -75,7 +78,7 @@ object NativeInstallCoordinator {
             ok = true,
             hasArchRootfs = NativeBridge.hasArchRootfs(),
             hasDebianRootfs = NativeBridge.hasDebianRootfs(),
-            hasWineRootfs = NativeBridge.hasWineRootfs(),
+            hasWineRootfs = WineRootFsInstaller.isWineReady(context),
             desktopModes = desktopModes,
         )
     }
@@ -92,35 +95,56 @@ object NativeInstallCoordinator {
     }
 
     suspend fun downloadMissingRootfsSequentially(
+        context: Context,
         onProgress: (pct: Int, msg: String) -> Unit,
     ): DownloadResult {
         return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            val archOk = if (!NativeBridge.hasArchRootfs()) {
-                NativeBridge.downloadArchRootfs(object : ProgressCallback {
-                    override fun onProgress(pct: Int, msg: String) = onProgress(pct, msg)
-                })
-            } else true
+            val mainHandler = Handler(Looper.getMainLooper())
+            fun postProgress(pct: Int, msg: String) {
+                mainHandler.post { onProgress(pct, msg) }
+            }
 
-            val debOk = if (archOk && !NativeBridge.hasDebianRootfs()) {
-                NativeBridge.downloadDebianRootfs(object : ProgressCallback {
-                    override fun onProgress(pct: Int, msg: String) = onProgress(pct, msg)
-                })
-            } else archOk
+            try {
+                val archOk = if (!NativeBridge.hasArchRootfs()) {
+                    NativeBridge.downloadArchRootfs(object : ProgressCallback {
+                        override fun onProgress(pct: Int, msg: String) = postProgress(pct, msg)
+                    })
+                } else true
 
-            val wineOk = if (debOk && !NativeBridge.hasWineRootfs()) {
-                NativeBridge.downloadWineRootfs(object : ProgressCallback {
-                    override fun onProgress(pct: Int, msg: String) = onProgress(pct, msg)
-                })
-            } else debOk
+                val debOk = if (archOk && !NativeBridge.hasDebianRootfs()) {
+                    NativeBridge.downloadDebianRootfs(object : ProgressCallback {
+                        override fun onProgress(pct: Int, msg: String) = postProgress(pct, msg)
+                    })
+                } else archOk
 
-            DownloadResult(
-                archOk = archOk,
-                debianOk = debOk,
-                wineOk = wineOk,
-                hasArchRootfs = NativeBridge.hasArchRootfs(),
-                hasDebianRootfs = NativeBridge.hasDebianRootfs(),
-                hasWineRootfs = NativeBridge.hasWineRootfs(),
-            )
+                val wineOk =
+                    if (debOk && !WineRootFsInstaller.isWineReady(context)) {
+                        WineRootFsInstaller.ensureInstalled(context) { pct, msg ->
+                            postProgress(pct, msg)
+                        }
+                    } else {
+                        debOk
+                    }
+
+                DownloadResult(
+                    archOk = archOk,
+                    debianOk = debOk,
+                    wineOk = wineOk,
+                    hasArchRootfs = NativeBridge.hasArchRootfs(),
+                    hasDebianRootfs = NativeBridge.hasDebianRootfs(),
+                    hasWineRootfs = WineRootFsInstaller.isWineReady(context),
+                )
+            } catch (t: Throwable) {
+                postProgress(0, "Setup crashed: ${t::class.java.simpleName}")
+                DownloadResult(
+                    archOk = false,
+                    debianOk = false,
+                    wineOk = false,
+                    hasArchRootfs = NativeBridge.hasArchRootfs(),
+                    hasDebianRootfs = NativeBridge.hasDebianRootfs(),
+                    hasWineRootfs = WineRootFsInstaller.isWineReady(context),
+                )
+            }
         }
     }
 

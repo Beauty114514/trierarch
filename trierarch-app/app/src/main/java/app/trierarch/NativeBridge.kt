@@ -14,12 +14,10 @@ object NativeBridge {
     external fun hasArchRootfs(): Boolean
 
     external fun hasDebianRootfs(): Boolean
-    external fun hasWineRootfs(): Boolean
 
     external fun downloadArchRootfs(callback: ProgressCallback): Boolean
 
     external fun downloadDebianRootfs(callback: ProgressCallback): Boolean
-    external fun downloadWineRootfs(callback: ProgressCallback): Boolean
 
     external fun spawnSession(sessionId: Int, rows: Int, cols: Int): Boolean
     external fun spawnSessionInRootfs(sessionId: Int, rows: Int, cols: Int, rootfsKind: Int): Boolean

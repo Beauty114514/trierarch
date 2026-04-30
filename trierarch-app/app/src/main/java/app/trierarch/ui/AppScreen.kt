@@ -2,18 +2,22 @@ package app.trierarch.ui
 
 import android.app.Activity
 import android.content.Intent
+import android.os.Build
 import android.os.Handler
+import androidx.activity.ComponentActivity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import android.os.Looper
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -25,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalContext
@@ -40,21 +45,19 @@ import app.trierarch.ui.dialog.MOUSE_MODE_TOUCHPAD
 import app.trierarch.ui.drawer.AppDrawer
 import app.trierarch.ui.drawer.pages.DrawerPagedHost
 import app.trierarch.ui.drawer.pages.ArchDrawerPage
-import app.trierarch.ui.drawer.pages.WineDrawerPage
+import app.trierarch.ui.drawer.pages.AndroidDrawerPage
 import app.trierarch.ui.drawer.pages.DebianDrawerPage
 import app.trierarch.ui.prefs.AppPrefs
 import app.trierarch.ui.runtime.DisplayOrchestrator
 import app.trierarch.ui.runtime.GraphicsModeController
+import app.trierarch.ui.runtime.MandatoryStartupStoragePermissionsEffect
 import app.trierarch.ui.runtime.NativeInstallCoordinator
+import app.trierarch.ui.runtime.StartupManageExternalPermissions
+import app.trierarch.ui.runtime.StartupStoragePermissions
 import app.trierarch.ui.runtime.TerminalSessionController
 import app.trierarch.ui.runtime.WaylandVisibilityCoordinator
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.ui.unit.dp
 import app.trierarch.ui.orb.FloatingMenuOrb
 import app.trierarch.ui.setup.InstallScreen
 import app.trierarch.ui.shell.ShellScreen
@@ -145,6 +148,52 @@ fun AppScreen(startInTerminal: Boolean = false) {
     }
     var terminalFontKey by remember { mutableStateOf(ShellFonts.DEFAULT_ID) }
     val prefs = remember(context) { context.getSharedPreferences("trierarch_prefs", 0) }
+    var storagePermissionOk by remember(context) {
+        mutableStateOf(StartupStoragePermissions.allGranted(context))
+    }
+    MandatoryStartupStoragePermissionsEffect(
+        onMandatoryGranted = { granted -> storagePermissionOk = granted },
+    )
+    /**
+     * Optional “All files access” step during startup only ([initialized] still false).
+     * Cleared after skip, return from settings, leaving app, or when access is already granted.
+     */
+    var optionalManageExternalInitHandled by remember { mutableStateOf(false) }
+    var expectingReturnFromManageAllFilesSettings by remember { mutableStateOf(false) }
+
+    DisposableEffect(context) {
+        val activity = context as? ComponentActivity
+        if (activity == null) {
+            return@DisposableEffect onDispose { }
+        }
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> {
+                    if (StartupManageExternalPermissions.isGranted(context)) {
+                        optionalManageExternalInitHandled = true
+                    }
+                    if (expectingReturnFromManageAllFilesSettings) {
+                        expectingReturnFromManageAllFilesSettings = false
+                        optionalManageExternalInitHandled = true
+                    }
+                }
+                Lifecycle.Event.ON_STOP -> {
+                    if (activity.isChangingConfigurations) return@LifecycleEventObserver
+                    if (initialized) return@LifecycleEventObserver
+                    if (!storagePermissionOk) return@LifecycleEventObserver
+                    if (optionalManageExternalInitHandled) return@LifecycleEventObserver
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return@LifecycleEventObserver
+                    if (StartupManageExternalPermissions.isGranted(context)) return@LifecycleEventObserver
+                    if (expectingReturnFromManageAllFilesSettings) return@LifecycleEventObserver
+                    optionalManageExternalInitHandled = true
+                }
+                else -> {}
+            }
+        }
+        activity.lifecycle.addObserver(observer)
+        onDispose { activity.lifecycle.removeObserver(observer) }
+    }
+
     var x11MouseMode by remember { mutableStateOf(EmbeddedX11Controller.MouseMode.TOUCHPAD) }
     var x11ResolutionModeLabel by remember { mutableStateOf(X11_MODE_LABEL_NATIVE) }
     var x11DisplayScale by remember { mutableStateOf(100) }
@@ -350,7 +399,15 @@ fun AppScreen(startInTerminal: Boolean = false) {
         X11OutputSettings.setResolutionCustom(context.applicationContext, wxh)
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(storagePermissionOk, optionalManageExternalInitHandled) {
+        if (!storagePermissionOk) return@LaunchedEffect
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+            !StartupManageExternalPermissions.isGranted(context) &&
+            !optionalManageExternalInitHandled
+        ) {
+            return@LaunchedEffect
+        }
+
         val r = NativeInstallCoordinator.initNativeAndSyncAssets(
             context = context,
             prefs = prefs,
@@ -382,9 +439,8 @@ fun AppScreen(startInTerminal: Boolean = false) {
         if ((!hasArchRootfs || !hasDebianRootfs || !hasWineRootfs) && !installDone && !downloadStarted) {
             downloadStarted = true
             scope.launch {
-                val mainHandler = Handler(Looper.getMainLooper())
-                val res = NativeInstallCoordinator.downloadMissingRootfsSequentially { pct, msg ->
-                    mainHandler.post { installProgress = pct to msg }
+                val res = NativeInstallCoordinator.downloadMissingRootfsSequentially(context) { pct, msg ->
+                    installProgress = pct to msg
                 }
                 withContext(Dispatchers.Main) {
                     hasArchRootfs = res.hasArchRootfs
@@ -392,8 +448,14 @@ fun AppScreen(startInTerminal: Boolean = false) {
                     hasWineRootfs = res.hasWineRootfs
                     if (res.allOk) {
                         installDone = true
+                        downloadStarted = false
                     } else {
-                        errorMsg = "Download failed"
+                        errorMsg = when {
+                            !res.archOk -> "Arch rootfs download failed"
+                            !res.debianOk -> "Debian rootfs download failed"
+                            !res.wineOk -> "Wine environment setup failed"
+                            else -> "Setup failed"
+                        }
                         downloadStarted = false
                     }
                 }
@@ -469,10 +531,50 @@ fun AppScreen(startInTerminal: Boolean = false) {
         return
     }
 
+    if (!storagePermissionOk) {
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black))
+        return
+    }
+
+    val waitingOptionalManageExternal =
+        storagePermissionOk &&
+            !initialized &&
+            !optionalManageExternalInitHandled &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+            !StartupManageExternalPermissions.isGranted(context)
+
     // Native init + asset sync can take a while; keep a plain black gap between system splash
     // and the shell / desktop (no loading spinner — matches desktopLaunchBlackout UX).
     if (!initialized) {
         Box(modifier = Modifier.fillMaxSize().background(Color.Black))
+        if (waitingOptionalManageExternal) {
+            AlertDialog(
+                onDismissRequest = { optionalManageExternalInitHandled = true },
+                properties = DialogProperties(dismissOnClickOutside = false),
+                title = { Text("All files access (recommended)") },
+                text = {
+                    Text(
+                        "Granting All files access can improve access to shared storage paths used by some features. " +
+                            "This is optional—you can continue without granting and use the app normally.",
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            expectingReturnFromManageAllFilesSettings = true
+                            StartupManageExternalPermissions.openAllFilesAccessSettings(context)
+                        },
+                    ) {
+                        Text("Open settings")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { optionalManageExternalInitHandled = true }) {
+                        Text("Continue without")
+                    }
+                },
+            )
+        }
         return
     }
 
@@ -549,18 +651,7 @@ fun AppScreen(startInTerminal: Boolean = false) {
                     )
                 },
                 androidContent = {
-                    WineDrawerPage(
-                        drawerState = drawerState,
-                        scope = scope,
-                        terminalSessionState = terminalSessionState,
-                        onTerminalSessionStateChange = { terminalSessionState = it },
-                        onEnterTerminal = { enterTerminal() },
-                        onExitDisplayModes = {
-                            uiMode = UiMode.TERMINAL
-                            waylandVisible = false
-                            pendingAutoShowWayland = false
-                        },
-                    )
+                    AndroidDrawerPage()
                 },
                 debianContent = {
                     DebianDrawerPage(
