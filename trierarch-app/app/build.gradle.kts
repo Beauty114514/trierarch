@@ -164,6 +164,9 @@ afterEvaluate {
 dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.preference:preference:1.2.1")
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
+    implementation("androidx.drawerlayout:drawerlayout:1.2.0")
+    implementation("com.google.android.material:material:1.12.0")
     // terminal-emulator artifact (VT + screen buffer); terminal-view sources live under com/termux/view/
     implementation("com.termux.termux-app:terminal-emulator:0.118.0")
     // ProfileInstaller + androidx.concurrent need a real ListenableFuture on the classpath; the "9999.0-empty"

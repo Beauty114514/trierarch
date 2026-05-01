@@ -2,6 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-feature
+        android:glEsVersion="0x00020000"
+        android:required="true" />
+
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -22,14 +26,16 @@
     <application
         android:name=".TrierarchApplication"
         android:allowBackup="true"
+        android:allowAudioPlaybackCapture="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
+        android:extractNativeLibs="true"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
+        android:requestLegacyExternalStorage="true"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Trierarch"
-        android:requestLegacyExternalStorage="true">
+        android:theme="@style/Theme.Trierarch">
         <activity
             android:name="com.termux.x11.LoriePreferences"
             android:exported="false"
@@ -47,6 +53,44 @@
             android:label="@string/x11_display_activity_label"
             android:theme="@style/AppTheme"
             android:windowSoftInputMode="stateHidden|adjustResize" />
+        <activity
+            android:name="com.winlator.MainActivity"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|density|navigation"
+            android:exported="false"
+            android:theme="@style/AppThemeDark" />
+
+        <activity
+            android:name="com.winlator.XServerDisplayActivity"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|density|navigation"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:screenOrientation="sensorLandscape"
+            android:supportsPictureInPicture="true"
+            android:theme="@style/AppThemeFullscreenDark" />
+
+        <activity
+            android:name="com.winlator.ControlsEditorActivity"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|density|navigation"
+            android:exported="false"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/AppThemeFullscreenDark" />
+
+        <activity
+            android:name="com.winlator.ExternalControllerBindingsActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|keyboardHidden"
+            android:exported="false"
+            android:theme="@style/AppThemeDark" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="app.trierarch.winlator.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

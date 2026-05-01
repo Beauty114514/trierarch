@@ -192,4 +192,3 @@ public class MSLogFont {
         return this;
     }
 }
-

@@ -80,7 +80,13 @@ public class WineRegistryEditor implements Closeable {
     }
 
     private static String escape(String str) {
+        if (str == null) return "";
         return str.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    /** Wine .reg: default value of a key uses {@code @=} instead of {@code "name"=}. */
+    private static String valueAssignmentPrefix(String name) {
+        return name != null ? "\"" + escape(name) + "\"" : "@";
     }
 
     private static String unescape(String str) {
@@ -272,7 +278,7 @@ public class WineRegistryEditor implements Closeable {
                 writer.write(buffer, 0, length);
             }
 
-            String content = "\""+escape(name)+"\"="+value;
+            String content = valueAssignmentPrefix(name) + "=" + value;
             if (valueLocation != null) {
                 writer.write(content);
                 //noinspection ResultOfMethodCallIgnored
@@ -330,6 +336,43 @@ public class WineRegistryEditor implements Closeable {
     }
 
     public void removeKey(String key) {
+        removeKeyExact(key);
+    }
+
+    /**
+     * When {@code removeTree} is true, removes the key and all subkeys (Wine registry sections whose path
+     * starts with {@code key + "\\"}), deepest first.
+     */
+    public boolean removeKey(String key, boolean removeTree) {
+        if (!removeTree) {
+            removeKeyExact(key);
+            return true;
+        }
+        ArrayList<String> toRemove = new ArrayList<>();
+        try (BufferedReader reader = new BufferedReader(new FileReader(cloneFile), StreamUtils.BUFFER_SIZE)) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.startsWith("[") && line.endsWith("]")) {
+                    String section = unescape(line.substring(1, line.length() - 1));
+                    if (section.equals(key) || section.startsWith(key + "\\")) {
+                        toRemove.add(section);
+                    }
+                }
+            }
+        }
+        catch (IOException e) {
+            return false;
+        }
+        toRemove.sort((a, b) -> Integer.compare(b.length(), a.length()));
+        boolean removed = false;
+        for (String k : toRemove) {
+            removeKeyExact(k);
+            removed = true;
+        }
+        return removed;
+    }
+
+    private void removeKeyExact(String key) {
         Location keyLocation = getKeyLocation(key);
         if (keyLocation == null) return;
 
@@ -364,7 +407,7 @@ public class WineRegistryEditor implements Closeable {
     }
 
     private void setRawValues(String key, String[][] items) {
-        Arrays.sort(items, Comparator.comparing(a -> a[0].toLowerCase(Locale.ENGLISH)));
+        Arrays.sort(items, Comparator.comparing(a -> a[0] == null ? "" : a[0].toLowerCase(Locale.ENGLISH)));
         Location keyLocation = getKeyLocation(key);
         if (keyLocation == null) {
             if (createKeyIfNotExist) {
@@ -393,10 +436,10 @@ public class WineRegistryEditor implements Closeable {
                 String value = item[1];
                 Location valueLocation = getValueLocation(keyLocation, name);
                 if (valueLocation == null) {
-                    writer.write("\n\"" + escape(name) + "\"=" + value);
+                    writer.write("\n" + valueAssignmentPrefix(name) + "=" + value);
                 }
                 else {
-                    writer.write("\n\"" + escape(name) + "\"=" + value);
+                    writer.write("\n" + valueAssignmentPrefix(name) + "=" + value);
                     //noinspection ResultOfMethodCallIgnored
                     reader.skip(valueLocation.length() + 1);
                 }
@@ -483,7 +526,7 @@ public class WineRegistryEditor implements Closeable {
         ArrayList<Location> locations = new ArrayList<>();
         int offset = 0;
         boolean success = false;
-        String escapedName = "\"" + escape(name) + "\"=";
+        String valueLinePrefix = valueAssignmentPrefix(name) + "=";
 
         try (BufferedReader reader = new BufferedReader(new FileReader(cloneFile), StreamUtils.BUFFER_SIZE)) {
             //noinspection ResultOfMethodCallIgnored
@@ -494,8 +537,8 @@ public class WineRegistryEditor implements Closeable {
             while ((line = reader.readLine()) != null) {
                 int length = line.length() + 1;
                 if (offset >= keyLocation.end) break;
-                if (line.startsWith(escapedName)) {
-                    int start = offset + escapedName.length();
+                if (line.startsWith(valueLinePrefix)) {
+                    int start = offset + valueLinePrefix.length();
                     int end = offset + line.length();
                     locations.add(new Location(offset, start, end));
                 }

@@ -1,6 +1,17 @@
 package com.winlator.win32;
+import app.trierarch.R;
+
+import android.content.Context;
+import android.widget.ArrayAdapter;
+import android.widget.Spinner;
 
 import androidx.annotation.NonNull;
+
+import com.winlator.container.Container;
+import com.winlator.core.WineRegistryEditor;
+
+import java.io.File;
+import java.util.concurrent.Executors;
 
 public abstract class WinVersions {
     public static final String DEFAULT_VERSION = "win10";
@@ -47,5 +58,49 @@ public abstract class WinVersions {
             new WinVersion("win2k", "Windows 2000", null, 5, 0, 2195, "Service Pack 4"),
         };
     }
-}
 
+    public static void loadSpinner(final Container container, final Spinner sWinVersion) {
+        final Context context = sWinVersion.getContext();
+        final WinVersions.WinVersion[] winVersions = WinVersions.getWinVersions();
+
+        byte oldPosition = 0;
+        for (int i = 0; i < winVersions.length; i++) {
+            if (winVersions[i].version.equals(WinVersions.DEFAULT_VERSION)) {
+                oldPosition = (byte)i;
+                break;
+            }
+        }
+
+        sWinVersion.setAdapter(new ArrayAdapter<>(context, android.R.layout.simple_spinner_dropdown_item, winVersions));
+        sWinVersion.setSelection(oldPosition);
+        sWinVersion.setTag(oldPosition);
+
+        if (container != null) {
+            final File systemRegFile = new File(container.getRootDir(), ".wine/system.reg");
+            if (!systemRegFile.isFile()) return;
+
+            sWinVersion.setEnabled(false);
+            Executors.newSingleThreadExecutor().execute(() -> {
+                byte position = (byte)sWinVersion.getSelectedItemPosition();
+                try (WineRegistryEditor registryEditor = new WineRegistryEditor(systemRegFile)) {
+                    String productName = registryEditor.getStringValue("Software\\Microsoft\\Windows NT\\CurrentVersion", "ProductName", "");
+                    productName = productName.replaceAll("(Microsoft )|( Pro)", "");
+
+                    for (int i = 0; i < winVersions.length; i++) {
+                        if (winVersions[i].description.equals(productName)) {
+                            position = (byte)i;
+                            break;
+                        }
+                    }
+                }
+
+                final byte newPosition = position;
+                sWinVersion.post(() -> {
+                    sWinVersion.setSelection(newPosition);
+                    sWinVersion.setTag(newPosition);
+                    sWinVersion.setEnabled(true);
+                });
+            });
+        }
+    }
+}

@@ -38,75 +38,37 @@ public abstract class Mathf {
     }
 
     public static float fract(float x) {
-        return x - (float)Math.floor(x);
+        return x - (int)Math.floor(x);
     }
 
-    public static int floorToInt(float x) {
-        return (int)Math.floor(x);
-    }
+    public static Rational farey(float x, float N) {
+        int a = 0;
+        int b = 1;
+        int c = 1;
+        int d = 0;
+        float mediant;
 
-    public static int ceilToInt(float x) {
-        return (int)Math.ceil(x);
-    }
-
-    public static int roundToInt(float x) {
-        return Math.round(x);
-    }
-
-    public static boolean isPowerOfTwo(int x) {
-        return (x & (x - 1)) == 0;
-    }
-
-    public static int nextPowerOfTwo(int x) {
-        x--;
-        x |= x >> 1;
-        x |= x >> 2;
-        x |= x >> 4;
-        x |= x >> 8;
-        x |= x >> 16;
-        return x + 1;
-    }
-
-    public static float lerp(float a, float b, float t) {
-        return a + (b - a) * t;
-    }
-
-    public static float inverseLerp(float a, float b, float x) {
-        return (x - a) / (b - a);
-    }
-
-    public static float angleLerp(float a, float b, float t) {
-        float delta = (float)((b - a) % (Math.PI * 2));
-        if (delta > Math.PI) delta -= Math.PI * 2;
-        if (delta < -Math.PI) delta += Math.PI * 2;
-        return a + delta * t;
-    }
-
-    public static float modulo(float x, float mod) {
-        return (x % mod + mod) % mod;
-    }
-
-    public static Rational toRational(float x, int maxDenominator) {
-        int sign = x < 0 ? -1 : 1;
-        x = Math.abs(x);
-        int a = (int)Math.floor(x);
-        int numerator0 = 1;
-        int denominator0 = 0;
-        int numerator1 = a;
-        int denominator1 = 1;
-        float frac = x - a;
-        while (Math.abs(x - (float)numerator1 / denominator1) > EPSILON && denominator1 < maxDenominator && frac > EPSILON) {
-            frac = 1 / frac;
-            a = (int)Math.floor(frac);
-            int numerator2 = a * numerator1 + numerator0;
-            int denominator2 = a * denominator1 + denominator0;
-            numerator0 = numerator1;
-            denominator0 = denominator1;
-            numerator1 = numerator2;
-            denominator1 = denominator2;
-            frac -= a;
+        while ((b <= N) && (d <= N)) {
+            mediant = (float)(a + c) / (b + d);
+            if (Math.abs(x - mediant) < EPSILON) {
+                if (b + d <= N) {
+                    return new Rational(a + c, b + d);
+                }
+                else if (d > b) {
+                    return new Rational(c, d);
+                }
+                else return new Rational(a, b);
+            }
+            else if (x > mediant) {
+                a = a + c;
+                b = b + d;
+            }
+            else {
+                c = a + c;
+                d = b + d;
+            }
         }
-        return new Rational(sign * numerator1, denominator1);
+
+        return b > N ? new Rational(c, d) : new Rational(a, b);
     }
 }
-

@@ -1,8 +1,8 @@
 package com.winlator.container;
 
 import android.content.Context;
-import android.os.Build;
 
+import com.winlator.core.GPUHelper;
 import com.winlator.core.KeyValueSet;
 
 public abstract class GraphicsDrivers {
@@ -11,7 +11,6 @@ public abstract class GraphicsDrivers {
     public static final String ZINK = "zink";
     public static final String VIRGL = "virgl";
     public static final String GLADIO = "gladio";
-
     public static final String DEFAULT_VULKAN_DRIVER = VORTEK;
     public static final String DEFAULT_OPENGL_DRIVER = GLADIO;
 
@@ -80,14 +79,6 @@ public abstract class GraphicsDrivers {
     }
 
     public static String getDefaultDriver(Context context) {
-        // Upstream uses GPUHelper.isAdreno(context) (native backed). For Trierarch we use a lightweight
-        // heuristic that matches the common case: Qualcomm/Adreno → Turnip, otherwise Vortek.
-        String hw = (Build.HARDWARE != null ? Build.HARDWARE : "").toLowerCase();
-        String board = (Build.BOARD != null ? Build.BOARD : "").toLowerCase();
-        String soc = (Build.SOC_MANUFACTURER != null ? Build.SOC_MANUFACTURER : "").toLowerCase();
-        boolean looksLikeQualcomm = hw.contains("qcom") || hw.contains("msm") || board.contains("qcom") || soc.contains("qualcomm");
-        String vulkan = looksLikeQualcomm ? TURNIP : VORTEK;
-        return vulkan + "," + DEFAULT_OPENGL_DRIVER;
+        return GPUHelper.isAdreno(context) ? GraphicsDrivers.TURNIP+","+GraphicsDrivers.DEFAULT_OPENGL_DRIVER : GraphicsDrivers.VORTEK+","+GraphicsDrivers.DEFAULT_OPENGL_DRIVER;
     }
 }
-

@@ -3,6 +3,7 @@ package com.winlator.container;
 import android.content.Context;
 import android.os.Handler;
 
+import app.trierarch.R;
 import com.winlator.core.Callback;
 import com.winlator.core.FileUtils;
 import com.winlator.core.TarCompressorUtils;
@@ -18,6 +19,7 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.concurrent.Executors;
 
 /**
@@ -220,7 +222,7 @@ public class ContainerManager {
 
         Container dstContainer = new Container(id);
         dstContainer.setRootDir(dstDir);
-        dstContainer.setName(srcContainer.getName() + " (copy)");
+        dstContainer.setName(srcContainer.getName() + " (" + context.getString(R.string.copy) + ")");
         dstContainer.setScreenSize(srcContainer.getScreenSize());
         dstContainer.setEnvVars(srcContainer.getEnvVars());
         dstContainer.setCPUList(srcContainer.getCPUList());
@@ -245,6 +247,66 @@ public class ContainerManager {
 
     private void removeContainer(Container container) {
         if (FileUtils.delete(container.getRootDir())) containers.remove(container);
+    }
+
+    public ArrayList<Shortcut> loadShortcuts(Shortcut selectedFolder) {
+        ArrayList<Shortcut> shortcuts = new ArrayList<>();
+
+        if (selectedFolder != null) {
+            File[] files = selectedFolder.file.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    if (file.getName().endsWith(".desktop") || file.isDirectory()) {
+                        shortcuts.add(new Shortcut(selectedFolder.container, file));
+                    }
+                }
+            }
+        }
+        else {
+            for (Container container : containers) {
+                File desktopDir = new File(container.getUserDir(), "Desktop");
+                File[] files = desktopDir.listFiles();
+                if (files != null) {
+                    for (File file : files) {
+                        if (file.getName().endsWith(".desktop") || file.isDirectory()) {
+                            shortcuts.add(new Shortcut(container, file));
+                        }
+                    }
+                }
+            }
+        }
+
+        shortcuts.sort((a, b) -> {
+            int value = Boolean.compare(b.file.isDirectory(), a.file.isDirectory());
+            if (value == 0) value = a.name.compareTo(b.name);
+            return value;
+        });
+        return shortcuts;
+    }
+
+    public ArrayList<FileInfo> loadFiles(Container container, FileInfo parent) {
+        ArrayList<FileInfo> fileInfos = new ArrayList<>();
+
+        if (parent != null) {
+            fileInfos = parent.list();
+        }
+        else {
+            String rootPath = container.getRootDir().getPath();
+            fileInfos.add(new FileInfo(container, "C:", rootPath + "/.wine/drive_c", FileInfo.Type.DRIVE));
+            for (Drive drive : container.drivesIterator()) {
+                fileInfos.add(new FileInfo(container, drive.letter + ":", drive.path, FileInfo.Type.DRIVE));
+            }
+
+            File userDir = container.getUserDir();
+            File documentsDir = new File(userDir, "Documents");
+            File favoritesDir = new File(userDir, "Favorites");
+
+            fileInfos.add(new FileInfo(container, documentsDir.getName(), documentsDir.getPath(), FileInfo.Type.DIRECTORY));
+            fileInfos.add(new FileInfo(container, favoritesDir.getName(), favoritesDir.getPath(), FileInfo.Type.DIRECTORY));
+
+            Collections.sort(fileInfos);
+        }
+        return fileInfos;
     }
 
     public int getNextContainerId() {

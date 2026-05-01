@@ -90,4 +90,3 @@ public class WineInfo implements Parcelable {
         return wineVersion == null ||wineVersion.equals(MAIN_WINE_INFO.identifier());
     }
 }
-

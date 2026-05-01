@@ -1,5 +1,6 @@
 package app.trierarch.ui.containers
 
+import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.winlator.XServerDisplayActivity
 import com.winlator.container.ContainerManager
 import com.winlator.core.FileUtils
 import org.json.JSONObject
@@ -130,6 +132,16 @@ fun ContainersScreen(
                                         expanded = rowMenuOpen,
                                         onDismissRequest = { rowMenuOpen = false },
                                     ) {
+                                        DropdownMenuItem(
+                                            text = { Text("Run") },
+                                            onClick = {
+                                                rowMenuOpen = false
+                                                context.startActivity(
+                                                    Intent(context, XServerDisplayActivity::class.java)
+                                                        .putExtra("container_id", c.id),
+                                                )
+                                            },
+                                        )
                                         DropdownMenuItem(
                                             text = { Text("Edit") },
                                             onClick = {
