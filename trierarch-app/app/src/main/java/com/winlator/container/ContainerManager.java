@@ -5,6 +5,7 @@ import android.os.Handler;
 
 import app.trierarch.R;
 import com.winlator.core.Callback;
+import com.winlator.core.EnvVars;
 import com.winlator.core.FileUtils;
 import com.winlator.core.TarCompressorUtils;
 import com.winlator.core.WineInfo;
@@ -79,7 +80,12 @@ public class ContainerManager {
                     continue;
                 }
                 JSONObject data = new JSONObject(raw);
+                String rawEnvVars = data.optString("envVars", "");
                 container.loadData(data);
+                // Rewrite .container on disk if envVars contained TMPDIR/TMP/TEMP from another app (e.g. Winlator).
+                if (data.has("envVars") && !rawEnvVars.equals(container.getEnvVars())) {
+                    container.saveData();
+                }
             }
             catch (Throwable e) {
                 // Legacy: plain-text name only; rewrite as JSON.

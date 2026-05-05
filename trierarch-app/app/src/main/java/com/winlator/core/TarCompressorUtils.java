@@ -173,7 +173,23 @@ public abstract class TarCompressorUtils {
                     }
                 }
 
-                FileUtils.chmod(file, 0771);
+                // Patchelf-repacked tzst may record mode 0; kernel exec needs +x on box64 and PT_INTERP (ld-linux).
+                if (!entry.isSymbolicLink()) {
+                    int modeBits = entry.getMode() & 07777;
+                    if (modeBits == 0) {
+                        if (entry.isDirectory()) {
+                            modeBits = 0755;
+                        }
+                        else {
+                            String name = entry.getName();
+                            boolean likelyExecutable = name.contains("/bin/")
+                                || name.contains("ld-linux")
+                                || name.contains("/sbin/");
+                            modeBits = likelyExecutable ? 0755 : 0644;
+                        }
+                    }
+                    FileUtils.chmod(file, modeBits);
+                }
             }
             return true;
         }

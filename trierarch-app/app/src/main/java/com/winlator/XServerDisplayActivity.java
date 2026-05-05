@@ -48,6 +48,7 @@ import com.winlator.contentdialog.WineD3DConfigDialog;
 import com.winlator.core.AppUtils;
 import com.winlator.core.DefaultVersion;
 import com.winlator.core.EnvVars;
+import com.winlator.core.GPUHelper;
 import com.winlator.core.FileUtils;
 import com.winlator.core.GeneralComponents;
 import com.winlator.core.KeyValueSet;
@@ -99,6 +100,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.concurrent.Executors;
@@ -539,6 +542,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
 
             envVars.putAll(container.getEnvVars());
             if (shortcut != null) envVars.putAll(shortcut.getExtra("envVars"));
+            applyGraphicsDriverEnvVars();
             if (!envVars.has("WINEESYNC")) envVars.put("WINEESYNC", "1");
 
             guestProgramLauncherComponent.setBox64Preset(shortcut != null ? shortcut.getExtra("box64Preset", container.getBox64Preset()) : container.getBox64Preset());
@@ -641,6 +645,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
             frameRating.setMode(FrameRating.Mode.values()[container.getHUDMode()]);
             frameRating.setVisibility(View.GONE);
             rootView.addView(frameRating);
+            frameRating.setGPUInfo(buildHudGpuFallbackLabel());
         }
 
         if (shortcut != null) {
@@ -747,9 +752,38 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         inputControlsView.invalidate();
     }
 
-    private void extractGraphicsDriverFiles() {
+    /** Vulkan/OpenGL driver env must win over serialized container/shortcut env. */
+    private void applyGraphicsDriverEnvVars() {
+        if (graphicsDriver == null || graphicsDriver.length < 2 || graphicsDriverConfig == null || graphicsDriverConfig.length < 2) return;
+
         envVars.put("vblank_mode", "0");
 
+        File rootDir = rootFS.getRootDir();
+
+        if (graphicsDriver[0].equals(GraphicsDrivers.TURNIP)) {
+            envVars.put("MESA_VK_WSI_PRESENT_MODE", "mailbox");
+            TurnipConfigDialog.setEnvVars(this, graphicsDriverConfig[0], envVars);
+        }
+
+        switch (graphicsDriver[1]) {
+            case GraphicsDrivers.ZINK:
+                envVars.put("GALLIUM_DRIVER", "zink");
+                envVars.put("ZINK_CONTEXT_THREADED", "1");
+                if (graphicsDriver[0].equals(GraphicsDrivers.VORTEK)) envVars.put("MESA_GL_VERSION_OVERRIDE", "3.3");
+                break;
+            case GraphicsDrivers.VIRGL:
+                envVars.put("GALLIUM_DRIVER", "virpipe");
+                envVars.put("VIRGL_NO_READBACK", "true");
+                envVars.put("VIRGL_SERVER_PATH", rootDir+UnixSocketConfig.VIRGL_SERVER_PATH);
+                VirGLConfigDialog.setEnvVars(graphicsDriverConfig[1], envVars);
+                break;
+            case GraphicsDrivers.GLADIO:
+                envVars.put("GLADIO_NO_ERROR", "1");
+                break;
+        }
+    }
+
+    private void extractGraphicsDriverFiles() {
         String cacheId = "";
         if (graphicsDriver[0].equals(GraphicsDrivers.TURNIP)) {
             cacheId += graphicsDriver[0]+"-"+graphicsDriverConfig[0].get("version", DefaultVersion.TURNIP);
@@ -775,9 +809,6 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         }
 
         if (graphicsDriver[0].equals(GraphicsDrivers.TURNIP)) {
-            envVars.put("MESA_VK_WSI_PRESENT_MODE", "mailbox");
-            TurnipConfigDialog.setEnvVars(this, graphicsDriverConfig[0], envVars);
-
             if (changed) {
                 String version = graphicsDriverConfig[0].get("version", DefaultVersion.TURNIP);
                 GeneralComponents.extractFile(GeneralComponents.Type.TURNIP, this, version, DefaultVersion.TURNIP);
@@ -789,23 +820,12 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
 
         switch (graphicsDriver[1]) {
             case GraphicsDrivers.ZINK:
-                envVars.put("GALLIUM_DRIVER", "zink");
-                envVars.put("ZINK_CONTEXT_THREADED", "1");
-                if (graphicsDriver[0].equals(GraphicsDrivers.VORTEK)) envVars.put("MESA_GL_VERSION_OVERRIDE", "3.3");
-
                 if (changed) TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, this, "graphics_driver/zink-"+DefaultVersion.ZINK+".tzst", rootDir);
                 break;
             case GraphicsDrivers.VIRGL:
-                envVars.put("GALLIUM_DRIVER", "virpipe");
-                envVars.put("VIRGL_NO_READBACK", "true");
-                envVars.put("VIRGL_SERVER_PATH", rootDir+UnixSocketConfig.VIRGL_SERVER_PATH);
-                VirGLConfigDialog.setEnvVars(graphicsDriverConfig[1], envVars);
-
                 if (changed) TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, this, "graphics_driver/virgl-"+DefaultVersion.VIRGL+".tzst", rootDir);
                 break;
             case GraphicsDrivers.GLADIO:
-                envVars.put("GLADIO_NO_ERROR", "1");
-
                 if (changed || MainActivity.DEBUG_MODE) TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, this, "graphics_driver/gladio-"+DefaultVersion.GLADIO+".tzst", rootDir);
                 break;
         }
@@ -1108,6 +1128,64 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         SettingsFragment.resetBox64Version(this);
     }
 
+    /**
+     * Wine may omit {@code _NET_WM_GPU_INFO}; raw {@link ByteBuffer} must not use {@code array()} alone (UTF-8 / NUL).
+     */
+    private static String decodeNetWmGpuInfo(Property gpuInfo) {
+        if (gpuInfo == null || gpuInfo.data == null) return "";
+        try {
+            String typeName = Atom.getName(gpuInfo.type);
+            if ("UTF8_STRING".equals(typeName) || "STRING".equals(typeName)) {
+                return gpuInfo.toString().trim();
+            }
+        }
+        catch (Throwable ignored) {}
+        ByteBuffer bb = gpuInfo.data.duplicate();
+        bb.rewind();
+        int n = bb.remaining();
+        if (n <= 0) return "";
+        byte[] arr = new byte[n];
+        bb.get(arr);
+        String s = new String(arr, StandardCharsets.UTF_8);
+        int z = s.indexOf('\0');
+        if (z >= 0) s = s.substring(0, z);
+        return s.trim();
+    }
+
+    /** GLES vendor/renderer + container Vulkan/OpenGL driver ids when guest does not publish GPU text. */
+    private String buildHudGpuFallbackLabel() {
+        String vendor = GPUHelper.glGetVendor(this);
+        String renderer = GPUHelper.glGetRenderer(this);
+        String vkName = "";
+        String glName = "";
+        if (graphicsDriver != null && graphicsDriver.length > 0) {
+            vkName = GraphicsDrivers.getName(graphicsDriver[0].trim());
+        }
+        if (graphicsDriver != null && graphicsDriver.length > 1) {
+            glName = GraphicsDrivers.getName(graphicsDriver[1].trim());
+        }
+        StringBuilder stack = new StringBuilder();
+        if (vkName != null && !vkName.isEmpty() && !"None".equals(vkName)) {
+            stack.append(vkName);
+        }
+        if (glName != null && !glName.isEmpty() && !"None".equals(glName)) {
+            if (stack.length() > 0) stack.append(" · ");
+            stack.append(glName);
+        }
+        StringBuilder hw = new StringBuilder();
+        if (vendor != null && !vendor.isEmpty()) hw.append(vendor);
+        if (renderer != null && !renderer.isEmpty()) {
+            if (hw.length() > 0) hw.append(" · ");
+            hw.append(renderer);
+        }
+        if (hw.length() > 0 && stack.length() > 0) {
+            return hw + " · " + stack;
+        }
+        if (hw.length() > 0) return hw.toString();
+        if (stack.length() > 0) return stack.toString();
+        return "—";
+    }
+
     private void changeFrameRatingVisibility(Window window, boolean visible) {
         if (frameRating == null) return;
         if (visible) {
@@ -1115,9 +1193,15 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
             boolean viewable = window.attributes.isMapped() && window.getWidth() >= ScreenInfo.MIN_WIDTH && window.getHeight() >= ScreenInfo.MIN_HEIGHT;
             if (viewable && (window.isSurface() || (child != null && child.isSurface()))) {
                 Window frameRatingWindow = window.isSurface() ? window : child;
-                if (frameRating.getMode() == FrameRating.Mode.FULL) {
+                FrameRating.Mode hudMode = frameRating.getMode();
+                if (hudMode == FrameRating.Mode.FULL) {
                     Property gpuInfo = frameRatingWindow.getProperty(Atom._NET_WM_GPU_INFO);
-                    frameRating.setGPUInfo(gpuInfo != null ? new String(gpuInfo.data.array()) : "N/A");
+                    String text = decodeNetWmGpuInfo(gpuInfo);
+                    if (text.isEmpty()) text = buildHudGpuFallbackLabel();
+                    frameRating.setGPUInfo(text);
+                }
+                else if (hudMode == FrameRating.Mode.SIMPLE) {
+                    frameRating.setGPUInfo(buildHudGpuFallbackLabel());
                 }
                 frameRatingWindowId = frameRatingWindow.id;
                 frameRating.reset();

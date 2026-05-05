@@ -73,7 +73,8 @@
                 android:text="0"
                 android:textColor="#ffffff"
                 android:includeFontPadding="false"
-                android:maxLines="1" />
+                android:maxLines="2"
+                android:ellipsize="end" />
         </LinearLayout>
 
         <LinearLayout

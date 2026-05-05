@@ -3,6 +3,8 @@ package com.winlator.xenvironment.components;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Process;
+import android.system.ErrnoException;
+import android.system.Os;
 import android.util.Log;
 
 import androidx.preference.PreferenceManager;
@@ -43,6 +45,7 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
             extractBox64File();
             Log.i(TRIERARCH_WINLATOR_LOG, "GuestProgramLauncher: copyDefaultBox64RCFile");
             copyDefaultBox64RCFile();
+            ensureGuestProgramExecutable();
             pid = execGuestProgram();
             Log.i(TRIERARCH_WINLATOR_LOG, "GuestProgramLauncher: execGuestProgram returned pid=" + pid);
         }
@@ -100,14 +103,16 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
 
         envVars.put("HOME", rootDir+RootFS.HOME_PATH);
         envVars.put("USER", RootFS.USER);
+        // winlator-app: TMPDIR = rootDir + "/tmp" (same path as getTmpDir()).
         envVars.put("TMPDIR", rootDir+"/tmp");
         envVars.put("DISPLAY", ":0");
         envVars.put("PATH", rootDir+rootFS.getWinePath()+"/bin:"+rootDir+"/usr/local/bin:"+rootDir+"/usr/bin");
-        envVars.put("LD_LIBRARY_PATH", rootFS.getLibDir().getPath());
+        envVars.put("LD_LIBRARY_PATH", rootFS.getGuestLdLibraryPath());
         envVars.put("BOX64_LD_LIBRARY_PATH", rootDir+"/lib/x86_64-linux-gnu");
         envVars.put("ANDROID_SYSVSHM_SERVER", rootDir+UnixSocketConfig.SYSVSHM_SERVER_PATH);
 
-        if (this.envVars != null) envVars.putAll(this.envVars);
+        // Activity merges container + shortcut env; strip persisted TMPDIR/TMP/TEMP (see EnvVars javadoc).
+        if (this.envVars != null) envVars.putAll(EnvVars.copyWithoutEphemeralTmpKeys(this.envVars));
 
         File shmDir = new File(rootDir, "/tmp/shm");
         if (!shmDir.isDirectory()) shmDir.mkdirs();
@@ -122,7 +127,29 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
                 pid = -1;
             }
             if (terminationCallback != null) terminationCallback.call(status);
-        });
+        }, true);
+    }
+
+    /**
+     * Ensure aarch64 loader and box64 are executable. Execve fails with EACCES (error=13) if PT_INTERP or the main
+     * binary is not +x — common when archive entries have zero mode after repack.
+     */
+    private void ensureGuestProgramExecutable() {
+        RootFS rootFS = environment.getRootFS();
+        File rootDir = rootFS.getRootDir();
+        File[] critical = new File[]{
+            new File(rootDir, "usr/local/bin/box64"),
+            new File(rootDir, "lib/ld-linux-aarch64.so.1"),
+        };
+        for (File f : critical) {
+            if (!f.isFile()) continue;
+            try {
+                Os.chmod(f.getAbsolutePath(), 0755);
+            }
+            catch (ErrnoException e) {
+                Log.e(TRIERARCH_WINLATOR_LOG, "ensureGuestProgramExecutable: chmod 755 failed: " + f.getAbsolutePath(), e);
+            }
+        }
     }
 
     private void extractBox64File() {

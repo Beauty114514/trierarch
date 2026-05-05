@@ -44,7 +44,8 @@ import java.util.TimerTask;
 
 public abstract class AppUtils {
     public static final String DIRECTORY_DOWNLOADS = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getPath();
-    public static final String INTERNAL_STORAGE = "/data/data/com.winlator/storage";
+    /** App-private "storage" folder used for drive E: (see {@link com.winlator.container.Container#DEFAULT_DRIVES}). */
+    public static final String INTERNAL_STORAGE = "/data/data/app.trierarch/storage";
     private static WeakReference<Toast> globalToastReference = null;
 
     public static class RestartApplicationOptions {

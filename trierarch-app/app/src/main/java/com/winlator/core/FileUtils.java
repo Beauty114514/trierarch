@@ -8,6 +8,7 @@ import android.os.Environment;
 import android.os.StatFs;
 import android.system.ErrnoException;
 import android.system.Os;
+import android.util.Log;
 
 import androidx.core.content.FileProvider;
 
@@ -261,10 +262,22 @@ public abstract class FileUtils {
     }
 
     public static void chmod(File file, int mode) {
+        chmod(file, mode, null);
+    }
+
+    /**
+     * Apply unix permission bits via {@link Os#chmod}. Prefer logging failures — silent chmod breaks execve (EACCES)
+     * when extracted archives omit modes (e.g. repacked rootfs).
+     */
+    public static void chmod(File file, int mode, String logTag) {
         try {
             Os.chmod(file.getAbsolutePath(), mode);
         }
-        catch (ErrnoException e) {}
+        catch (ErrnoException e) {
+            if (logTag != null) {
+                Log.w(logTag, "chmod " + Integer.toOctalString(mode) + " failed: " + file.getAbsolutePath(), e);
+            }
+        }
     }
 
     public static File createTempFile(File parent, String prefix) {

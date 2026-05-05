@@ -46,14 +46,21 @@ public abstract class GraphicsDrivers {
     public static String[] parseIdentifiers(String graphicsDriver) {
         if (graphicsDriver == null || graphicsDriver.isEmpty()) return new String[]{DEFAULT_VULKAN_DRIVER, DEFAULT_OPENGL_DRIVER};
         if (graphicsDriver.contains(",")) {
-            return graphicsDriver.split(",");
+            String[] parts = graphicsDriver.split(",", 2);
+            String first = parts[0].trim();
+            String second = parts.length > 1 ? parts[1].trim() : "";
+            if (first.isEmpty()) first = DEFAULT_VULKAN_DRIVER;
+            if (second.isEmpty()) second = DEFAULT_OPENGL_DRIVER;
+            return new String[]{first, second};
         }
         else {
-            if (isVulkanDriver(graphicsDriver)) {
-                return new String[]{graphicsDriver, DEFAULT_OPENGL_DRIVER};
+            String id = graphicsDriver.trim();
+            if (id.isEmpty()) return new String[]{DEFAULT_VULKAN_DRIVER, DEFAULT_OPENGL_DRIVER};
+            if (isVulkanDriver(id)) {
+                return new String[]{id, DEFAULT_OPENGL_DRIVER};
             }
-            else if (isOpenGLDriver(graphicsDriver)) {
-                return new String[]{DEFAULT_VULKAN_DRIVER, graphicsDriver};
+            else if (isOpenGLDriver(id)) {
+                return new String[]{DEFAULT_VULKAN_DRIVER, id};
             }
             else return new String[]{DEFAULT_VULKAN_DRIVER, DEFAULT_OPENGL_DRIVER};
         }
@@ -68,13 +75,18 @@ public abstract class GraphicsDrivers {
             return new KeyValueSet[]{new KeyValueSet(first), new KeyValueSet(second)};
         }
         else {
-            if (isVulkanDriver(graphicsDriver)) {
-                return new KeyValueSet[]{new KeyValueSet(graphicsDriverConfig), new KeyValueSet()};
+            // Single segment: applies to the lone Vulkan or OpenGL choice (upstream). Combined "vk,gl"
+            // must use "|" — see parseIdentifiers.
+            String[] ids = parseIdentifiers(graphicsDriver);
+            if (!graphicsDriver.contains(",")) {
+                if (isVulkanDriver(ids[0]) && ids[1].equals(DEFAULT_OPENGL_DRIVER)) {
+                    return new KeyValueSet[]{new KeyValueSet(graphicsDriverConfig), new KeyValueSet()};
+                }
+                else if (isOpenGLDriver(ids[1]) && ids[0].equals(DEFAULT_VULKAN_DRIVER)) {
+                    return new KeyValueSet[]{new KeyValueSet(), new KeyValueSet(graphicsDriverConfig)};
+                }
             }
-            else if (isOpenGLDriver(graphicsDriver)) {
-                return new KeyValueSet[]{new KeyValueSet(), new KeyValueSet(graphicsDriverConfig)};
-            }
-            else return new KeyValueSet[]{new KeyValueSet(), new KeyValueSet()};
+            return new KeyValueSet[]{new KeyValueSet(), new KeyValueSet()};
         }
     }
 

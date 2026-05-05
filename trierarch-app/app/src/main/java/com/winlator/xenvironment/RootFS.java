@@ -8,6 +8,7 @@ import com.winlator.core.FileUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Locale;
 
 public class RootFS {
@@ -98,6 +99,30 @@ public class RootFS {
 
     public File getLibDir() {
         return new File(rootDir, "/usr/lib");
+    }
+
+    /**
+     * Guest {@code LD_LIBRARY_PATH} for box64/Wine.
+     * <p><b>winlator-app</b> sets only {@link #getLibDir()} ({@code usr/lib}). Some tarballs place Mesa
+     * ({@code libEGL.so.1}, etc.) only under multiarch dirs; we prepend those when present so behavior matches
+     * upstream releases where those libs already live in {@code usr/lib} (often via symlinks in the shipped tzst).
+     * Order: multiarch first, then {@code usr/lib} as in Debian loader defaults.</p>
+     */
+    @NonNull
+    public String getGuestLdLibraryPath() {
+        ArrayList<String> parts = new ArrayList<>(6);
+        String[] relativeDirs = {
+            "usr/lib/aarch64-linux-gnu",
+            "lib/aarch64-linux-gnu",
+            "usr/lib/arm-linux-gnueabihf",
+            "lib/arm-linux-gnueabihf",
+        };
+        for (String rel : relativeDirs) {
+            File d = new File(rootDir, rel);
+            if (d.isDirectory()) parts.add(d.getAbsolutePath());
+        }
+        parts.add(getLibDir().getAbsolutePath());
+        return String.join(":", parts);
     }
 
     @NonNull

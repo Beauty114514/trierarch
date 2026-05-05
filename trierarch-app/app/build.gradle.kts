@@ -17,12 +17,13 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "app.trierarch"
+    // Keep targetSdk 28 (aligned with upstream Winlator runtime); compileSdk must satisfy androidx.core etc. (often ≥36).
     compileSdk = 36
 
     defaultConfig {
         applicationId = "app.trierarch"
         minSdk = 26
-        targetSdk = 36
+        targetSdk = 28
         buildConfigField("String", "COMMIT", "\"trierarch-embedded-x11\"")
         // versionName: user-visible, align with git tag / Release (e.g. v0.1.0 → "0.1.0").
         // versionCode: positive integer, must increase for every new APK you ship (Play / sideload).

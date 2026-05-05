@@ -8,6 +8,36 @@ import java.util.LinkedHashMap;
 public class EnvVars implements Iterable<String> {
     private final LinkedHashMap<String, String> data = new LinkedHashMap<>();
 
+    /** TMP/TMPDIR/TEMP/WINE_TMPDIR: merged from serialized container env they can override launcher defaults. */
+    private static final String[] EPHEMERAL_TMP_KEYS = {
+        "TMPDIR", "TMP", "TEMP", "WINE_TMPDIR",
+    };
+
+    /** Serialized envVars string with ephemeral tmp keys removed (for {@link com.winlator.container.Container} load/save). */
+    public static String stripEphemeralTmpKeysFromSerialized(String spaceSeparatedEnv) {
+        if (spaceSeparatedEnv == null || spaceSeparatedEnv.isEmpty()) return "";
+        EnvVars ev = new EnvVars(spaceSeparatedEnv);
+        for (String k : EPHEMERAL_TMP_KEYS) ev.remove(k);
+        return ev.toString();
+    }
+
+    /** Copy without tmp overrides so guest launch can apply RootFS tmp after merge. */
+    public static EnvVars copyWithoutEphemeralTmpKeys(EnvVars src) {
+        if (src == null || src.isEmpty()) return new EnvVars();
+        EnvVars out = new EnvVars();
+        for (String name : src) {
+            boolean drop = false;
+            for (String k : EPHEMERAL_TMP_KEYS) {
+                if (k.equals(name)) {
+                    drop = true;
+                    break;
+                }
+            }
+            if (!drop) out.put(name, src.get(name));
+        }
+        return out;
+    }
+
     public EnvVars() {}
 
     public EnvVars(String values) {

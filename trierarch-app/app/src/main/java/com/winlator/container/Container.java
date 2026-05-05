@@ -76,7 +76,7 @@ public class Container {
     }
 
     public void setEnvVars(String envVars) {
-        this.envVars = envVars != null ? envVars : "";
+        this.envVars = EnvVars.stripEphemeralTmpKeysFromSerialized(envVars != null ? envVars : "");
     }
 
     public String getGraphicsDriver() {
