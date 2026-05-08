@@ -25,6 +25,7 @@
 
     <application
         android:name=".TrierarchApplication"
+        android:appCategory="game"
         android:allowBackup="true"
         android:allowAudioPlaybackCapture="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
