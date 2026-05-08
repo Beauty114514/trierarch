@@ -50,6 +50,7 @@ import com.winlator.box64.Box64Preset
 import com.winlator.container.Container
 import com.winlator.container.DXWrappers
 import com.winlator.container.GraphicsDrivers
+import com.winlator.core.DefaultVersion
 import com.winlator.win32.WinVersions
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -206,9 +207,26 @@ fun CreateContainerRoute(
         data.put("cpuList", buildCpuListString(cpuChecked.value))
         data.put("cpuListWoW64", buildCpuListString(cpuCheckedWoW64.value))
         data.put("graphicsDriver", "${vulkanDriver.trim()},${openGLDriver.trim()}")
-        data.put("graphicsDriverConfig", "${vulkanDriverConfig.trim()}|${openGLDriverConfig.trim()}")
+        val normalizedVulkanGraphicsCfg =
+            if (vulkanDriverConfig.trim().isEmpty() && openGLDriverConfig.trim().isNotEmpty()) {
+                // Keep the config string well-formed (avoid leading '|') so future parsing/caching logic can rely on
+                // the Vulkan segment existing when the OpenGL segment is present.
+                // Use the selected Vulkan driver's bundled version as a minimal, stable default.
+                "version=" + DefaultVersion.valueOf(vulkanDriver.trim())
+            } else {
+                vulkanDriverConfig.trim()
+            }
+        data.put("graphicsDriverConfig", "${normalizedVulkanGraphicsCfg}|${openGLDriverConfig.trim()}")
         data.put("dxwrapper", direct3DWrapper.trim())
-        data.put("dxwrapperConfig", "${direct3DWrapperConfig.trim()}|${directX12WrapperConfig.trim()}")
+        val normalizedDxvkCfg =
+            if (direct3DWrapper.trim() == DXWrappers.DXVK && direct3DWrapperConfig.trim().isEmpty()) {
+                // Avoid "|vkd3d=..." (DXVK segment empty) which makes DXVK appear "inactive" until the user opens
+                // the DXVK config dialog once. Keep minimal defaults; advanced options live in the config dialog.
+                "version=" + DefaultVersion.DXVK(vulkanDriver.trim())
+            } else {
+                direct3DWrapperConfig.trim()
+            }
+        data.put("dxwrapperConfig", "${normalizedDxvkCfg}|${directX12WrapperConfig.trim()}")
         data.put("audioDriver", audioDriver.trim())
         data.put("audioDriverConfig", audioDriverConfig.trim())
         data.put("wincomponents", buildWinComponentsString())

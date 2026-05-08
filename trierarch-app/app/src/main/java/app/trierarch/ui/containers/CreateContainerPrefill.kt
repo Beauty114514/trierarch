@@ -282,6 +282,15 @@ internal fun mergePrefillContainerIdentity(prefill: JSONObject?, data: JSONObjec
     if (prefill.has("id")) {
         data.put("id", prefill.getInt("id"))
     }
+    // Preserve cached fingerprints and version markers (extraData) when editing.
+    // Upstream Winlator edits the existing Container object; our Compose flow rebuilds JSON, so we must carry this over.
+    if (prefill.has("extraData")) {
+        try {
+            data.put("extraData", prefill.getJSONObject("extraData"))
+        } catch (_: Throwable) {
+            // Ignore malformed extraData; container code will re-populate as needed.
+        }
+    }
     if (prefill.has("wineVersion")) {
         val v = prefill.getString("wineVersion")
         if (v.isNotEmpty() && !WineInfo.isMainWineVersion(v)) {
