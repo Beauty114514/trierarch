@@ -11,7 +11,7 @@ import android.widget.Spinner;
 import androidx.preference.PreferenceManager;
 
 import app.trierarch.R;
-import com.winlator.XServerDisplayActivity;
+import com.winlator.WinlatorHost;
 import com.winlator.core.AppUtils;
 import com.winlator.core.KeyValueSet;
 import com.winlator.renderer.GLRenderer;
@@ -24,7 +24,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 
 public class ScreenEffectDialog extends ContentDialog {
-    private final XServerDisplayActivity activity;
+    private final WinlatorHost host;
     private final SharedPreferences preferences;
     private final Spinner sProfile;
     private final SeekBar sbBrightness;
@@ -33,15 +33,15 @@ public class ScreenEffectDialog extends ContentDialog {
     private final CheckBox cbEnableFXAA;
     private final CheckBox cbEnableCRTShader;
 
-    public ScreenEffectDialog(XServerDisplayActivity activity) {
-        super(activity, R.layout.screen_effect_dialog);
-        this.activity = activity;
+    public ScreenEffectDialog(WinlatorHost host) {
+        super(host.getContext(), R.layout.screen_effect_dialog);
+        this.host = host;
         setTitle(R.string.screen_effect);
         setIcon(R.drawable.icon_screen_effect);
 
-        preferences = PreferenceManager.getDefaultSharedPreferences(activity);
+        preferences = PreferenceManager.getDefaultSharedPreferences(host.getContext());
 
-        GLRenderer renderer = activity.getXServerView().getRenderer();
+        GLRenderer renderer = host.getXServerView().getRenderer();
         ColorEffect currentColorEffect = renderer.effectComposer.getEffect(ColorEffect.class);
         final ColorEffect colorEffect = currentColorEffect != null ? currentColorEffect : new ColorEffect();
         final FXAAEffect fxaaEffect = renderer.effectComposer.getEffect(FXAAEffect.class);
@@ -71,19 +71,19 @@ public class ScreenEffectDialog extends ContentDialog {
             public void onNothingSelected(AdapterView<?> parent) {}
         });
 
-        loadProfileSpinner(sProfile, activity.getScreenEffectProfile());
-        findViewById(R.id.BTAddProfile).setOnClickListener((v) -> ContentDialog.prompt(activity, R.string.profile_name, null, (name) -> {
+        loadProfileSpinner(sProfile, host.getScreenEffectProfile());
+        findViewById(R.id.BTAddProfile).setOnClickListener((v) -> ContentDialog.prompt(host.getContext(), R.string.profile_name, null, (name) -> {
             addProfile(name, sProfile);
         }));
 
         findViewById(R.id.BTRemoveProfile).setOnClickListener((v) -> {
             String selectedProfile = sProfile.getSelectedItemPosition() > 0 ? sProfile.getSelectedItem().toString() : null;
             if (selectedProfile != null) {
-                ContentDialog.confirm(activity, R.string.do_you_want_to_remove_this_profile, () -> {
+                ContentDialog.confirm(host.getContext(), R.string.do_you_want_to_remove_this_profile, () -> {
                     removeProfile(selectedProfile, sProfile);
                 });
             }
-            else AppUtils.showToast(activity, R.string.no_profile_selected);
+            else AppUtils.showToast(host.getContext(), R.string.no_profile_selected);
         });
 
         setOnConfirmCallback(() -> {
@@ -148,7 +148,7 @@ public class ScreenEffectDialog extends ContentDialog {
             preferences.edit().putStringSet("screen_effect_profiles", newProfiles).apply();
         }
 
-        activity.setScreenEffectProfile(selectedProfile);
+        host.setScreenEffectProfile(selectedProfile);
     }
 
     private void loadProfile(String name) {
@@ -199,7 +199,7 @@ public class ScreenEffectDialog extends ContentDialog {
         LinkedHashSet<String> profiles = new LinkedHashSet<>(preferences.getStringSet("screen_effect_profiles", new LinkedHashSet<>()));
         ArrayList<String> items = new ArrayList<>();
 
-        items.add("-- "+activity.getString(R.string.select_profile)+" --");
+        items.add("-- "+host.getContext().getString(R.string.select_profile)+" --");
         int selectedPosition = 0;
         int position = 1;
         for (String profile : profiles) {
@@ -209,7 +209,7 @@ public class ScreenEffectDialog extends ContentDialog {
             position++;
         }
 
-        sProfile.setAdapter(new ArrayAdapter<>(activity, android.R.layout.simple_spinner_dropdown_item, items));
+        sProfile.setAdapter(new ArrayAdapter<>(host.getContext(), android.R.layout.simple_spinner_dropdown_item, items));
         sProfile.setSelection(selectedPosition);
     }
 }

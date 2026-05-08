@@ -1,6 +1,6 @@
 package com.winlator.core;
 
-import com.winlator.XServerDisplayActivity;
+import com.winlator.WinlatorHost;
 import com.winlator.container.Container;
 import com.winlator.container.DXWrappers;
 import com.winlator.winhandler.WinHandler;
@@ -12,7 +12,7 @@ import java.util.Locale;
 public class Win32AppWorkarounds {
     private final short taskAffinityMask;
     private final short taskAffinityMaskWoW64;
-    private final XServerDisplayActivity activity;
+    private final WinlatorHost host;
 
     private interface Workaround {}
 
@@ -44,27 +44,26 @@ public class Win32AppWorkarounds {
         void setValue(KeyValueSet wincomponents);
     }
 
-    public Win32AppWorkarounds(XServerDisplayActivity activity) {
-        this.activity = activity;
-        Container container = activity.getContainer();
+    public Win32AppWorkarounds(WinlatorHost host, Container container) {
+        this.host = host;
         taskAffinityMask = (short)ProcessHelper.getAffinityMask(container.getCPUList(true));
         taskAffinityMaskWoW64 = (short)ProcessHelper.getAffinityMask(container.getCPUListWoW64(true));
     }
 
     private void applyWorkaround(Workaround workaround) {
         if (workaround instanceof EnvVarsWorkaround) {
-            ((EnvVarsWorkaround)workaround).apply(activity.getOverrideEnvVars());
+            ((EnvVarsWorkaround)workaround).apply(host.getOverrideEnvVars());
         }
         else if (workaround instanceof ScreenSizeWorkaround) {
-            activity.setScreenInfo(new ScreenInfo(((ScreenSizeWorkaround)workaround).getValue()));
+            host.setScreenInfo(new ScreenInfo(((ScreenSizeWorkaround)workaround).getValue()));
         }
         else if (workaround instanceof DXWrapperWorkaround) {
-            activity.setDXWrapper(((DXWrapperWorkaround)workaround).getValue());
+            host.setDXWrapper(((DXWrapperWorkaround)workaround).getValue());
         }
         else if (workaround instanceof WinComponentsWorkaround) {
             KeyValueSet wincomponents = new KeyValueSet(Container.DEFAULT_WINCOMPONENTS);
             ((WinComponentsWorkaround)workaround).setValue(wincomponents);
-            activity.setWinComponents(wincomponents.toString());
+            host.setWinComponents(wincomponents.toString());
         }
     }
 
@@ -81,15 +80,15 @@ public class Win32AppWorkarounds {
     private void setProcessAffinity(Window window, int processAffinity) {
         int processId = window.getProcessId();
         String className = window.getClassName();
-        WinHandler winHandler = activity.getWinHandler();
+        WinHandler winHandler = host.getWinHandler();
 
         if (className.equals("steam.exe")) return;
 
         if (processId > 0) {
-            winHandler.setProcessAffinity(processId, processAffinity);
+            if (winHandler != null) winHandler.setProcessAffinity(processId, processAffinity);
         }
         else if (!className.isEmpty()) {
-            winHandler.setProcessAffinity(window.getClassName(), processAffinity);
+            if (winHandler != null) winHandler.setProcessAffinity(window.getClassName(), processAffinity);
         }
     }
 
@@ -134,8 +133,8 @@ public class Win32AppWorkarounds {
             case "fate.exe":
                 return (ScreenSizeWorkaround) () -> "1024x768";
             case "ffxii_tza.exe":
-                ScreenInfo screenInfo = activity.getScreenInfo();
-                return (ScreenSizeWorkaround) () -> (screenInfo.width+4)+"x"+(screenInfo.height+4);
+                ScreenInfo screenInfo = host.getXServer() != null ? host.getXServer().screenInfo : null;
+                return (ScreenSizeWorkaround) () -> screenInfo != null ? (screenInfo.width + 4) + "x" + (screenInfo.height + 4) : "1280x720";
             case "chronocross_launcher.exe":
                 return (WindowWorkaround) (window) -> window.attributes.setTransparent(true);
             case "dino.exe":

@@ -19,7 +19,7 @@ import android.widget.PopupMenu;
 import android.widget.TextView;
 
 import app.trierarch.R;
-import com.winlator.XServerDisplayActivity;
+import com.winlator.WinlatorHost;
 import com.winlator.contentdialog.ContentDialog;
 import com.winlator.core.BatteryUtils;
 import com.winlator.core.CPUStatus;
@@ -37,7 +37,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 public class TaskManagerDialog extends ContentDialog implements OnGetProcessInfoListener {
-    private final XServerDisplayActivity activity;
+    private final WinlatorHost host;
     private final LayoutInflater inflater;
     private Timer timer;
     private final Object lock = new Object();
@@ -84,9 +84,9 @@ public class TaskManagerDialog extends ContentDialog implements OnGetProcessInfo
         }
     }
 
-    public TaskManagerDialog(XServerDisplayActivity activity) {
-        super(activity, R.layout.task_manager_dialog);
-        this.activity = activity;
+    public TaskManagerDialog(WinlatorHost host) {
+        super(host.getContext(), R.layout.task_manager_dialog);
+        this.host = host;
         setCancelable(false);
         setTitle(R.string.task_manager);
         setIcon(R.drawable.icon_task_manager);
@@ -95,21 +95,25 @@ public class TaskManagerDialog extends ContentDialog implements OnGetProcessInfo
         cancelButton.setText(R.string.new_task);
         cancelButton.setOnClickListener((v) -> {
             dismiss();
-            ContentDialog.prompt(activity, R.string.new_task, "taskmgr.exe", (command) -> activity.getWinHandler().exec(command));
+            ContentDialog.prompt(host.getContext(), R.string.new_task, "taskmgr.exe", (command) -> {
+                if (host.getXServer() != null && host.getXServer().getWinHandler() != null) host.getXServer().getWinHandler().exec(command);
+            });
         });
 
         setOnDismissListener((dialog) -> {
-            if (batteryReceiver != null) activity.unregisterReceiver(batteryReceiver);
+            if (batteryReceiver != null) host.getContext().unregisterReceiver(batteryReceiver);
 
             if (timer != null) {
                 timer.cancel();
                 timer = null;
             }
 
-            activity.getWinHandler().setOnGetProcessInfoListener(null);
+            if (host.getXServer() != null && host.getXServer().getWinHandler() != null) {
+                host.getXServer().getWinHandler().setOnGetProcessInfoListener(null);
+            }
         });
 
-        inflater = LayoutInflater.from(activity);
+        inflater = LayoutInflater.from(host.getContext());
 
         batteryReceiver = new BroadcastReceiver() {
             @Override
@@ -130,7 +134,7 @@ public class TaskManagerDialog extends ContentDialog implements OnGetProcessInfo
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(Intent.ACTION_BATTERY_CHANGED);
-        activity.registerReceiver(batteryReceiver, filter);
+        host.getContext().registerReceiver(batteryReceiver, filter);
 
         cpuPanel = createPanel(2);
         cpuPanel.setIconAt(0, R.drawable.icon_cpu);
@@ -171,7 +175,7 @@ public class TaskManagerDialog extends ContentDialog implements OnGetProcessInfo
 
     private void update() {
         synchronized (lock) {
-            activity.getWinHandler().listProcesses();
+            if (host.getXServer() != null && host.getXServer().getWinHandler() != null) host.getXServer().getWinHandler().listProcesses();
 
             final LinearLayout container = findViewById(R.id.LLProcessList);
             if (container.getChildCount() == 0) findViewById(R.id.TVEmptyText).setVisibility(View.VISIBLE);
@@ -183,13 +187,13 @@ public class TaskManagerDialog extends ContentDialog implements OnGetProcessInfo
     }
 
     private void showListItemMenu(final View anchorView, final ProcessInfo processInfo) {
-        PopupMenu listItemMenu = new PopupMenu(activity, anchorView);
+        PopupMenu listItemMenu = new PopupMenu(host.getContext(), anchorView);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) listItemMenu.setForceShowIcon(true);
 
         listItemMenu.inflate(R.menu.process_popup_menu);
         listItemMenu.setOnMenuItemClickListener((menuItem) -> {
             int itemId = menuItem.getItemId();
-            final WinHandler winHandler = activity.getWinHandler();
+            final WinHandler winHandler = host.getXServer() != null ? host.getXServer().getWinHandler() : null;
             if (itemId == R.id.menu_item_process_affinity) {
                 showProcessorAffinityDialog(processInfo);
             }
@@ -198,7 +202,7 @@ public class TaskManagerDialog extends ContentDialog implements OnGetProcessInfo
                 dismiss();
             }
             else if (itemId == R.id.menu_item_end_process) {
-                ContentDialog.confirm(activity, R.string.do_you_want_to_end_this_process, () -> {
+                ContentDialog.confirm(host.getContext(), R.string.do_you_want_to_end_this_process, () -> {
                     winHandler.killProcess(null, processInfo.pid);
                 });
             }
@@ -208,13 +212,13 @@ public class TaskManagerDialog extends ContentDialog implements OnGetProcessInfo
     }
 
     private void showProcessorAffinityDialog(final ProcessInfo processInfo) {
-        ContentDialog dialog = new ContentDialog(activity, R.layout.cpu_list_dialog);
+        ContentDialog dialog = new ContentDialog(host.getContext(), R.layout.cpu_list_dialog);
         dialog.setTitle(processInfo.name);
         dialog.setIcon(R.drawable.icon_cpu);
         final CPUListView cpuListView = dialog.findViewById(R.id.CPUListView);
         cpuListView.setCheckedCPUList(processInfo.getCPUList());
         dialog.setOnConfirmCallback(() -> {
-            WinHandler winHandler = activity.getWinHandler();
+            WinHandler winHandler = host.getXServer() != null ? host.getXServer().getWinHandler() : null;
             winHandler.setProcessAffinity(processInfo.pid, ProcessHelper.getAffinityMask(cpuListView.getCheckedCPUList()));
             update();
         });
@@ -224,13 +228,13 @@ public class TaskManagerDialog extends ContentDialog implements OnGetProcessInfo
     @Override
     public void show() {
         update();
-        activity.getWinHandler().setOnGetProcessInfoListener(this);
+        if (host.getXServer() != null && host.getXServer().getWinHandler() != null) host.getXServer().getWinHandler().setOnGetProcessInfoListener(this);
 
         timer = new Timer();
         timer.schedule(new TimerTask() {
             @Override
             public void run() {
-                activity.runOnUiThread(TaskManagerDialog.this::update);
+                host.runOnUiThread(TaskManagerDialog.this::update);
             }
         }, 0, 1000);
         super.show();
@@ -238,10 +242,10 @@ public class TaskManagerDialog extends ContentDialog implements OnGetProcessInfo
 
     @Override
     public void onGetProcessInfo(int index, int numProcesses, ProcessInfo processInfo) {
-        activity.runOnUiThread(() -> {
+        host.runOnUiThread(() -> {
             synchronized (lock) {
                 final LinearLayout container = findViewById(R.id.LLProcessList);
-                setBottomBarText(activity.getString(R.string.processes)+": " + numProcesses);
+                setBottomBarText(host.getContext().getString(R.string.processes)+": " + numProcesses);
 
                 if (numProcesses == 0) {
                     container.removeAllViews();
@@ -258,7 +262,7 @@ public class TaskManagerDialog extends ContentDialog implements OnGetProcessInfo
                 ((TextView)itemView.findViewById(R.id.TVMemoryUsage)).setText(processInfo.getFormattedMemoryUsage());
                 itemView.findViewById(R.id.BTMenu).setOnClickListener((v) -> showListItemMenu(v, processInfo));
 
-                XServer xServer = activity.getXServer();
+                XServer xServer = host.getXServer();
                 Window window;
 
                 try (XLock xlock = xServer.lock(XServer.Lockable.WINDOW_MANAGER)) {
@@ -308,29 +312,29 @@ public class TaskManagerDialog extends ContentDialog implements OnGetProcessInfo
     }
 
     private void updateMemoryPanel() {
-        ActivityManager activityManager = (ActivityManager)activity.getSystemService(Context.ACTIVITY_SERVICE);
+        ActivityManager activityManager = (ActivityManager)host.getContext().getSystemService(Context.ACTIVITY_SERVICE);
         ActivityManager.MemoryInfo memoryInfo = new ActivityManager.MemoryInfo();
         activityManager.getMemoryInfo(memoryInfo);
         long usedMem = memoryInfo.totalMem - memoryInfo.availMem;
         byte memUsagePercent = (byte)(((double)usedMem / memoryInfo.totalMem) * 100.0f);
 
-        memoryPanel.setTitle(activity.getString(R.string.memory)+" ("+memUsagePercent+"%)");
+        memoryPanel.setTitle(host.getContext().getString(R.string.memory)+" ("+memUsagePercent+"%)");
         memoryPanel.setTextAt(0, StringUtils.formatBytes(usedMem, false)+"/"+StringUtils.formatBytes(memoryInfo.totalMem));
     }
 
     private void updateBatteryPanel() {
-        int currentMicroamperes = BatteryUtils.getCurrentMicroamperes(activity);
+        int currentMicroamperes = BatteryUtils.getCurrentMicroamperes(host.getActivity());
 
-        batteryPanel.setTitle(activity.getString(R.string.battery)+" ("+batteryInfo.level+"%)");
+        batteryPanel.setTitle(host.getContext().getString(R.string.battery)+" ("+batteryInfo.level+"%)");
         batteryPanel.setTextAt(0, String.format(Locale.ENGLISH, "%.2f", BatteryUtils.computePower(currentMicroamperes, batteryInfo.voltage))+" W");
         batteryPanel.setTextAt(1, batteryInfo.temperature+"ºC");
 
         ArrayList<String> popupMenuItems = new ArrayList<>();
-        popupMenuItems.add(activity.getString(R.string.voltage)+": "+String.format(Locale.ENGLISH, "%.2f", batteryInfo.voltage)+" V");
-        popupMenuItems.add(activity.getString(R.string.current)+": "+(currentMicroamperes / 1000)+" mA");
+        popupMenuItems.add(host.getContext().getString(R.string.voltage)+": "+String.format(Locale.ENGLISH, "%.2f", batteryInfo.voltage)+" V");
+        popupMenuItems.add(host.getContext().getString(R.string.current)+": "+(currentMicroamperes / 1000)+" mA");
 
-        int capacity = BatteryUtils.getCapacity(activity);
-        if (capacity > 0) popupMenuItems.add(activity.getString(R.string.capacity)+": "+capacity+" mAh");
+        int capacity = BatteryUtils.getCapacity(host.getActivity());
+        if (capacity > 0) popupMenuItems.add(host.getContext().getString(R.string.capacity)+": "+capacity+" mAh");
 
         batteryPanel.setPopupMenuItems(popupMenuItems);
     }

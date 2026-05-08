@@ -3,7 +3,7 @@ package com.winlator.winhandler;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 
-import com.winlator.XServerDisplayActivity;
+import com.winlator.WinlatorHost;
 import com.winlator.core.DefaultVersion;
 import com.winlator.core.FileUtils;
 import com.winlator.core.GeneralComponents;
@@ -35,12 +35,12 @@ public class WinHandler {
     private boolean running = false;
     private OnGetProcessInfoListener onGetProcessInfoListener;
     private InetAddress localhost;
-    protected final XServerDisplayActivity activity;
+    protected final WinlatorHost host;
     private MIDIHandler midiHandler;
     public final GamepadHandler gamepadHandler = new GamepadHandler(this);
 
-    public WinHandler(XServerDisplayActivity activity) {
-        this.activity = activity;
+    public WinHandler(WinlatorHost host) {
+        this.host = host;
     }
 
     protected boolean sendPacket(int port) {
@@ -312,17 +312,17 @@ public class WinHandler {
             case RequestCodes.CURSOR_POS_FEEDBACK: {
                 short x = receiveData.getShort();
                 short y = receiveData.getShort();
-                XServer xServer = activity.getXServer();
+                XServer xServer = host.getXServer();
                 xServer.pointer.setX(x);
                 xServer.pointer.setY(y);
-                activity.getXServerView().requestRender();
+                if (host.getXServerView() != null) host.getXServerView().requestRender();
                 break;
             }
             case RequestCodes.OPEN_URL: {
                 int requestLength = receiveData.getInt();
                 byte[] data = new byte[requestLength];
                 socket.receive(new DatagramPacket(data, data.length));
-                FileUtils.openIntent(activity, new String(data));
+                FileUtils.openIntent(host.getActivity(), new String(data));
                 break;
             }
             case RequestCodes.MIDI_OPEN: {
@@ -331,8 +331,8 @@ public class WinHandler {
                 if (isMidiOut) {
                     midiHandler.open(() -> {
                         if (midiHandler.init()) {
-                            String soundfont = activity.getPreferences().getString("soundfont", DefaultVersion.SOUNDFONT);
-                            midiHandler.loadSoundFont(GeneralComponents.getDefinitivePath(GeneralComponents.Type.SOUNDFONT, activity, soundfont));
+                            String soundfont = host.getPreferences().getString("soundfont", DefaultVersion.SOUNDFONT);
+                            midiHandler.loadSoundFont(GeneralComponents.getDefinitivePath(GeneralComponents.Type.SOUNDFONT, host.getContext(), soundfont));
                         }
                     });
                 }

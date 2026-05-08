@@ -33,6 +33,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
 import app.trierarch.NativeBridge
 import app.trierarch.PtyOutputRelay
 import app.trierarch.X11Runtime
@@ -64,6 +65,7 @@ import app.trierarch.ui.setup.InstallScreen
 import app.trierarch.ui.shell.ShellScreen
 import app.trierarch.wayland.WaylandSurfaceView
 import app.trierarch.ui.x11.EmbeddedX11Surface
+import com.winlator.EmbeddedWinlatorController
 import com.termux.x11.EmbeddedX11Controller
 import com.termux.x11.X11OutputSettings
 import java.io.File
@@ -100,7 +102,7 @@ private fun x11ResolutionModeInternalForLabel(label: String): String = when (lab
 
 private val X11_CUSTOM_RESOLUTION_PATTERN: Pattern = Pattern.compile("^\\s*(\\d{2,4})\\s*x\\s*(\\d{2,4})\\s*\$")
 
-private enum class UiMode { TERMINAL, ARCH_WAYLAND_DESKTOP, DEBIAN_X11_DESKTOP, CONTAINERS }
+private enum class UiMode { TERMINAL, ARCH_WAYLAND_DESKTOP, DEBIAN_X11_DESKTOP, CONTAINERS, WINLATOR }
 
 @Composable
 fun AppScreen(startInTerminal: Boolean = false) {
@@ -127,6 +129,9 @@ fun AppScreen(startInTerminal: Boolean = false) {
     var waylandVisible by remember { mutableStateOf(false) }
     val showWayland = waylandVisible && uiMode == UiMode.ARCH_WAYLAND_DESKTOP
     val showX11 = uiMode == UiMode.DEBIAN_X11_DESKTOP
+    val showWinlator = uiMode == UiMode.WINLATOR
+    var winlatorContainerId by remember { mutableIntStateOf(-1) }
+    var winlatorController by remember { mutableStateOf<EmbeddedWinlatorController?>(null) }
     var settingsOpen by remember { mutableStateOf(false) }
     var waylandScriptEditorOpen by remember { mutableStateOf(false) }
     var x11ScriptEditorOpen by remember { mutableStateOf(false) }
@@ -703,6 +708,10 @@ fun AppScreen(startInTerminal: Boolean = false) {
                     modifier = Modifier
                         .fillMaxSize()
                         .zIndex(0f),
+                    onRunContainer = { id ->
+                        winlatorContainerId = id
+                        uiMode = UiMode.WINLATOR
+                    },
                 )
             }
             else {
@@ -754,6 +763,22 @@ fun AppScreen(startInTerminal: Boolean = false) {
                         .zIndex(1.6f),
                 )
             }
+            if (showWinlator && winlatorContainerId > 0) {
+                AndroidView(
+                    factory = { ctx ->
+                        val activity = ctx as? Activity
+                            ?: error("Embedded Winlator requires Activity context")
+                        val host = androidx.appcompat.widget.ContentFrameLayout(ctx)
+                        val controller = EmbeddedWinlatorController(activity, host)
+                        controller.start(winlatorContainerId)
+                        winlatorController = controller
+                        host
+                    },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .zIndex(1.7f),
+                )
+            }
         }
         FloatingMenuOrb(
             prefs = prefs,
@@ -767,5 +792,13 @@ fun AppScreen(startInTerminal: Boolean = false) {
                 .graphicsLayer { clip = false }
         )
         // Script editors now live in the drawer (Compose), no glass dialog.
+    }
+
+    LaunchedEffect(uiMode) {
+        if (uiMode != UiMode.WINLATOR) {
+            winlatorController?.stop()
+            winlatorController = null
+            winlatorContainerId = -1
+        }
     }
 }

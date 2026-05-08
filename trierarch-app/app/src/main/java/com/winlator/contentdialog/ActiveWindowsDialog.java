@@ -10,7 +10,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import app.trierarch.R;
-import com.winlator.XServerDisplayActivity;
+import com.winlator.WinlatorHost;
 import com.winlator.core.ImageUtils;
 import com.winlator.core.UnitUtils;
 import com.winlator.renderer.GLRenderer;
@@ -22,11 +22,11 @@ import com.winlator.xserver.XServer;
 import java.util.ArrayList;
 
 public class ActiveWindowsDialog extends ContentDialog {
-    private final XServerDisplayActivity activity;
+    private final WinlatorHost host;
 
-    public ActiveWindowsDialog(XServerDisplayActivity activity) {
-        super(activity, R.layout.active_windows_dialog);
-        this.activity = activity;
+    public ActiveWindowsDialog(WinlatorHost host) {
+        super(host.getContext(), R.layout.active_windows_dialog);
+        this.host = host;
         setCancelable(false);
         setTitle(R.string.active_windows);
         setIcon(R.drawable.icon_active_windows);
@@ -35,7 +35,7 @@ public class ActiveWindowsDialog extends ContentDialog {
         showDesktopButton.setVisibility(View.VISIBLE);
         showDesktopButton.setText(R.string.show_desktop);
         showDesktopButton.setOnClickListener((v) -> {
-            activity.getWinHandler().showDesktop();
+            if (host.getXServer() != null && host.getXServer().getWinHandler() != null) host.getXServer().getWinHandler().showDesktop();
             dismiss();
         });
 
@@ -49,12 +49,12 @@ public class ActiveWindowsDialog extends ContentDialog {
             return;
         }
 
-        XServer xServer = activity.getXServer();
+        XServer xServer = host.getXServer();
         LinearLayout llWindowList = findViewById(R.id.LLWindowList);
         llWindowList.removeAllViews();
         GLRenderer renderer = xServer.getRenderer();
 
-        LayoutInflater inflater = LayoutInflater.from(activity);
+        LayoutInflater inflater = LayoutInflater.from(host.getContext());
         float iconSize = UnitUtils.dpToPx(24);
         int imageHeight = (int)UnitUtils.dpToPx(116);
 
@@ -92,7 +92,9 @@ public class ActiveWindowsDialog extends ContentDialog {
             }
 
             ivWindow.setOnClickListener((v) -> {
-                activity.getWinHandler().bringToFront(window.getClassName(), window.getHandle());
+                if (host.getXServer() != null && host.getXServer().getWinHandler() != null) {
+                    host.getXServer().getWinHandler().bringToFront(window.getClassName(), window.getHandle());
+                }
                 dismiss();
             });
 
@@ -103,7 +105,7 @@ public class ActiveWindowsDialog extends ContentDialog {
     private void collectActiveWindows(Window window, ArrayList<Window> result) {
         if (!window.isRenderable()) return;
 
-        XServer xServer = activity.getXServer();
+        XServer xServer = host.getXServer();
         if ((window != xServer.windowManager.rootWindow && !window.isDesktopWindow() && !window.getName().isEmpty()) || window.isSurface()) {
             result.add(window);
         }
@@ -114,7 +116,7 @@ public class ActiveWindowsDialog extends ContentDialog {
     }
 
     private ArrayList<Window> collectActiveWindows() {
-        XServer xServer = activity.getXServer();
+        XServer xServer = host.getXServer();
         ArrayList<Window> result = new ArrayList<>();
 
         try (XLock lock = xServer.lock(XServer.Lockable.WINDOW_MANAGER, XServer.Lockable.DRAWABLE_MANAGER)) {

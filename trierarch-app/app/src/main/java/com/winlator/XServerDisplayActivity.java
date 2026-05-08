@@ -106,7 +106,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.concurrent.Executors;
 
-public class XServerDisplayActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener {
+public class XServerDisplayActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener, WinlatorHost {
     private static final String TRIERARCH_WINLATOR_LOG = "Trierarch-Winlator";
     private XServerView xServerView;
     private InputControlsView inputControlsView;
@@ -199,7 +199,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
                 return;
             }
 
-            win32AppWorkarounds = new Win32AppWorkarounds(this);
+            win32AppWorkarounds = new Win32AppWorkarounds(this, container);
 
             String wineVersion = container.getWineVersion();
             wineInfo = WineInfo.fromIdentifier(this, wineVersion);
@@ -450,6 +450,18 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
 
     public SharedPreferences getPreferences() {
         return preferences;
+    }
+
+    // WinlatorHost methods are already provided by existing getters below.
+
+    @Override
+    public Context getContext() {
+        return this;
+    }
+
+    @Override
+    public Activity getActivity() {
+        return this;
     }
 
     private void exit() {
@@ -1098,6 +1110,8 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
     public void setScreenEffectProfile(String screenEffectProfile) {
         this.screenEffectProfile = screenEffectProfile;
     }
+
+    // (WinlatorHost) implemented via existing public getters above.
 
     private void changeWineAudioDriver() {
         if (!audioDriver.equals(container.getExtra("audioDriver"))) {

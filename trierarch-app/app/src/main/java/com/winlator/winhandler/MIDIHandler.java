@@ -58,10 +58,10 @@ public class MIDIHandler {
     }
 
     public void outputPortConnect() {
-        String selectedDevice = winHandler.activity.getPreferences().getString("midi_input_device", "auto");
+        String selectedDevice = winHandler.host.getPreferences().getString("midi_input_device", "auto");
         if (selectedDevice.equals("none")) return;
 
-        MidiManager mm = (MidiManager)winHandler.activity.getSystemService(Context.MIDI_SERVICE);
+        MidiManager mm = (MidiManager)winHandler.host.getContext().getSystemService(Context.MIDI_SERVICE);
         MidiDeviceInfo[] infos = mm.getDevices();
 
         for (MidiDeviceInfo info : infos) {

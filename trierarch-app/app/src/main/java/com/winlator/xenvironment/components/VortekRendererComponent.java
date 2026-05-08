@@ -75,7 +75,7 @@ public class VortekRendererComponent extends EnvironmentComponent implements Con
         this.socketConfig = socketConfig;
         this.options = options;
 
-        String nativeLibraryDir = xServer.activity.getApplicationInfo().nativeLibraryDir;
+        String nativeLibraryDir = xServer.host.getContext().getApplicationInfo().nativeLibraryDir;
         initVulkanWrapper(nativeLibraryDir, options.libvulkanPath);
     }
 

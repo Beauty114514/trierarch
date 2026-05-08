@@ -50,14 +50,14 @@ public class GamepadHandler {
 
     private void updateGamepadSlots() {
         if (gamepadPlayerConfigs == null) {
-            SharedPreferences preferences = winHandler.activity.getPreferences();
+            SharedPreferences preferences = winHandler.host.getPreferences();
             gamepadPlayerConfigs = new GamepadPlayerConfig[GAMEPAD_MAX_COUNT];
             for (byte i = 0; i < GAMEPAD_MAX_COUNT; i++) {
                 gamepadPlayerConfigs[i] = new GamepadPlayerConfig(preferences.getString("gamepad_player"+i, ""));
             }
         }
 
-        ControlsProfile profile = winHandler.activity.getInputControlsView().getProfile();
+        ControlsProfile profile = winHandler.host.getInputControlsView() != null ? winHandler.host.getInputControlsView().getProfile() : null;
         boolean useVirtualGamepad = profile != null && profile.isVirtualGamepad();
 
         for (byte i = 0; i < GAMEPAD_MAX_COUNT; i++) gamepadSlots[i] = null;

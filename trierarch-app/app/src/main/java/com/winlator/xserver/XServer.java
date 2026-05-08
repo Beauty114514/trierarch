@@ -1,6 +1,6 @@
 package com.winlator.xserver;
 
-import com.winlator.XServerDisplayActivity;
+import com.winlator.WinlatorHost;
 import com.winlator.contentdialog.DebugDialog;
 import com.winlator.core.CursorLocker;
 import com.winlator.renderer.GLRenderer;
@@ -23,7 +23,7 @@ public class XServer {
     public static final short VERSION = 11;
     public static final String VENDOR_NAME = "Elbrus Technologies, LLC";
     public static final Charset LATIN1_CHARSET = Charset.forName("latin1");
-    public final XServerDisplayActivity activity;
+    public final WinlatorHost host;
     private final Extension[] extensions;
     public final ScreenInfo screenInfo;
     public final PixmapManager pixmapManager;
@@ -44,8 +44,8 @@ public class XServer {
     private final EnumMap<Lockable, ReentrantLock> locks = new EnumMap<>(Lockable.class);
     private boolean relativeMouseMovement = false;
 
-    public XServer(XServerDisplayActivity activity, ScreenInfo screenInfo) {
-        this.activity = activity;
+    public XServer(WinlatorHost host, ScreenInfo screenInfo) {
+        this.host = host;
         this.screenInfo = screenInfo;
         cursorLocker = new CursorLocker(this);
         for (Lockable lockable : Lockable.values()) locks.put(lockable, new ReentrantLock());
@@ -201,7 +201,7 @@ public class XServer {
     }
 
     public void debugPrint(String line) {
-        DebugDialog debugDialog = activity.getDebugDialog();
+        DebugDialog debugDialog = host.getDebugDialog();
         if (debugDialog != null) debugDialog.call("xserver:"+line);
     }
 }
