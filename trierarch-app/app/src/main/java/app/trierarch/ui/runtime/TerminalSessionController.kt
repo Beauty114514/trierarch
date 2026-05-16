@@ -35,8 +35,8 @@ object TerminalSessionController {
         return selectIfPresent(state, id)
     }
 
-    fun addNewInteractiveSession(state: State, namespace: Int): State {
-        val next = TerminalSessionIds.nextInteractiveNativeId(state.sessionIds, namespace)
+    fun addNewInteractiveSession(state: State, rootfs: TerminalSessionIds.RootfsRow): State {
+        val next = TerminalSessionIds.nextInteractiveNativeId(state.sessionIds, rootfs)
         return state.copy(
             sessionIds = state.sessionIds + next,
             activeSessionId = next,

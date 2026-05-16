@@ -126,9 +126,9 @@ class RustPtySession(
         private const val TAG = "RustPtySession"
         // This terminal treats LF as line-down only; without CR the cursor stays in the same column.
         private fun buildWelcomeLine(sessionId: Int): ByteArray {
-            val rgb = when (TerminalSessionIds.namespaceOf(sessionId)) {
-                TerminalSessionIds.NS_ARCH -> intArrayOf(0x17, 0x93, 0xD1)
-                TerminalSessionIds.NS_DEBIAN -> intArrayOf(0xD7, 0x0A, 0x53)
+            val rgb = when (TerminalSessionIds.rootfsRowOf(sessionId)) {
+                TerminalSessionIds.RootfsRow.ARCH -> intArrayOf(0x17, 0x93, 0xD1)
+                TerminalSessionIds.RootfsRow.DEBIAN -> intArrayOf(0xD7, 0x0A, 0x53)
                 else -> intArrayOf(0x17, 0x93, 0xD1)
             }
             val (r, g, b) = rgb
