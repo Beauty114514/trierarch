@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.trierarch.ui.drawer.pages.drawerPageAccent
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -31,6 +32,7 @@ fun DrawerExpandableSection(
     content: @Composable () -> Unit,
 ) {
     var expanded by remember { mutableStateOf(defaultExpanded) }
+    val accent = drawerPageAccent()
 
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -43,14 +45,14 @@ fun DrawerExpandableSection(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f),
+                color = accent.copy(alpha = 0.92f),
                 modifier = Modifier.weight(1f)
             )
             Spacer(Modifier.width(8.dp))
             Icon(
                 imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                tint = accent.copy(alpha = 0.85f),
             )
         }
 

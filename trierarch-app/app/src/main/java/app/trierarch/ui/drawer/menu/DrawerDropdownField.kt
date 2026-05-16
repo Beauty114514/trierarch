@@ -19,8 +19,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import app.trierarch.ui.drawer.pages.drawerPageAccent
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 
@@ -33,6 +33,7 @@ fun DrawerDropdownField(
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val accent = drawerPageAccent()
 
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -52,12 +53,12 @@ fun DrawerDropdownField(
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.primary
+                color = accent,
             )
             Icon(
                 imageVector = Icons.Filled.ArrowDropDown,
                 contentDescription = null,
-                tint = Color.White.copy(alpha = 0.8f),
+                tint = accent.copy(alpha = 0.85f),
             )
         }
 

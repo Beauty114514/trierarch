@@ -19,6 +19,7 @@ import app.trierarch.ui.drawer.menu.DrawerMenu
 import app.trierarch.ui.drawer.menu.DrawerMenuActions
 import app.trierarch.ui.drawer.menu.DrawerMenuLabels
 import app.trierarch.ui.drawer.menu.DrawerMenuOptions
+import app.trierarch.ui.drawer.menu.DrawerMenuVisibility
 import app.trierarch.ui.drawer.menu.DrawerScriptEditor
 import app.trierarch.ui.prefs.AppPrefs
 import app.trierarch.ui.runtime.TerminalSessionController
@@ -32,17 +33,18 @@ fun ArchDrawerPage(
     scope: CoroutineScope,
     terminalFontKey: String,
     terminalSessionState: TerminalSessionController.State,
-    launcherDefault: String,
     desktopVulkanMode: String,
     desktopOpenGLMode: String,
     mouseMode: Int,
     resolutionPercent: Int,
     scalePercent: Int,
-    waylandScriptEditorOpen: Boolean,
-    onWaylandScriptEditorOpenChange: (Boolean) -> Unit,
-    onEnterWaylandDesktop: () -> Unit,
+    archWaylandScriptEditorOpen: Boolean,
+    onArchWaylandScriptEditorOpenChange: (Boolean) -> Unit,
+    archX11ScriptEditorOpen: Boolean,
+    onArchX11ScriptEditorOpenChange: (Boolean) -> Unit,
+    onEnterArchWayland: () -> Unit,
+    onEnterArchX11: () -> Unit,
     onEnterTerminal: () -> Unit,
-    onLauncherDefaultSelect: (String) -> Unit,
     onDesktopVulkanSelect: (String) -> Unit,
     onDesktopOpenGLSelect: (String) -> Unit,
     onTerminalFontSelectLabel: (String) -> Unit,
@@ -66,12 +68,11 @@ fun ArchDrawerPage(
     }
     val resolutionLabel = remember(resolutionPercent) { "${resolutionPercent.coerceIn(10, 100)}%" }
     val scaleLabel = remember(scalePercent) { "${scalePercent.coerceIn(100, 1000)}%" }
-    val launcherMenuLabel = remember(launcherDefault) { AppPrefs.launcherPrefToMenuLabel(launcherDefault) }
 
     DrawerMenu(
         title = "Arch",
         labels = DrawerMenuLabels(
-            launcherDefaultLabel = launcherMenuLabel,
+            launcherDefaultLabel = "",
             desktopVulkanLabel = desktopVulkanMode,
             desktopOpenGLLabel = desktopOpenGLMode,
             terminalFontLabel = terminalFontLabel,
@@ -81,11 +82,7 @@ fun ArchDrawerPage(
             scalePercentLabel = scaleLabel,
         ),
         options = DrawerMenuOptions(
-            launcherDefaultOptions = listOf(
-                AppPrefs.LAUNCHER_MENU_WAYLAND,
-                AppPrefs.LAUNCHER_MENU_TERMINAL,
-                AppPrefs.LAUNCHER_MENU_X11,
-            ),
+            launcherDefaultOptions = emptyList(),
             desktopVulkanOptions = vulkanOptions,
             desktopOpenGLOptions = openGLOptions,
             terminalFontOptions = ShellFonts.options.map { it.label },
@@ -103,13 +100,16 @@ fun ArchDrawerPage(
             scalePercentOptions = (100..1000 step 100).map { "${it}%" },
         ),
         actions = DrawerMenuActions(
-            onDesktopClick = {
+            onWaylandEntryClick = {
                 scope.launch { drawerState.close() }
-                onEnterWaylandDesktop()
+                onEnterArchWayland()
             },
-            onDesktopLongPress = { onWaylandScriptEditorOpenChange(true) },
-            onDebianDesktopClick = { },
-            onDebianDesktopLongPress = { },
+            onWaylandEntryLongPress = { onArchWaylandScriptEditorOpenChange(true) },
+            onX11EntryClick = {
+                scope.launch { drawerState.close() }
+                onEnterArchX11()
+            },
+            onX11EntryLongPress = { onArchX11ScriptEditorOpenChange(true) },
             onTerminalClick = {
                 scope.launch { drawerState.close() }
                 onTerminalSessionStateChange(terminalSessionState.copy(activeSessionId = TerminalSessionIds.ARCH_TERMINAL))
@@ -119,14 +119,17 @@ fun ArchDrawerPage(
             onAppearanceClick = { scope.launch { drawerState.close() } },
             onSessionClick = { scope.launch { drawerState.close() } },
             onKeyboardClick = { scope.launch { drawerState.close() } },
-            onLauncherDefaultSelect = onLauncherDefaultSelect,
+            onLauncherDefaultSelect = { },
             onDesktopVulkanSelect = onDesktopVulkanSelect,
             onDesktopOpenGLSelect = onDesktopOpenGLSelect,
             onTerminalFontSelect = onTerminalFontSelectLabel,
             onTerminalSessionSelect = { label ->
                 val next = when (label) {
                     "New session" ->
-                        TerminalSessionController.addNewInteractiveSession(terminalSessionState, TerminalSessionIds.NS_ARCH)
+                        TerminalSessionController.addNewInteractiveSession(
+                            terminalSessionState,
+                            TerminalSessionIds.RootfsRow.ARCH,
+                        )
                     "Close current session" ->
                         TerminalSessionController.closeCurrentSession(terminalSessionState)
                     else ->
@@ -139,26 +142,53 @@ fun ArchDrawerPage(
             onScalePercentSelect = onScalePercentSelectLabel,
             onCloseDrawerRequest = { scope.launch { drawerState.close() } },
         ),
-        showDebianDesktop = false,
+        visibility = DrawerMenuVisibility(
+            launcherDefault = false,
+            graphics = true,
+            terminalSettings = true,
+            showWaylandEntry = true,
+            showX11Entry = true,
+            terminalEntry = true,
+            desktopView = true,
+            keyboard = true,
+        ),
         extraContent = {
             DrawerExpandableSection(title = "Scripts", defaultExpanded = false) {
-                if (waylandScriptEditorOpen) {
+                if (archWaylandScriptEditorOpen) {
                     DrawerScriptEditor(
-                        title = "Wayland desktop startup script",
-                        initialText = prefs.getString("desktop_startup_script", "") ?: "",
+                        title = "Wayland startup script",
+                        initialText = AppPrefs.readArchWaylandStartupScript(prefs),
                         onSave = {
-                            prefs.edit().putString("desktop_startup_script", it).apply()
-                            onWaylandScriptEditorOpenChange(false)
+                            AppPrefs.writeArchWaylandStartupScript(prefs, it)
+                            onArchWaylandScriptEditorOpenChange(false)
+                        },
+                    )
+                } else if (archX11ScriptEditorOpen) {
+                    DrawerScriptEditor(
+                        title = "X11 startup script",
+                        initialText = AppPrefs.readArchX11StartupScript(prefs),
+                        onSave = {
+                            AppPrefs.writeArchX11StartupScript(prefs, it)
+                            onArchX11ScriptEditorOpenChange(false)
                         },
                     )
                 } else {
                     Text(
                         text = "Edit Wayland startup script",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = drawerPageAccent(),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onWaylandScriptEditorOpenChange(true) }
+                            .clickable { onArchWaylandScriptEditorOpenChange(true) }
+                            .padding(vertical = 12.dp, horizontal = 12.dp),
+                    )
+                    Text(
+                        text = "Edit X11 startup script",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = drawerPageAccent(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onArchX11ScriptEditorOpenChange(true) }
                             .padding(vertical = 12.dp, horizontal = 12.dp),
                     )
                 }
@@ -166,4 +196,3 @@ fun ArchDrawerPage(
         },
     )
 }
-

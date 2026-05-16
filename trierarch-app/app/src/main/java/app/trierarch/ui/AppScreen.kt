@@ -8,6 +8,7 @@ import androidx.activity.ComponentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import android.os.Looper
+import android.view.WindowManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -48,8 +49,12 @@ import app.trierarch.ui.drawer.pages.DrawerPagedHost
 import app.trierarch.ui.drawer.pages.ArchDrawerPage
 import app.trierarch.ui.containers.ContainersScreen
 import app.trierarch.ui.drawer.pages.DebianDrawerPage
+import app.trierarch.ui.drawer.pages.TrierarchDrawerPage
 import app.trierarch.ui.drawer.pages.WineDrawerPage
 import app.trierarch.ui.prefs.AppPrefs
+import app.trierarch.ui.prefs.ColdStartConfig
+import app.trierarch.ui.prefs.RootfsPlatform
+import app.trierarch.ui.prefs.RootfsSessionMode
 import app.trierarch.ui.runtime.DisplayOrchestrator
 import app.trierarch.ui.runtime.GraphicsModeController
 import app.trierarch.ui.runtime.MandatoryStartupStoragePermissionsEffect
@@ -66,6 +71,7 @@ import app.trierarch.ui.shell.ShellScreen
 import app.trierarch.wayland.WaylandSurfaceView
 import app.trierarch.ui.x11.EmbeddedX11Surface
 import com.winlator.EmbeddedWinlatorController
+import com.winlator.core.AppUtils
 import com.termux.x11.EmbeddedX11Controller
 import com.termux.x11.X11OutputSettings
 import java.io.File
@@ -102,7 +108,16 @@ private fun x11ResolutionModeInternalForLabel(label: String): String = when (lab
 
 private val X11_CUSTOM_RESOLUTION_PATTERN: Pattern = Pattern.compile("^\\s*(\\d{2,4})\\s*x\\s*(\\d{2,4})\\s*\$")
 
-private enum class UiMode { TERMINAL, ARCH_WAYLAND_DESKTOP, DEBIAN_X11_DESKTOP, CONTAINERS, WINLATOR }
+/** Top-level UI surface (terminal, rootfs graphical session, or Wine). */
+private enum class AppSurface {
+    TERMINAL,
+    ARCH_WAYLAND,
+    ARCH_X11,
+    DEBIAN_WAYLAND,
+    DEBIAN_X11,
+    WINE_CONTAINERS,
+    WINE_CONTAINER,
+}
 
 @Composable
 fun AppScreen(startInTerminal: Boolean = false) {
@@ -121,31 +136,33 @@ fun AppScreen(startInTerminal: Boolean = false) {
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var downloadStarted by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
-    var uiMode by remember(startInTerminal) {
-        // Always start in Terminal after initialization. Users can still switch modes from the drawer
-        // (orb menu is legacy; kept for parity while migrating).
-        mutableStateOf(UiMode.TERMINAL)
+    var appSurface by remember(startInTerminal) {
+        mutableStateOf(AppSurface.TERMINAL)
     }
-    var waylandVisible by remember { mutableStateOf(false) }
-    val showWayland = waylandVisible && uiMode == UiMode.ARCH_WAYLAND_DESKTOP
-    val showX11 = uiMode == UiMode.DEBIAN_X11_DESKTOP
-    val showWinlator = uiMode == UiMode.WINLATOR
+    var waylandSurfaceVisible by remember { mutableStateOf(false) }
+    val showWaylandCompositor = waylandSurfaceVisible && (
+        appSurface == AppSurface.ARCH_WAYLAND || appSurface == AppSurface.DEBIAN_WAYLAND
+    )
+    val showX11Surface = appSurface == AppSurface.ARCH_X11 || appSurface == AppSurface.DEBIAN_X11
+    val showWinlator = appSurface == AppSurface.WINE_CONTAINER
     var winlatorContainerId by remember { mutableIntStateOf(-1) }
     var winlatorController by remember { mutableStateOf<EmbeddedWinlatorController?>(null) }
     var settingsOpen by remember { mutableStateOf(false) }
-    var waylandScriptEditorOpen by remember { mutableStateOf(false) }
-    var x11ScriptEditorOpen by remember { mutableStateOf(false) }
+    var archWaylandScriptEditorOpen by remember { mutableStateOf(false) }
+    var archX11ScriptEditorOpen by remember { mutableStateOf(false) }
+    var debianWaylandScriptEditorOpen by remember { mutableStateOf(false) }
+    var debianX11ScriptEditorOpen by remember { mutableStateOf(false) }
     var terminalSessionState by remember { mutableStateOf(TerminalSessionController.initialState()) }
     var mouseMode by remember { mutableStateOf(MOUSE_MODE_TOUCHPAD) }
     var resolutionPercent by remember { mutableStateOf(100) }
     var scalePercent by remember { mutableStateOf(100) }
     var showKeyboardTrigger by remember { mutableStateOf(0) }
     var keyboardWanted by remember { mutableStateOf(false) }
-    // Keep the preference (launcherDefault) but do not auto-enter display modes after init.
-    var pendingAutoShowWayland by remember { mutableStateOf(false) }
+    var pendingWaylandSurfaceReveal by remember { mutableStateOf(false) }
     var desktopVulkanMode by remember { mutableStateOf("LLVMPIPE") }
     var desktopOpenGLMode by remember { mutableStateOf("LLVMPIPE") }
-    var desktopHiddenInjectedKey by remember { mutableStateOf("") }
+    var archWaylandEnvInjectKey by remember { mutableStateOf("") }
+    var debianWaylandEnvInjectKey by remember { mutableStateOf("") }
     /** Incremented when graphics modes change so [ShellScreen] drops cached terminal sessions. */
     var rendererSessionResetEpoch by remember { mutableIntStateOf(0) }
     /** Full-screen cover during default desktop launch or Display toggle so the terminal flash is hidden. */
@@ -212,23 +229,42 @@ fun AppScreen(startInTerminal: Boolean = false) {
     }
     val desktopSocketName = "wayland-trierarch-desktop"
     var desktopServerId by remember { mutableStateOf(0L) }
-    var launcherDefault by remember {
-        mutableStateOf(AppPrefs.readLauncherDefault(prefs))
+    var coldStartConfig by remember {
+        mutableStateOf(AppPrefs.readColdStartConfig(prefs))
+    }
+    var coldStartApplied by remember { mutableStateOf(false) }
+
+    fun muteHeadlessSessionLogs() {
+        PtyOutputRelay.setSessionIoLoggingEnabled(TerminalSessionIds.ARCH_WAYLAND_HEADLESS, false)
+        PtyOutputRelay.setSessionIoLoggingEnabled(TerminalSessionIds.ARCH_X11_HEADLESS, false)
+        PtyOutputRelay.setSessionIoLoggingEnabled(TerminalSessionIds.DEBIAN_WAYLAND_HEADLESS, false)
+        PtyOutputRelay.setSessionIoLoggingEnabled(TerminalSessionIds.DEBIAN_X11_HEADLESS, false)
     }
 
     fun enterTerminal() {
         try { WaylandBridge.nativeSetWmMode(WaylandBridge.WM_MODE_NESTED) } catch (_: Throwable) {}
-        uiMode = UiMode.TERMINAL
-        waylandVisible = false
-        PtyOutputRelay.setSessionIoLoggingEnabled(TerminalSessionIds.LEGACY_ARCH_X11_PTY, false)
-        PtyOutputRelay.setSessionIoLoggingEnabled(TerminalSessionIds.ARCH_WAYLAND_DISPLAY, false)
-        PtyOutputRelay.setSessionIoLoggingEnabled(TerminalSessionIds.DEBIAN_X11_DISPLAY, false)
+        appSurface = AppSurface.TERMINAL
+        waylandSurfaceVisible = false
+        muteHeadlessSessionLogs()
         desktopLaunchBlackout = false
         menuOpen = false
     }
 
-    fun enterArchWaylandDesktop() {
-        if (!DisplayOrchestrator.prepareWaylandRuntimeAndStartServer(context, waylandRuntimeDir)) {
+    fun requestSoftKeyboard() {
+        scope.launch { drawerState.close() }
+        when {
+            showWinlator -> winlatorController?.showKeyboard()
+            showWaylandCompositor -> {
+                keyboardWanted = true
+                showKeyboardTrigger++
+            }
+            showX11Surface -> (context as? Activity)?.let { AppUtils.showKeyboard(it) }
+            else -> showKeyboardTrigger++
+        }
+    }
+
+    fun enterArchWayland() {
+        if (!DisplayOrchestrator.prepareWaylandCompositor(context, waylandRuntimeDir)) {
             menuOpen = false
             return
         }
@@ -242,25 +278,68 @@ fun AppScreen(startInTerminal: Boolean = false) {
         }
         try { WaylandBridge.nativeSetWmMode(WaylandBridge.WM_MODE_NESTED) } catch (_: Throwable) {}
         desktopLaunchBlackout = true
-        desktopHiddenInjectedKey = DisplayOrchestrator.runArchWaylandStartupScriptIfNeeded(
+        archWaylandEnvInjectKey = DisplayOrchestrator.injectArchWaylandStartupIfNeeded(
             prefs = prefs,
-            desktopSocketName = desktopSocketName,
+            waylandSocketName = desktopSocketName,
             vulkanMode = desktopVulkanMode,
             openGLMode = desktopOpenGLMode,
-            currentHiddenInjectedKey = desktopHiddenInjectedKey,
-        ).hiddenInjectedKey
-        pendingAutoShowWayland = true
-        PtyOutputRelay.setSessionIoLoggingEnabled(TerminalSessionIds.LEGACY_ARCH_X11_PTY, false)
-        PtyOutputRelay.setSessionIoLoggingEnabled(TerminalSessionIds.ARCH_WAYLAND_DISPLAY, false)
-        PtyOutputRelay.setSessionIoLoggingEnabled(TerminalSessionIds.DEBIAN_X11_DISPLAY, false)
-        uiMode = UiMode.ARCH_WAYLAND_DESKTOP
-        waylandVisible = false
+            currentEnvInjectKey = archWaylandEnvInjectKey,
+        ).envInjectKey
+        pendingWaylandSurfaceReveal = true
+        muteHeadlessSessionLogs()
+        appSurface = AppSurface.ARCH_WAYLAND
+        waylandSurfaceVisible = false
         menuOpen = false
     }
 
-    fun enterDebianDesktop() {
+    fun enterArchX11() {
         X11Runtime.ensureX11ServerProcessStarted(context)
-        DisplayOrchestrator.runDebianX11DesktopStartupScript(
+        DisplayOrchestrator.injectArchX11Startup(
+            context = context,
+            prefs = prefs,
+            headlessInjectHandler = headlessX11InjectHandler,
+        )
+        menuOpen = false
+        desktopLaunchBlackout = false
+        muteHeadlessSessionLogs()
+        waylandSurfaceVisible = false
+        pendingWaylandSurfaceReveal = false
+        appSurface = AppSurface.ARCH_X11
+    }
+
+    fun enterDebianWayland() {
+        if (!DisplayOrchestrator.prepareWaylandCompositor(context, waylandRuntimeDir)) {
+            menuOpen = false
+            return
+        }
+        if (desktopServerId == 0L) {
+            desktopServerId = try {
+                WaylandBridge.nativeCreateServer(waylandRuntimeDir, desktopSocketName)
+            } catch (_: Throwable) { 0L }
+        }
+        if (desktopServerId != 0L) {
+            try { WaylandBridge.nativeSetActiveServer(desktopServerId) } catch (_: Throwable) {}
+        }
+        try { WaylandBridge.nativeSetWmMode(WaylandBridge.WM_MODE_NESTED) } catch (_: Throwable) {}
+        desktopLaunchBlackout = true
+        debianWaylandEnvInjectKey = DisplayOrchestrator.injectDebianWaylandStartupIfNeeded(
+            prefs = prefs,
+            waylandSocketName = desktopSocketName,
+            vulkanMode = desktopVulkanMode,
+            openGLMode = desktopOpenGLMode,
+            currentEnvInjectKey = debianWaylandEnvInjectKey,
+            hasDebianRootfs = hasDebianRootfs,
+        ).envInjectKey
+        pendingWaylandSurfaceReveal = true
+        muteHeadlessSessionLogs()
+        appSurface = AppSurface.DEBIAN_WAYLAND
+        waylandSurfaceVisible = false
+        menuOpen = false
+    }
+
+    fun enterDebianX11() {
+        X11Runtime.ensureX11ServerProcessStarted(context)
+        DisplayOrchestrator.injectDebianX11Startup(
             context = context,
             prefs = prefs,
             headlessInjectHandler = headlessX11InjectHandler,
@@ -268,32 +347,84 @@ fun AppScreen(startInTerminal: Boolean = false) {
         )
         menuOpen = false
         desktopLaunchBlackout = false
-        PtyOutputRelay.setSessionIoLoggingEnabled(TerminalSessionIds.DEBIAN_X11_DISPLAY, false)
-        waylandVisible = false
-        pendingAutoShowWayland = false
-        uiMode = UiMode.DEBIAN_X11_DESKTOP
+        muteHeadlessSessionLogs()
+        waylandSurfaceVisible = false
+        pendingWaylandSurfaceReveal = false
+        appSurface = AppSurface.DEBIAN_X11
     }
 
-    fun cycleLauncherDefault() {
-        launcherDefault = AppPrefs.cycleLauncherDefaultPref(launcherDefault)
-        AppPrefs.writeLauncherDefault(prefs, launcherDefault)
+    fun updateColdStartConfig(next: ColdStartConfig) {
+        coldStartConfig = next
+        AppPrefs.writeColdStartConfig(prefs, next)
     }
 
-    fun setLauncherDefaultFromMenuLabel(menuLabel: String) {
-        launcherDefault = AppPrefs.menuLabelToLauncherPref(menuLabel)
-        AppPrefs.writeLauncherDefault(prefs, launcherDefault)
+    fun applyColdStartConfig(config: ColdStartConfig) {
+        if (startInTerminal) {
+            enterTerminal()
+            return
+        }
+        when (config.platform) {
+            RootfsPlatform.ARCH -> when (RootfsSessionMode.fromPref(config.sessionTarget)) {
+                RootfsSessionMode.TERMINAL -> {
+                    terminalSessionState = terminalSessionState.copy(
+                        activeSessionId = TerminalSessionIds.ARCH_TERMINAL,
+                    )
+                    enterTerminal()
+                }
+                RootfsSessionMode.WAYLAND -> enterArchWayland()
+                RootfsSessionMode.X11 -> enterArchX11()
+                RootfsSessionMode.WINE_CONTAINER_PICKER, null -> enterTerminal()
+            }
+            RootfsPlatform.DEBIAN -> when (RootfsSessionMode.fromPref(config.sessionTarget)) {
+                RootfsSessionMode.TERMINAL -> {
+                    terminalSessionState = terminalSessionState.copy(
+                        activeSessionId = TerminalSessionIds.DEBIAN_TERMINAL,
+                    )
+                    enterTerminal()
+                }
+                RootfsSessionMode.WAYLAND -> enterDebianWayland()
+                RootfsSessionMode.X11 -> enterDebianX11()
+                RootfsSessionMode.WINE_CONTAINER_PICKER, null -> {
+                    terminalSessionState = terminalSessionState.copy(
+                        activeSessionId = TerminalSessionIds.DEBIAN_TERMINAL,
+                    )
+                    enterTerminal()
+                }
+            }
+            RootfsPlatform.WINE -> when {
+                config.opensWineContainerPicker() -> {
+                    appSurface = AppSurface.WINE_CONTAINERS
+                    waylandSurfaceVisible = false
+                    pendingWaylandSurfaceReveal = false
+                    menuOpen = false
+                }
+                config.selectedWineContainerId != null -> {
+                    winlatorContainerId = config.selectedWineContainerId!!
+                    appSurface = AppSurface.WINE_CONTAINER
+                    waylandSurfaceVisible = false
+                    pendingWaylandSurfaceReveal = false
+                    menuOpen = false
+                }
+                else -> {
+                    appSurface = AppSurface.WINE_CONTAINERS
+                    waylandSurfaceVisible = false
+                    pendingWaylandSurfaceReveal = false
+                    menuOpen = false
+                }
+            }
+        }
     }
 
     LaunchedEffect(startInTerminal) {
         if (startInTerminal) {
-            uiMode = UiMode.TERMINAL
-            pendingAutoShowWayland = false
+            appSurface = AppSurface.TERMINAL
+            pendingWaylandSurfaceReveal = false
             desktopLaunchBlackout = false
         }
     }
 
     LaunchedEffect(Unit) {
-        launcherDefault = AppPrefs.readLauncherDefault(prefs)
+        coldStartConfig = AppPrefs.readColdStartConfig(prefs)
         mouseMode = AppPrefs.readInt(prefs, "mouse_mode", MOUSE_MODE_TOUCHPAD)
         resolutionPercent = AppPrefs.readInt(prefs, "resolution_percent", 100).coerceIn(10, 100)
         scalePercent = AppPrefs.readInt(prefs, "scale_percent", 100)
@@ -469,10 +600,36 @@ fun AppScreen(startInTerminal: Boolean = false) {
         }
     }
 
-    LaunchedEffect(showWayland) {
-        setImmersiveMode(context as? Activity, immersive = showWayland)
-        InputRouteState.waylandVisible = showWayland
-        if (showWayland) {
+    // Hide status/navigation bars for full-screen surfaces (Wayland + embedded Winlator).
+    // Winlator's own Activity calls AppUtils.hideSystemUI; embedded mode stays in MainActivity, so we must match that here.
+    LaunchedEffect(showWaylandCompositor, showWinlator) {
+        setImmersiveMode(context as? Activity, immersive = showWaylandCompositor || showWinlator)
+    }
+
+    // Winlator is a full-screen GL surface: MainActivity uses adjustResize by default, which
+    // shrinks the container when the IME opens. Wayland/X11 cover the shell so it is less visible;
+    // overlay the keyboard without resizing while a Wine container is active.
+    DisposableEffect(showWinlator) {
+        val activity = context as? Activity
+        if (activity == null) {
+            return@DisposableEffect onDispose { }
+        }
+        val window = activity.window
+        val previousSoftInputMode = window.attributes.softInputMode
+        if (showWinlator) {
+            window.setSoftInputMode(
+                WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING or
+                    WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN,
+            )
+        }
+        onDispose {
+            window.setSoftInputMode(previousSoftInputMode)
+        }
+    }
+
+    LaunchedEffect(showWaylandCompositor) {
+        InputRouteState.waylandVisible = showWaylandCompositor
+        if (showWaylandCompositor) {
             desktopLaunchBlackout = false
             try {
                 WaylandBridge.nativeResetKeyboardState()
@@ -481,53 +638,60 @@ fun AppScreen(startInTerminal: Boolean = false) {
         }
     }
 
-    LaunchedEffect(showX11) {
+    LaunchedEffect(showX11Surface) {
         // Keep shell hardware key routing in Trierarch while X11 surface is on top.
-        InputRouteState.lorieX11DisplayVisible = showX11
-        if (showX11) {
+        InputRouteState.lorieX11DisplayVisible = showX11Surface
+        if (showX11Surface) {
             // Avoid two native full-screen surfaces at once; X11 and Wayland are mutually exclusive.
-            waylandVisible = false
-            pendingAutoShowWayland = false
+            waylandSurfaceVisible = false
+            pendingWaylandSurfaceReveal = false
         }
     }
 
-    LaunchedEffect(menuOpen, settingsOpen, waylandScriptEditorOpen, x11ScriptEditorOpen) {
+    LaunchedEffect(
+        menuOpen,
+        settingsOpen,
+        archWaylandScriptEditorOpen,
+        archX11ScriptEditorOpen,
+        debianWaylandScriptEditorOpen,
+        debianX11ScriptEditorOpen,
+    ) {
         // Don't auto-pop the IME while the user is interacting with menus/dialogs.
-        if (menuOpen || settingsOpen || waylandScriptEditorOpen || x11ScriptEditorOpen) {
+        if (
+            menuOpen || settingsOpen || archWaylandScriptEditorOpen || archX11ScriptEditorOpen ||
+            debianWaylandScriptEditorOpen || debianX11ScriptEditorOpen
+        ) {
             keyboardWanted = false
         }
     }
 
-    LaunchedEffect(pendingAutoShowWayland) {
-        if (!pendingAutoShowWayland) return@LaunchedEffect
+    LaunchedEffect(pendingWaylandSurfaceReveal) {
+        if (!pendingWaylandSurfaceReveal) return@LaunchedEffect
         WaylandVisibilityCoordinator.waitUntilDesktopClientReady(
-            isStillPending = { pendingAutoShowWayland && uiMode == UiMode.ARCH_WAYLAND_DESKTOP && !waylandVisible },
+            isStillPending = {
+                pendingWaylandSurfaceReveal &&
+                    (appSurface == AppSurface.ARCH_WAYLAND || appSurface == AppSurface.DEBIAN_WAYLAND) &&
+                    !waylandSurfaceVisible
+            },
             hasActiveClients = { WaylandBridge.nativeHasActiveClients() },
             onReady = {
-                waylandVisible = true
-                pendingAutoShowWayland = false
+                waylandSurfaceVisible = true
+                pendingWaylandSurfaceReveal = false
             },
         )
     }
 
-    LaunchedEffect(hasArchRootfs, hasDebianRootfs, hasWineRootfs, startInTerminal) {
+    LaunchedEffect(hasArchRootfs, hasDebianRootfs, hasWineRootfs, startInTerminal, coldStartConfig) {
         if (!hasArchRootfs || !hasDebianRootfs || !hasWineRootfs) return@LaunchedEffect
+        if (coldStartApplied) return@LaunchedEffect
         var waited = 0
         while (!NativeBridge.isSessionAlive(TerminalSessionIds.ARCH_TERMINAL) && waited < 256) {
             delay(32)
             waited++
         }
-        if (!NativeBridge.isSessionAlive(TerminalSessionIds.ARCH_TERMINAL)) {
-            desktopLaunchBlackout = false
-            return@LaunchedEffect
-        }
-
+        coldStartApplied = true
         desktopLaunchBlackout = false
-        if (uiMode == UiMode.ARCH_WAYLAND_DESKTOP) {
-            return@LaunchedEffect
-        }
-        // Default after init: terminal; user picks desktop from the drawer.
-        uiMode = UiMode.TERMINAL
+        applyColdStartConfig(coldStartConfig)
     }
 
     errorMsg?.let { msg ->
@@ -616,6 +780,13 @@ fun AppScreen(startInTerminal: Boolean = false) {
         drawerState = drawerState,
         drawerContent = {
             DrawerPagedHost(
+                trierarchContent = {
+                    TrierarchDrawerPage(
+                        coldStartConfig = coldStartConfig,
+                        onColdStartConfigChange = { updateColdStartConfig(it) },
+                        onShowKeyboard = { requestSoftKeyboard() },
+                    )
+                },
                 archContent = {
                     ArchDrawerPage(
                         prefs = prefs,
@@ -623,17 +794,18 @@ fun AppScreen(startInTerminal: Boolean = false) {
                         scope = scope,
                         terminalFontKey = terminalFontKey,
                         terminalSessionState = terminalSessionState,
-                        launcherDefault = launcherDefault,
                         desktopVulkanMode = desktopVulkanMode,
                         desktopOpenGLMode = desktopOpenGLMode,
                         mouseMode = mouseMode,
                         resolutionPercent = resolutionPercent,
                         scalePercent = scalePercent,
-                        waylandScriptEditorOpen = waylandScriptEditorOpen,
-                        onWaylandScriptEditorOpenChange = { waylandScriptEditorOpen = it },
-                        onEnterWaylandDesktop = { enterArchWaylandDesktop() },
+                        archWaylandScriptEditorOpen = archWaylandScriptEditorOpen,
+                        onArchWaylandScriptEditorOpenChange = { archWaylandScriptEditorOpen = it },
+                        archX11ScriptEditorOpen = archX11ScriptEditorOpen,
+                        onArchX11ScriptEditorOpenChange = { archX11ScriptEditorOpen = it },
+                        onEnterArchWayland = { enterArchWayland() },
+                        onEnterArchX11 = { enterArchX11() },
                         onEnterTerminal = { enterTerminal() },
-                        onLauncherDefaultSelect = { setLauncherDefaultFromMenuLabel(it) },
                         onDesktopVulkanSelect = { setDesktopVulkanMode(it) },
                         onDesktopOpenGLSelect = { setDesktopOpenGLMode(it) },
                         onTerminalFontSelectLabel = { label ->
@@ -654,16 +826,6 @@ fun AppScreen(startInTerminal: Boolean = false) {
                         },
                         vulkanOptions = VULKAN_MODES,
                         openGLOptions = OPENGL_MODES,
-                    )
-                },
-                wineContent = {
-                    WineDrawerPage(
-                        onOpenContainers = {
-                            scope.launch {
-                                uiMode = UiMode.CONTAINERS
-                                drawerState.close()
-                            }
-                        },
                     )
                 },
                 debianContent = {
@@ -688,14 +850,31 @@ fun AppScreen(startInTerminal: Boolean = false) {
                         x11ResolutionCustom = x11ResolutionCustom,
                         onX11ResolutionCustomChange = { x11ResolutionCustom = it },
                         onX11ResolutionCustomApply = { applyX11ResolutionCustomWxh() },
-                        x11ScriptEditorOpen = x11ScriptEditorOpen,
-                        onX11ScriptEditorOpenChange = { x11ScriptEditorOpen = it },
-                        onEnterDebianDesktop = { enterDebianDesktop() },
+                        debianWaylandScriptEditorOpen = debianWaylandScriptEditorOpen,
+                        onDebianWaylandScriptEditorOpenChange = { debianWaylandScriptEditorOpen = it },
+                        debianX11ScriptEditorOpen = debianX11ScriptEditorOpen,
+                        onDebianX11ScriptEditorOpenChange = { debianX11ScriptEditorOpen = it },
+                        onEnterDebianWayland = { enterDebianWayland() },
+                        onEnterDebianX11 = { enterDebianX11() },
                         onEnterTerminal = { enterTerminal() },
-                        onExitDisplayModes = {
-                            uiMode = UiMode.TERMINAL
-                            waylandVisible = false
-                            pendingAutoShowWayland = false
+                        onLeaveGraphicalSurface = {
+                            appSurface = AppSurface.TERMINAL
+                            waylandSurfaceVisible = false
+                            pendingWaylandSurfaceReveal = false
+                        },
+                    )
+                },
+                wineContent = {
+                    WineDrawerPage(
+                        onOpenContainers = {
+                            scope.launch {
+                                appSurface = AppSurface.WINE_CONTAINERS
+                                drawerState.close()
+                            }
+                        },
+                        winlatorHost = winlatorController,
+                        onCloseDrawer = {
+                            scope.launch { drawerState.close() }
                         },
                     )
                 },
@@ -703,14 +882,14 @@ fun AppScreen(startInTerminal: Boolean = false) {
         },
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            if (uiMode == UiMode.CONTAINERS) {
+            if (appSurface == AppSurface.WINE_CONTAINERS) {
                 ContainersScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .zIndex(0f),
                     onRunContainer = { id ->
                         winlatorContainerId = id
-                        uiMode = UiMode.WINLATOR
+                        appSurface = AppSurface.WINE_CONTAINER
                     },
                 )
             }
@@ -721,14 +900,14 @@ fun AppScreen(startInTerminal: Boolean = false) {
                     activeSessionId = terminalSessionState.activeSessionId,
                     terminalSessionIds = terminalSessionState.sessionIds,
                     rendererSessionResetEpoch = rendererSessionResetEpoch,
-                    showKeyboardTrigger = if (showWayland) 0 else showKeyboardTrigger,
+                    showKeyboardTrigger = if (showWaylandCompositor) 0 else showKeyboardTrigger,
                     onKeyboardTriggerConsumed = { showKeyboardTrigger = 0 },
                     modifier = Modifier
                         .fillMaxSize()
                         .zIndex(0f),
                 )
             }
-            if (desktopLaunchBlackout && uiMode != UiMode.CONTAINERS) {
+            if (desktopLaunchBlackout && appSurface != AppSurface.WINE_CONTAINERS) {
                 // Dark cover while Wayland display session starts (Lorie is not in this window).
                 Box(
                     modifier = Modifier
@@ -737,7 +916,7 @@ fun AppScreen(startInTerminal: Boolean = false) {
                         .background(Color.Black),
                 )
             }
-            if (showWayland) {
+            if (showWaylandCompositor) {
                 WaylandSurfaceView(
                     runtimeDir = waylandRuntimeDir,
                     mouseMode = mouseMode,
@@ -754,7 +933,7 @@ fun AppScreen(startInTerminal: Boolean = false) {
                         .zIndex(1.5f),
                 )
             }
-            if (showX11) {
+            if (showX11Surface) {
                 EmbeddedX11Surface(
                     visible = true,
                     mouseMode = x11MouseMode,
@@ -771,7 +950,12 @@ fun AppScreen(startInTerminal: Boolean = false) {
                         val host = androidx.appcompat.widget.ContentFrameLayout(ctx)
                         val controller = EmbeddedWinlatorController(activity, host)
                         controller.start(winlatorContainerId)
+                        // GLSurfaceView starts paused unless resumed by host lifecycle.
+                        controller.onHostResume()
                         winlatorController = controller
+                        InputRouteState.winlatorDispatchKeyEvent = { event ->
+                            controller.dispatchKeyEvent(event)
+                        }
                         host
                     },
                     modifier = Modifier
@@ -794,8 +978,10 @@ fun AppScreen(startInTerminal: Boolean = false) {
         // Script editors now live in the drawer (Compose), no glass dialog.
     }
 
-    LaunchedEffect(uiMode) {
-        if (uiMode != UiMode.WINLATOR) {
+    LaunchedEffect(appSurface) {
+        if (appSurface != AppSurface.WINE_CONTAINER) {
+            InputRouteState.winlatorDispatchKeyEvent = null
+            winlatorController?.onHostPause()
             winlatorController?.stop()
             winlatorController = null
             winlatorContainerId = -1

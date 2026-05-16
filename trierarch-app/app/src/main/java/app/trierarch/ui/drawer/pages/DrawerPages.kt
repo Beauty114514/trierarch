@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -19,19 +20,23 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 
 enum class DrawerPage(val accent: Color) {
-    ARCH(Color(0xFF1793D1)),
-    WINE(Color(0xFF8B1E3F)),
-    DEBIAN(Color(0xFFD70A53)),
+    TRIERARCH(DrawerPageColors.Trierarch),
+    ARCH(DrawerPageColors.Arch),
+    WINE(DrawerPageColors.Wine),
+    DEBIAN(DrawerPageColors.Debian),
 }
 
 @Composable
 fun DrawerPagedHost(
+    trierarchContent: @Composable () -> Unit,
     archContent: @Composable () -> Unit,
     wineContent: @Composable () -> Unit,
     debianContent: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val pages = remember { listOf(DrawerPage.ARCH, DrawerPage.WINE, DrawerPage.DEBIAN) }
+    val pages = remember {
+        listOf(DrawerPage.TRIERARCH, DrawerPage.ARCH, DrawerPage.DEBIAN, DrawerPage.WINE)
+    }
     val pagerState = rememberPagerState(initialPage = 0) { pages.size }
     val page = pages[pagerState.currentPage.coerceIn(0, pages.lastIndex)]
 
@@ -39,39 +44,41 @@ fun DrawerPagedHost(
         modifier = modifier
             .fillMaxSize()
             .drawBehind {
-                val w = 4.dp.toPx()
-                val segH = size.height / 3f
-                val inactive = Color.White.copy(alpha = 0.14f)
+                val h = 4.dp.toPx()
+                val segW = size.width / pages.size
+                val accents = pages.map { it.accent }
 
-                drawRect(color = inactive, topLeft = Offset(0f, 0f), size = Size(w, segH))
-                drawRect(color = inactive, topLeft = Offset(0f, segH), size = Size(w, segH))
-                drawRect(color = inactive, topLeft = Offset(0f, segH * 2f), size = Size(w, segH))
-
-                val activeTop = when (page) {
-                    DrawerPage.ARCH -> 0f
-                    DrawerPage.WINE -> segH
-                    DrawerPage.DEBIAN -> segH * 2f
+                accents.forEachIndexed { i, accent ->
+                    val left = segW * i
+                    val alpha = if (pages[i] == page) 1f else 0.22f
+                    drawRect(
+                        color = accent.copy(alpha = alpha),
+                        topLeft = Offset(left, 0f),
+                        size = Size(segW, h),
+                    )
                 }
-                drawRect(color = page.accent, topLeft = Offset(0f, activeTop), size = Size(w, segH))
             }
-            .padding(start = 4.dp) // leave space for the accent border
+            .padding(top = 4.dp) // top bar: Trierarch | Arch | Debian | Wine
     ) {
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxSize(),
         ) { idx ->
             val scroll = rememberScrollState()
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(scroll)
-                    .background(Color.Transparent),
-                contentAlignment = Alignment.TopStart,
-            ) {
-                when (pages[idx]) {
-                    DrawerPage.ARCH -> archContent()
-                    DrawerPage.WINE -> wineContent()
-                    DrawerPage.DEBIAN -> debianContent()
+            CompositionLocalProvider(LocalDrawerPageAccent provides pages[idx].accent) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(scroll)
+                        .background(Color.Transparent),
+                    contentAlignment = Alignment.TopStart,
+                ) {
+                    when (pages[idx]) {
+                        DrawerPage.TRIERARCH -> trierarchContent()
+                        DrawerPage.ARCH -> archContent()
+                        DrawerPage.DEBIAN -> debianContent()
+                        DrawerPage.WINE -> wineContent()
+                    }
                 }
             }
         }

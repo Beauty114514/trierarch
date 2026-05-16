@@ -15,8 +15,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import app.trierarch.ui.drawer.pages.drawerPageAccent
 
 @Composable
 fun DrawerScriptEditor(
@@ -27,11 +27,12 @@ fun DrawerScriptEditor(
 ) {
     var text by remember { mutableStateOf(initialText) }
     LaunchedEffect(initialText) { text = initialText }
+    val accent = drawerPageAccent()
 
     Text(
         text = title,
         style = MaterialTheme.typography.titleMedium,
-        color = Color.White.copy(alpha = 0.92f),
+        color = accent,
         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
     )
     OutlinedTextField(
@@ -49,8 +50,12 @@ fun DrawerScriptEditor(
             .padding(horizontal = 12.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.End,
     ) {
-        TextButton(onClick = { text = initialText }) { Text("Reset") }
-        TextButton(onClick = { onSave(text.trimEnd()) }) { Text("Save") }
+        TextButton(onClick = { text = initialText }) {
+            Text("Reset", color = accent.copy(alpha = 0.85f))
+        }
+        TextButton(onClick = { onSave(text.trimEnd()) }) {
+            Text("Save", color = accent)
+        }
     }
 }
 

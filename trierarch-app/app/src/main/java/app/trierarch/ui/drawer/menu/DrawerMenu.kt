@@ -14,8 +14,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.clickable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
+import app.trierarch.ui.drawer.pages.drawerPageAccent
 
 @Composable
 fun DrawerMenu(
@@ -24,9 +24,19 @@ fun DrawerMenu(
     options: DrawerMenuOptions,
     actions: DrawerMenuActions,
     modifier: Modifier = Modifier,
-    showDebianDesktop: Boolean = false,
+    visibility: DrawerMenuVisibility = DrawerMenuVisibility(
+        launcherDefault = true,
+        graphics = true,
+        terminalSettings = true,
+        showWaylandEntry = true,
+        terminalEntry = true,
+        desktopView = true,
+        keyboard = true,
+    ),
     extraContent: (@Composable () -> Unit)? = null,
 ) {
+    val accent = drawerPageAccent()
+
     Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.TopStart) {
         Column(
             modifier = Modifier
@@ -36,118 +46,138 @@ fun DrawerMenu(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
-                color = Color.White,
+                color = accent,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
             )
 
-            DrawerExpandableSection(title = "Common", defaultExpanded = true) {
-                DrawerPrimaryItem(
-                    title = "Wayland",
-                    onTap = actions.onDesktopClick,
-                    onLongPress = actions.onDesktopLongPress,
-                )
+            if (visibility.launcherDefault || visibility.showWaylandEntry || visibility.showX11Entry
+                || visibility.terminalEntry
+            ) {
+                DrawerExpandableSection(title = "Common", defaultExpanded = true) {
+                    if (visibility.showWaylandEntry) {
+                        DrawerPrimaryItem(
+                            title = "Wayland",
+                            onTap = actions.onWaylandEntryClick,
+                            onLongPress = actions.onWaylandEntryLongPress,
+                        )
+                    }
 
-                if (showDebianDesktop) {
-                    DrawerPrimaryItem(
-                        title = "X11",
-                        onTap = actions.onDebianDesktopClick,
-                        onLongPress = actions.onDebianDesktopLongPress,
-                    )
+                    if (visibility.showX11Entry) {
+                        DrawerPrimaryItem(
+                            title = "X11",
+                            onTap = actions.onX11EntryClick,
+                            onLongPress = actions.onX11EntryLongPress,
+                        )
+                    }
+
+                    if (visibility.terminalEntry) {
+                        DrawerPrimaryItem(
+                            title = "Terminal",
+                            onTap = actions.onTerminalClick,
+                        )
+                    }
+
+                    if (visibility.launcherDefault) {
+                        DrawerDropdownField(
+                            label = "Launcher default",
+                            value = labels.launcherDefaultLabel,
+                            options = options.launcherDefaultOptions,
+                            onSelect = {
+                                actions.onLauncherDefaultSelect(it)
+                                actions.onCloseDrawerRequest()
+                            },
+                        )
+                    }
                 }
-
-                DrawerPrimaryItem(
-                    title = "Terminal",
-                    onTap = actions.onTerminalClick,
-                )
-
-                DrawerDropdownField(
-                    label = "Launcher default",
-                    value = labels.launcherDefaultLabel,
-                    options = options.launcherDefaultOptions,
-                    onSelect = {
-                        actions.onLauncherDefaultSelect(it)
-                        actions.onCloseDrawerRequest()
-                    },
-                )
             }
 
-            Spacer(Modifier.height(6.dp))
+            if (visibility.graphics || visibility.desktopView || visibility.keyboard) {
+                Spacer(Modifier.height(6.dp))
 
-            DrawerExpandableSection(title = "Desktop", defaultExpanded = true) {
-                DrawerDropdownField(
-                    label = "Vulkan",
-                    value = labels.desktopVulkanLabel,
-                    options = options.desktopVulkanOptions,
-                    onSelect = {
-                        actions.onDesktopVulkanSelect(it)
-                        actions.onCloseDrawerRequest()
-                    },
-                )
+                DrawerExpandableSection(title = "Desktop", defaultExpanded = true) {
+                    if (visibility.graphics) {
+                        DrawerDropdownField(
+                            label = "Vulkan",
+                            value = labels.desktopVulkanLabel,
+                            options = options.desktopVulkanOptions,
+                            onSelect = {
+                                actions.onDesktopVulkanSelect(it)
+                                actions.onCloseDrawerRequest()
+                            },
+                        )
 
-                DrawerDropdownField(
-                    label = "OpenGL",
-                    value = labels.desktopOpenGLLabel,
-                    options = options.desktopOpenGLOptions,
-                    onSelect = {
-                        actions.onDesktopOpenGLSelect(it)
-                        actions.onCloseDrawerRequest()
-                    },
-                )
+                        DrawerDropdownField(
+                            label = "OpenGL",
+                            value = labels.desktopOpenGLLabel,
+                            options = options.desktopOpenGLOptions,
+                            onSelect = {
+                                actions.onDesktopOpenGLSelect(it)
+                                actions.onCloseDrawerRequest()
+                            },
+                        )
+                    }
 
-                DrawerExpandableSection(title = "View", defaultExpanded = true) {
+                    if (visibility.desktopView) {
+                        DrawerExpandableSection(title = "View", defaultExpanded = true) {
+                            DrawerDropdownField(
+                                label = "Mouse mode",
+                                value = labels.mouseModeLabel,
+                                options = options.mouseModeOptions,
+                                onSelect = {
+                                    actions.onMouseModeSelect(it)
+                                    actions.onCloseDrawerRequest()
+                                },
+                            )
+                            DrawerDropdownField(
+                                label = "Resolution",
+                                value = labels.resolutionPercentLabel,
+                                options = options.resolutionPercentOptions,
+                                onSelect = {
+                                    actions.onResolutionPercentSelect(it)
+                                    actions.onCloseDrawerRequest()
+                                },
+                            )
+                            DrawerDropdownField(
+                                label = "Scale",
+                                value = labels.scalePercentLabel,
+                                options = options.scalePercentOptions,
+                                onSelect = {
+                                    actions.onScalePercentSelect(it)
+                                    actions.onCloseDrawerRequest()
+                                },
+                            )
+                        }
+                    }
+                    if (visibility.keyboard) {
+                        DrawerTextItem(title = "Keyboard", onClick = actions.onKeyboardClick)
+                    }
+                }
+            }
+
+            if (visibility.terminalSettings) {
+                Spacer(Modifier.height(6.dp))
+
+                DrawerExpandableSection(title = "Terminal", defaultExpanded = true) {
                     DrawerDropdownField(
-                        label = "Mouse mode",
-                        value = labels.mouseModeLabel,
-                        options = options.mouseModeOptions,
+                        label = "Appearance",
+                        value = labels.terminalFontLabel,
+                        options = options.terminalFontOptions,
                         onSelect = {
-                            actions.onMouseModeSelect(it)
+                            actions.onTerminalFontSelect(it)
                             actions.onCloseDrawerRequest()
                         },
                     )
+
                     DrawerDropdownField(
-                        label = "Resolution",
-                        value = labels.resolutionPercentLabel,
-                        options = options.resolutionPercentOptions,
+                        label = "Session",
+                        value = labels.terminalSessionLabel,
+                        options = options.terminalSessionOptions,
                         onSelect = {
-                            actions.onResolutionPercentSelect(it)
-                            actions.onCloseDrawerRequest()
-                        },
-                    )
-                    DrawerDropdownField(
-                        label = "Scale",
-                        value = labels.scalePercentLabel,
-                        options = options.scalePercentOptions,
-                        onSelect = {
-                            actions.onScalePercentSelect(it)
+                            actions.onTerminalSessionSelect(it)
                             actions.onCloseDrawerRequest()
                         },
                     )
                 }
-                DrawerTextItem(title = "Keyboard", onClick = actions.onKeyboardClick)
-            }
-
-            Spacer(Modifier.height(6.dp))
-
-            DrawerExpandableSection(title = "Terminal", defaultExpanded = true) {
-                DrawerDropdownField(
-                    label = "Appearance",
-                    value = labels.terminalFontLabel,
-                    options = options.terminalFontOptions,
-                    onSelect = {
-                        actions.onTerminalFontSelect(it)
-                        actions.onCloseDrawerRequest()
-                    },
-                )
-
-                DrawerDropdownField(
-                    label = "Session",
-                    value = labels.terminalSessionLabel,
-                    options = options.terminalSessionOptions,
-                    onSelect = {
-                        actions.onTerminalSessionSelect(it)
-                        actions.onCloseDrawerRequest()
-                    },
-                )
             }
 
             if (extraContent != null) {
@@ -164,6 +194,7 @@ private fun DrawerPrimaryItem(
     onTap: () -> Unit,
     onLongPress: (() -> Unit)?,
 ) {
+    val accent = drawerPageAccent()
     val mod = Modifier
         .fillMaxWidth()
         .pointerInput(title) {
@@ -176,7 +207,7 @@ private fun DrawerPrimaryItem(
     Text(
         text = title,
         style = MaterialTheme.typography.bodyLarge,
-        color = MaterialTheme.colorScheme.primary,
+        color = accent,
         modifier = mod
     )
 }
@@ -192,10 +223,11 @@ private fun DrawerTextItem(
     title: String,
     onClick: () -> Unit,
 ) {
+    val accent = drawerPageAccent()
     Text(
         text = title,
         style = MaterialTheme.typography.bodyLarge,
-        color = MaterialTheme.colorScheme.primary,
+        color = accent,
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }

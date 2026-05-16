@@ -23,10 +23,10 @@ data class DrawerMenuOptions(
 )
 
 data class DrawerMenuActions(
-    val onDesktopClick: () -> Unit,
-    val onDesktopLongPress: () -> Unit,
-    val onDebianDesktopClick: () -> Unit,
-    val onDebianDesktopLongPress: () -> Unit,
+    val onWaylandEntryClick: () -> Unit,
+    val onWaylandEntryLongPress: () -> Unit,
+    val onX11EntryClick: () -> Unit,
+    val onX11EntryLongPress: () -> Unit,
     val onTerminalClick: () -> Unit,
     val onViewClick: () -> Unit,
     // Keep old dialog-based actions wired elsewhere; drawer uses dropdowns instead.

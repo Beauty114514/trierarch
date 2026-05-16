@@ -14,7 +14,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.unit.dp
@@ -46,28 +45,52 @@ fun DebianDrawerPage(
     x11ResolutionCustom: String,
     onX11ResolutionCustomChange: (String) -> Unit,
     onX11ResolutionCustomApply: () -> Unit,
-    x11ScriptEditorOpen: Boolean,
-    onX11ScriptEditorOpenChange: (Boolean) -> Unit,
-    onEnterDebianDesktop: () -> Unit,
+    debianWaylandScriptEditorOpen: Boolean,
+    onDebianWaylandScriptEditorOpenChange: (Boolean) -> Unit,
+    debianX11ScriptEditorOpen: Boolean,
+    onDebianX11ScriptEditorOpenChange: (Boolean) -> Unit,
+    onEnterDebianWayland: () -> Unit,
+    onEnterDebianX11: () -> Unit,
     onEnterTerminal: () -> Unit,
-    onExitDisplayModes: () -> Unit,
+    onLeaveGraphicalSurface: () -> Unit,
 ) {
+    val accent = drawerPageAccent()
+
     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-        Text("Debian", color = Color.White.copy(alpha = 0.9f), style = MaterialTheme.typography.titleLarge)
+        Text("Debian", color = accent, style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(12.dp))
         Text(
-            text = "X11",
-            color = MaterialTheme.colorScheme.primary,
+            text = "Wayland",
+            color = accent,
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier
                 .fillMaxWidth()
                 .pointerInput(Unit) {
                     detectTapGestures(
-                        onLongPress = { onX11ScriptEditorOpenChange(true) },
+                        onLongPress = { onDebianWaylandScriptEditorOpenChange(true) },
                         onTap = {
                             scope.launch {
                                 drawerState.close()
-                                onEnterDebianDesktop()
+                                onEnterDebianWayland()
+                            }
+                        },
+                    )
+                }
+                .padding(vertical = 12.dp),
+        )
+        Text(
+            text = "X11",
+            color = accent,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier
+                .fillMaxWidth()
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onLongPress = { onDebianX11ScriptEditorOpenChange(true) },
+                        onTap = {
+                            scope.launch {
+                                drawerState.close()
+                                onEnterDebianX11()
                             }
                         },
                     )
@@ -116,7 +139,7 @@ fun DebianDrawerPage(
             Text(
                 text = "Apply custom resolution",
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.primary,
+                color = accent,
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onX11ResolutionCustomApply() }
@@ -124,37 +147,55 @@ fun DebianDrawerPage(
             )
         }
         DrawerExpandableSection(title = "Scripts", defaultExpanded = false) {
-            if (x11ScriptEditorOpen) {
+            if (debianWaylandScriptEditorOpen) {
+                DrawerScriptEditor(
+                    title = "Wayland startup script",
+                    initialText = AppPrefs.readDebianWaylandStartupScript(prefs),
+                    onSave = {
+                        AppPrefs.writeDebianWaylandStartupScript(prefs, it)
+                        onDebianWaylandScriptEditorOpenChange(false)
+                    },
+                )
+            } else if (debianX11ScriptEditorOpen) {
                 DrawerScriptEditor(
                     title = "X11 startup script",
-                    initialText = AppPrefs.readDebianDesktopStartupScript(prefs),
+                    initialText = AppPrefs.readDebianX11StartupScript(prefs),
                     onSave = {
-                        AppPrefs.writeDebianDesktopStartupScript(prefs, it)
-                        onX11ScriptEditorOpenChange(false)
+                        AppPrefs.writeDebianX11StartupScript(prefs, it)
+                        onDebianX11ScriptEditorOpenChange(false)
                     },
                 )
             } else {
                 Text(
-                    text = "Edit X11 startup script",
+                    text = "Edit Wayland startup script",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = accent,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onX11ScriptEditorOpenChange(true) }
+                        .clickable { onDebianWaylandScriptEditorOpenChange(true) }
+                        .padding(vertical = 12.dp, horizontal = 12.dp),
+                )
+                Text(
+                    text = "Edit X11 startup script",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = accent,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onDebianX11ScriptEditorOpenChange(true) }
                         .padding(vertical = 12.dp, horizontal = 12.dp),
                 )
             }
         }
         Text(
             text = "Terminal",
-            color = MaterialTheme.colorScheme.primary,
+            color = accent,
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable {
                     scope.launch { drawerState.close() }
                     onTerminalSessionStateChange(terminalSessionState.copy(activeSessionId = TerminalSessionIds.DEBIAN_TERMINAL))
-                    onExitDisplayModes()
+                    onLeaveGraphicalSurface()
                     onEnterTerminal()
                 }
                 .padding(vertical = 12.dp)
