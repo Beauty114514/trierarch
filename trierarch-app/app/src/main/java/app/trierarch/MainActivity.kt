@@ -39,10 +39,18 @@ class MainActivity : ComponentActivity() {
         startInTerminal = intent.action == ACTION_OPEN_TERMINAL
     }
 
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        InputRouteState.winlatorDispatchKeyEvent?.let { dispatch ->
+            if (dispatch(event)) return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (hardwareKeyboardRouter.handleHardwareKeyboardEvent(event)) return true
         if (!InputRouteState.waylandVisible &&
             !InputRouteState.lorieX11DisplayVisible &&
+            InputRouteState.winlatorDispatchKeyEvent == null &&
             HardwareKeyEventPolicy.isLikelyFromHardwareKeyboard(event)) {
             val tv = InputRouteState.shellTerminalView
             if (tv != null) {
@@ -57,6 +65,7 @@ class MainActivity : ComponentActivity() {
         if (hardwareKeyboardRouter.handleHardwareKeyboardEvent(event)) return true
         if (!InputRouteState.waylandVisible &&
             !InputRouteState.lorieX11DisplayVisible &&
+            InputRouteState.winlatorDispatchKeyEvent == null &&
             HardwareKeyEventPolicy.isLikelyFromHardwareKeyboard(event)) {
             val tv = InputRouteState.shellTerminalView
             if (tv != null) {
@@ -71,6 +80,7 @@ class MainActivity : ComponentActivity() {
         if (hardwareKeyboardRouter.handleHardwareKeyboardEvent(event)) return true
         if (!InputRouteState.waylandVisible &&
             !InputRouteState.lorieX11DisplayVisible &&
+            InputRouteState.winlatorDispatchKeyEvent == null &&
             HardwareKeyEventPolicy.isLikelyFromHardwareKeyboard(event)) {
             val tv = InputRouteState.shellTerminalView
             if (tv != null) {

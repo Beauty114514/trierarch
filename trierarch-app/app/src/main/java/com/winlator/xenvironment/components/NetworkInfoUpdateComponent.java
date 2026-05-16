@@ -39,7 +39,11 @@ public class NetworkInfoUpdateComponent extends EnvironmentComponent {
     @Override
     public void stop() {
         if (broadcastReceiver != null) {
-            environment.getContext().unregisterReceiver(broadcastReceiver);
+            try {
+                environment.getContext().unregisterReceiver(broadcastReceiver);
+            } catch (IllegalArgumentException ignored) {
+                // Receiver was never registered or already unregistered.
+            }
             broadcastReceiver = null;
         }
     }

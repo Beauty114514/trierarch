@@ -102,6 +102,9 @@ public class ContainerManager {
     public void activateContainer(Container container) {
         container.setRootDir(new File(homeDir, RootFS.USER + "-" + container.id));
         File file = new File(homeDir, RootFS.USER);
+        // Upstream behavior: delete the link path and recreate symlink.
+        // NOTE: some ROMs/filesystems may disallow symlinks under app data; callers should not
+        // rely on /home/xuser being present and should use the container rootDir when possible.
         file.delete();
         FileUtils.symlink(RootFS.USER + "-" + container.id, file.getPath());
     }

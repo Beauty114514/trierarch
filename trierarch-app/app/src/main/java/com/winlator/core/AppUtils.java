@@ -83,7 +83,7 @@ public abstract class AppUtils {
         Runtime.getRuntime().exit(0);
     }
 
-    public static void showKeyboard(AppCompatActivity activity) {
+    public static void showKeyboard(Activity activity) {
         final InputMethodManager imm = (InputMethodManager)activity.getSystemService(Context.INPUT_METHOD_SERVICE);
         if (Build.VERSION.SDK_INT > Build.VERSION_CODES.Q) {
             activity.getWindow().getDecorView().postDelayed(() -> imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, 0), 500L);

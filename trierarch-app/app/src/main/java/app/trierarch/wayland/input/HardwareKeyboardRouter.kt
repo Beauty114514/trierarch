@@ -127,4 +127,7 @@ object InputRouteState {
 
     /** Active shell [TerminalView]; non-null while the terminal surface is composed. */
     @Volatile var shellTerminalView: TerminalView? = null
+
+    /** Embedded Winlator container: forward [android.view.KeyEvent] from [app.trierarch.MainActivity]. */
+    @Volatile var winlatorDispatchKeyEvent: ((android.view.KeyEvent) -> Boolean)? = null
 }
