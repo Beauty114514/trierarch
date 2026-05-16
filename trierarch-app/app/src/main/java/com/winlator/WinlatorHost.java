@@ -40,5 +40,17 @@ public interface WinlatorHost {
     void setWinComponents(String wincomponents);
 
     void runOnUiThread(Runnable r);
+
+    // Navigation menu actions
+    void showKeyboard();
+    void showInputControlsDialog();
+    void toggleFullscreen();
+    void showTaskManagerDialog();
+    void showActiveWindowsDialog();
+    void toggleMagnifier();
+    void showScreenEffectDialog();
+    void showDebugDialog();
+    void showTouchpadHelpDialog();
+    void exit();
 }
 

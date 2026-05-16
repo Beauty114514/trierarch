@@ -7,8 +7,10 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.InputMethodManager;
 import android.view.ContextThemeWrapper;
 
 import androidx.annotation.Nullable;
@@ -49,6 +51,7 @@ import com.winlator.contentdialog.AudioDriverConfigDialog;
 import com.winlator.contentdialog.TurnipConfigDialog;
 import com.winlator.contentdialog.VirGLConfigDialog;
 import com.winlator.widget.InputControlsView;
+import com.winlator.widget.WinlatorImeSinkView;
 import com.winlator.widget.XServerView;
 import com.winlator.winhandler.WinHandler;
 import com.winlator.xenvironment.RootFS;
@@ -56,6 +59,19 @@ import com.winlator.xenvironment.XEnvironment;
 import com.winlator.xserver.ScreenInfo;
 import com.winlator.xserver.XServer;
 import com.winlator.widget.TouchpadView;
+import com.winlator.widget.MagnifierView;
+import com.winlator.inputcontrols.InputControlsManager;
+import com.winlator.inputcontrols.ControlsProfile;
+import com.winlator.contentdialog.ContentDialog;
+import com.winlator.contentdialog.ScreenEffectDialog;
+import com.winlator.winhandler.TaskManagerDialog;
+import com.winlator.contentdialog.ActiveWindowsDialog;
+import com.winlator.math.Mathf;
+import android.widget.FrameLayout;
+import android.widget.Spinner;
+import android.widget.ArrayAdapter;
+import android.widget.CheckBox;
+import android.content.Intent;
 import androidx.core.view.GravityCompat;
 
 import org.json.JSONArray;
@@ -76,6 +92,7 @@ import java.util.concurrent.Executors;
 public final class EmbeddedWinlatorController implements WinlatorHost {
     private static final String TAG = "Trierarch-WinlatorEmbedded";
     private final Activity activity;
+    private final Context themedContext;
     private final View rootView;
     private final DrawerLayout drawerLayout;
     private final SharedPreferences preferences;
@@ -83,6 +100,7 @@ public final class EmbeddedWinlatorController implements WinlatorHost {
     private XServerView xServerView;
     private InputControlsView inputControlsView;
     private TouchpadView touchpadView;
+    private WinlatorImeSinkView imeSinkView;
     private XEnvironment environment;
     private Container container;
     private XServer xServer;
@@ -99,23 +117,24 @@ public final class EmbeddedWinlatorController implements WinlatorHost {
     private String wincomponents;
     private final EnvVars envVars = new EnvVars();
     private EnvVars overrideEnvVars;
-
+    private float globalCursorSpeed = 1.0f;
+    private InputControlsManager inputControlsManager;
+    private MagnifierView magnifierView;
     private DebugDialog debugDialog;
     private String screenEffectProfile;
 
     private final WinHandler winHandler = new WinHandler(this);
 
-    private float globalCursorSpeed = 1.0f;
     private boolean capturePointerOnExternalMouse = true;
 
     public EmbeddedWinlatorController(Activity activity, ViewGroup parent) {
         this.activity = activity;
+        this.themedContext = new ContextThemeWrapper(activity, R.style.AppThemeFullscreenDark);
         this.preferences = PreferenceManager.getDefaultSharedPreferences(activity);
         // XServerDisplayActivity uses a Winlator-specific theme (MaterialComponents). When embedding inside
         // Trierarch's Compose activity, we must inflate the Winlator layout with that theme, otherwise
         // Material widgets (NavigationView) crash resolving theme attributes.
-        Context themed = new ContextThemeWrapper(activity, R.style.AppThemeFullscreenDark);
-        this.rootView = LayoutInflater.from(themed).inflate(R.layout.xserver_display_activity, parent, false);
+        this.rootView = LayoutInflater.from(themedContext).inflate(R.layout.xserver_display_activity, parent, false);
         parent.addView(rootView);
         this.drawerLayout = rootView.findViewById(R.id.DrawerLayout);
     }
@@ -136,10 +155,29 @@ public final class EmbeddedWinlatorController implements WinlatorHost {
         if (container == null) {
             throw new IllegalStateException("Container not found: " + containerId);
         }
+        // Match XServerDisplayActivity: activate container so /home/xuser symlink points to the
+        // container's home directory (home/xuser-<id>). Wine relies on this for WINEPREFIX.
+        manager.activateContainer(container);
 
         rootFS = RootFS.find(activity);
         screenInfo = new ScreenInfo(container.getScreenSize());
+
+        inputControlsManager = new InputControlsManager(activity);
+        globalCursorSpeed = preferences.getFloat("cursor_speed", 1.0f);
+        debugDialog = new DebugDialog(themedContext);
+
         wineInfo = WineInfo.fromIdentifier(activity, container.getWineVersion());
+        // Defensive fallback: some custom wine identifiers can exist in container config while the
+        // installed wine metadata/path is missing. In that case, run with main wine (/opt/wine)
+        // instead of crashing or starting with an invalid wine path.
+        if (wineInfo == null || wineInfo.path == null || wineInfo.path.isEmpty()) {
+            Log.w(TAG, "wineInfo path is missing for wineVersion=" + container.getWineVersion() + ", fallback to main wine");
+            wineInfo = WineInfo.MAIN_WINE_INFO;
+        }
+        // Match upstream: RootFS defaults to /opt/wine; only override when using an installed custom wine.
+        if (wineInfo != WineInfo.MAIN_WINE_INFO) {
+            rootFS.setWinePath(wineInfo.path);
+        }
 
         graphicsDriver = GraphicsDrivers.parseIdentifiers(container.getGraphicsDriver());
         graphicsDriverConfig = GraphicsDrivers.parseConfigs(container.getGraphicsDriver(), container.getGraphicsDriverConfig());
@@ -201,8 +239,10 @@ public final class EmbeddedWinlatorController implements WinlatorHost {
         touchpadView.setSensitivity(globalCursorSpeed);
         touchpadView.setMoveCursorToTouchpoint(preferences.getBoolean("move_cursor_to_touchpoint", false));
         touchpadView.setFourFingersTapCallback(() -> {
-            if (!drawerLayout.isDrawerOpen(GravityCompat.START)) drawerLayout.openDrawer(GravityCompat.START);
+            // Native Winlator drawer is disabled in Trierarch embedded mode.
+            // Functionality is moved to FloatingMenuOrb (Compose).
         });
+        drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
         container.addView(touchpadView);
 
         inputControlsView = new InputControlsView(activity);
@@ -212,7 +252,11 @@ public final class EmbeddedWinlatorController implements WinlatorHost {
         inputControlsView.setVisibility(View.GONE);
         container.addView(inputControlsView);
 
-        AppUtils.observeSoftKeyboardVisibility(drawerLayout, renderer::setScreenOffsetYRelativeToCursor);
+        imeSinkView = new WinlatorImeSinkView(activity, xServer);
+        container.addView(imeSinkView, new FrameLayout.LayoutParams(1, 1));
+
+        // Embedded in Trierarch MainActivity (adjustResize): do not apply Winlator's extra
+        // GL vertical offset — the host window already resizes and double-shifting breaks layout.
     }
 
     private void setupXEnvironment() {
@@ -221,7 +265,9 @@ public final class EmbeddedWinlatorController implements WinlatorHost {
         String rootPath = rootFS.getRootDir().getPath();
         envVars.put("MESA_DEBUG", "silent");
         envVars.put("MESA_NO_ERROR", "1");
-        envVars.put("WINEPREFIX", rootPath + RootFS.WINEPREFIX);
+        // Do not depend on /home/xuser symlink: some ROMs/filesystems disallow symlinks under app data.
+        // Use the concrete container directory instead.
+        envVars.put("WINEPREFIX", new File(container.getRootDir(), ".wine").getPath());
         envVars.put("WINE_DO_NOT_CREATE_DXGI_DEVICE_MANAGER", "1");
 
         boolean enableWineDebug = preferences.getBoolean("enable_wine_debug", false);
@@ -285,6 +331,10 @@ public final class EmbeddedWinlatorController implements WinlatorHost {
         guestProgramLauncherComponent.setTerminationCallback((status) -> stop());
         environment.addComponent(guestProgramLauncherComponent);
 
+        // Fresh containers should already have wineprefix via container pattern extraction.
+        // If missing, re-extract the pattern (upstream behavior) instead of running WineInstaller here.
+        ensureWineprefixExistsOrThrow();
+
         if (overrideEnvVars != null) {
             envVars.putAll(overrideEnvVars);
             overrideEnvVars = null;
@@ -293,6 +343,62 @@ public final class EmbeddedWinlatorController implements WinlatorHost {
         environment.startEnvironmentComponents();
         winHandler.start();
         envVars.clear();
+    }
+
+    private void ensureWineprefixExistsOrThrow() {
+        if (container == null || container.getRootDir() == null) return;
+        File wineprefixDir = new File(container.getRootDir(), ".wine");
+        if (wineprefixDir.isDirectory()) return;
+
+        if (!extractContainerPatternFile(container.getWineVersion(), container.getRootDir())) {
+            throw new IllegalStateException("Failed to extract container pattern for wineVersion=" + container.getWineVersion());
+        }
+    }
+
+    private boolean extractContainerPatternFile(String wineVersion, File containerDir) {
+        if (WineInfo.isMainWineVersion(wineVersion)) {
+            boolean result = TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, activity, "container_pattern.tzst", containerDir);
+            if (result) {
+                try {
+                    JSONObject commonDlls = new JSONObject(FileUtils.readString(activity, "common_dlls.json"));
+                    copyCommonDlls("x86_64-windows", "system32", commonDlls, containerDir);
+                    copyCommonDlls("i386-windows", "syswow64", commonDlls, containerDir);
+                } catch (JSONException e) {
+                    return false;
+                }
+            }
+            return result;
+        }
+
+        File installedWineDir = RootFS.find(activity).getInstalledWineDir();
+        WineInfo wi = WineInfo.fromIdentifier(activity, wineVersion);
+        if (wi == null || wi.path == null || wi.path.isEmpty()) {
+            Log.w(TAG, "extractContainerPatternFile: missing WineInfo path for wineVersion=" + wineVersion + ", fallback to main pattern");
+            boolean result = TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, activity, "container_pattern.tzst", containerDir);
+            if (result) {
+                try {
+                    JSONObject commonDlls = new JSONObject(FileUtils.readString(activity, "common_dlls.json"));
+                    copyCommonDlls("x86_64-windows", "system32", commonDlls, containerDir);
+                    copyCommonDlls("i386-windows", "syswow64", commonDlls, containerDir);
+                } catch (JSONException e) {
+                    return false;
+                }
+            }
+            return result;
+        }
+        File file = new File(installedWineDir, "container-pattern-" + wi.fullVersion() + ".tzst");
+        return TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, file, containerDir);
+    }
+
+    private void copyCommonDlls(String srcName, String dstName, JSONObject commonDlls, File containerDir) throws JSONException {
+        File srcDir = new File(RootFS.find(activity).getRootDir(), "/opt/wine/lib/wine/" + srcName);
+        JSONArray dlnames = commonDlls.getJSONArray(dstName);
+
+        for (int i = 0; i < dlnames.length(); i++) {
+            String dlname = dlnames.getString(i);
+            File dstFile = new File(containerDir, ".wine/drive_c/windows/" + dstName + "/" + dlname);
+            FileUtils.copy(new File(srcDir, dlname), dstFile);
+        }
     }
 
     private void setupWineSystemFiles() {
@@ -584,7 +690,7 @@ public final class EmbeddedWinlatorController implements WinlatorHost {
 
     @Override
     public Context getContext() {
-        return activity;
+        return themedContext;
     }
 
     @Override
@@ -656,6 +762,183 @@ public final class EmbeddedWinlatorController implements WinlatorHost {
     @Override
     public void setWinComponents(String wincomponents) {
         this.wincomponents = wincomponents;
+    }
+
+    @Override
+    public void showKeyboard() {
+        if (imeSinkView == null) return;
+        imeSinkView.post(() -> {
+            imeSinkView.requestFocus();
+            InputMethodManager imm = (InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (imm != null) {
+                imm.showSoftInput(imeSinkView, InputMethodManager.SHOW_IMPLICIT);
+            }
+        });
+    }
+
+    /**
+     * Route Activity-level key events to Winlator (mirrors {@link XServerDisplayActivity#dispatchKeyEvent}).
+     */
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (inputControlsView != null && inputControlsView.onKeyEvent(event)) return true;
+        if (winHandler != null && winHandler.onKeyEvent(event)) return true;
+        if (xServer != null && xServer.keyboard.onKeyEvent(event)) return true;
+        return false;
+    }
+
+    @Override
+    public void showInputControlsDialog() {
+        final ContentDialog dialog = new ContentDialog(themedContext, R.layout.input_controls_dialog);
+        dialog.setTitle(R.string.input_controls);
+        dialog.setIcon(R.drawable.icon_input_controls);
+
+        final Spinner sProfile = dialog.findViewById(R.id.SProfile);
+        Runnable loadProfileSpinner = () -> {
+            ArrayList<ControlsProfile> profiles = inputControlsManager.getProfiles(true);
+            ArrayList<String> profileItems = new ArrayList<>();
+            int selectedPosition = 0;
+            profileItems.add("-- "+themedContext.getString(R.string.disabled)+" --");
+            for (int i = 0; i < profiles.size(); i++) {
+                ControlsProfile profile = profiles.get(i);
+                if (profile == inputControlsView.getProfile()) selectedPosition = i + 1;
+                profileItems.add(profile.getName());
+            }
+
+            sProfile.setAdapter(new ArrayAdapter<>(themedContext, android.R.layout.simple_spinner_dropdown_item, profileItems));
+            sProfile.setSelection(selectedPosition);
+        };
+        loadProfileSpinner.run();
+
+        final CheckBox cbRelativeMouseMovement = dialog.findViewById(R.id.CBRelativeMouseMovement);
+        cbRelativeMouseMovement.setChecked(xServer.isRelativeMouseMovement());
+
+        final CheckBox cbShowTouchscreenControls = dialog.findViewById(R.id.CBShowTouchscreenControls);
+        cbShowTouchscreenControls.setChecked(inputControlsView.isShowTouchscreenControls());
+
+        dialog.findViewById(R.id.BTSettings).setOnClickListener((v) -> {
+            int position = sProfile.getSelectedItemPosition();
+            Intent intent = new Intent(activity, MainActivity.class);
+            intent.putExtra("edit_input_controls", true);
+            intent.putExtra("selected_profile_id", position > 0 ? inputControlsManager.getProfiles().get(position - 1).id : 0);
+            // In embedded mode, we don't have a direct callback from MainActivity yet, 
+            // but we can at least open the settings.
+            activity.startActivity(intent);
+        });
+
+        dialog.setOnConfirmCallback(() -> {
+            xServer.setRelativeMouseMovement(cbRelativeMouseMovement.isChecked());
+            inputControlsView.setShowTouchscreenControls(cbShowTouchscreenControls.isChecked());
+            int position = sProfile.getSelectedItemPosition();
+            if (position > 0) {
+                showInputControls(inputControlsManager.getProfiles().get(position - 1));
+            }
+            else hideInputControls();
+        });
+
+        dialog.show();
+    }
+
+    private void showInputControls(ControlsProfile profile) {
+        inputControlsView.setVisibility(View.VISIBLE);
+        inputControlsView.requestFocus();
+        inputControlsView.setProfile(profile);
+
+        touchpadView.setSensitivity(profile.getCursorSpeed() * globalCursorSpeed);
+        touchpadView.setPointerButtonRightEnabled(false);
+
+        GLRenderer renderer = xServerView.getRenderer();
+        if (profile.isDisableMouseInput()) {
+            renderer.setCursorVisible(false);
+            touchpadView.setEnabled(false);
+        }
+        else {
+            renderer.setCursorVisible(true);
+            touchpadView.setEnabled(true);
+        }
+
+        inputControlsView.invalidate();
+    }
+
+    private void hideInputControls() {
+        inputControlsView.setShowTouchscreenControls(true);
+        inputControlsView.setVisibility(View.GONE);
+        inputControlsView.setProfile(null);
+
+        touchpadView.setSensitivity(globalCursorSpeed);
+        touchpadView.setPointerButtonLeftEnabled(true);
+        touchpadView.setPointerButtonRightEnabled(true);
+
+        if (!touchpadView.isEnabled()) {
+            touchpadView.setEnabled(true);
+            xServerView.getRenderer().setCursorVisible(true);
+        }
+
+        inputControlsView.invalidate();
+    }
+
+    @Override
+    public void toggleFullscreen() {
+        xServerView.getRenderer().toggleFullscreen();
+    }
+
+    @Override
+    public void showTaskManagerDialog() {
+        (new TaskManagerDialog(this)).show();
+    }
+
+    @Override
+    public void showActiveWindowsDialog() {
+        (new ActiveWindowsDialog(this)).show();
+    }
+
+    @Override
+    public void toggleMagnifier() {
+        if (magnifierView == null) {
+            final FrameLayout containerView = rootView.findViewById(R.id.FLXServerDisplay);
+            magnifierView = new MagnifierView(themedContext);
+            magnifierView.setZoomButtonCallback((value) -> {
+                final GLRenderer renderer = xServerView.getRenderer();
+                renderer.setMagnifierZoom(Mathf.clamp(renderer.getMagnifierZoom() + value, 1.0f, 3.0f));
+                magnifierView.setZoomValue(renderer.getMagnifierZoom());
+            });
+            magnifierView.setZoomValue(xServerView.getRenderer().getMagnifierZoom());
+            magnifierView.setHideButtonCallback(() -> {
+                containerView.removeView(magnifierView);
+                magnifierView = null;
+            });
+            containerView.addView(magnifierView);
+        }
+        else {
+            final FrameLayout containerView = rootView.findViewById(R.id.FLXServerDisplay);
+            containerView.removeView(magnifierView);
+            magnifierView = null;
+        }
+    }
+
+    @Override
+    public void showScreenEffectDialog() {
+        (new ScreenEffectDialog(this)).show();
+    }
+
+    @Override
+    public void showDebugDialog() {
+        debugDialog.show();
+    }
+
+    @Override
+    public void showTouchpadHelpDialog() {
+        ContentDialog dialog = new ContentDialog(themedContext, R.layout.touchpad_help_dialog);
+        dialog.setTitle(R.string.touchpad_help);
+        dialog.setIcon(R.drawable.icon_help);
+        dialog.findViewById(R.id.BTCancel).setVisibility(View.GONE);
+        dialog.show();
+    }
+
+    @Override
+    public void exit() {
+        stop();
+        // In embedded mode, we might want to switch UI mode back to CONTAINERS
+        // This is handled by the caller or by observing winlatorController state.
     }
 
     @Override

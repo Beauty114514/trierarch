@@ -385,66 +385,25 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
 
     @Override
     public boolean onNavigationItemSelected(@NonNull MenuItem item) {
-        final GLRenderer renderer = xServerView.getRenderer();
         final int id = item.getItemId();
-        if (id == R.id.menu_item_keyboard) {
-            AppUtils.showKeyboard(this);
-            drawerLayout.closeDrawers();
-        }
-        else if (id == R.id.menu_item_input_controls) {
-            showInputControlsDialog();
-            drawerLayout.closeDrawers();
-        }
-        else if (id == R.id.menu_item_toggle_fullscreen) {
-            renderer.toggleFullscreen();
-            drawerLayout.closeDrawers();
-        }
-        else if (id == R.id.menu_item_task_manager) {
-            (new TaskManagerDialog(this)).show();
-            drawerLayout.closeDrawers();
-        }
-        else if (id == R.id.menu_item_active_windows) {
-            (new ActiveWindowsDialog(this)).show();
-            drawerLayout.closeDrawers();
-        }
-        else if (id == R.id.menu_item_magnifier) {
-            if (magnifierView == null) {
-                final FrameLayout container = findViewById(R.id.FLXServerDisplay);
-                magnifierView = new MagnifierView(this);
-                magnifierView.setZoomButtonCallback((value) -> {
-                    renderer.setMagnifierZoom(Mathf.clamp(renderer.getMagnifierZoom() + value, 1.0f, 3.0f));
-                    magnifierView.setZoomValue(renderer.getMagnifierZoom());
-                });
-                magnifierView.setZoomValue(renderer.getMagnifierZoom());
-                magnifierView.setHideButtonCallback(() -> {
-                    container.removeView(magnifierView);
-                    magnifierView = null;
-                });
-                container.addView(magnifierView);
-            }
-            drawerLayout.closeDrawers();
-        }
-        else if (id == R.id.menu_item_screen_effect) {
-            (new ScreenEffectDialog(this)).show();
-            drawerLayout.closeDrawers();
-        }
+        if (id == R.id.menu_item_keyboard) showKeyboard();
+        else if (id == R.id.menu_item_input_controls) showInputControlsDialog();
+        else if (id == R.id.menu_item_toggle_fullscreen) toggleFullscreen();
+        else if (id == R.id.menu_item_task_manager) showTaskManagerDialog();
+        else if (id == R.id.menu_item_active_windows) showActiveWindowsDialog();
+        else if (id == R.id.menu_item_magnifier) toggleMagnifier();
+        else if (id == R.id.menu_item_screen_effect) showScreenEffectDialog();
         else if (id == R.id.menu_item_pip_mode) {
             PictureInPictureParams pipParams = (new PictureInPictureParams.Builder())
                 .setAspectRatio(screenInfo.aspectRatio())
                 .build();
             enterPictureInPictureMode(pipParams);
-            drawerLayout.closeDrawers();
         }
-        else if (id == R.id.menu_item_logs) {
-            debugDialog.show();
-            drawerLayout.closeDrawers();
-        }
-        else if (id == R.id.menu_item_touchpad_help) {
-            showTouchpadHelpDialog();
-        }
-        else if (id == R.id.menu_item_exit) {
-            exit();
-        }
+        else if (id == R.id.menu_item_logs) showDebugDialog();
+        else if (id == R.id.menu_item_touchpad_help) showTouchpadHelpDialog();
+        else if (id == R.id.menu_item_exit) exit();
+
+        if (id != R.id.menu_item_touchpad_help && id != R.id.menu_item_exit) drawerLayout.closeDrawers();
         return true;
     }
 
@@ -464,7 +423,8 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         return this;
     }
 
-    private void exit() {
+    @Override
+    public void exit() {
         winHandler.stop();
         if (environment != null) environment.stopEnvironmentComponents();
 
@@ -672,7 +632,13 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         AppUtils.observeSoftKeyboardVisibility(drawerLayout, renderer::setScreenOffsetYRelativeToCursor);
     }
 
-    private void showInputControlsDialog() {
+    @Override
+    public void showKeyboard() {
+        AppUtils.showKeyboard(this);
+    }
+
+    @Override
+    public void showInputControlsDialog() {
         final ContentDialog dialog = new ContentDialog(this, R.layout.input_controls_dialog);
         dialog.setTitle(R.string.input_controls);
         dialog.setIcon(R.drawable.icon_input_controls);
@@ -843,7 +809,57 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         }
     }
 
-    private void showTouchpadHelpDialog() {
+    @Override
+    public void toggleFullscreen() {
+        xServerView.getRenderer().toggleFullscreen();
+    }
+
+    @Override
+    public void showTaskManagerDialog() {
+        (new TaskManagerDialog(this)).show();
+    }
+
+    @Override
+    public void showActiveWindowsDialog() {
+        (new ActiveWindowsDialog(this)).show();
+    }
+
+    @Override
+    public void toggleMagnifier() {
+        if (magnifierView == null) {
+            final FrameLayout container = findViewById(R.id.FLXServerDisplay);
+            magnifierView = new MagnifierView(this);
+            magnifierView.setZoomButtonCallback((value) -> {
+                final GLRenderer renderer = xServerView.getRenderer();
+                renderer.setMagnifierZoom(Mathf.clamp(renderer.getMagnifierZoom() + value, 1.0f, 3.0f));
+                magnifierView.setZoomValue(renderer.getMagnifierZoom());
+            });
+            magnifierView.setZoomValue(xServerView.getRenderer().getMagnifierZoom());
+            magnifierView.setHideButtonCallback(() -> {
+                container.removeView(magnifierView);
+                magnifierView = null;
+            });
+            container.addView(magnifierView);
+        }
+        else {
+            final FrameLayout container = findViewById(R.id.FLXServerDisplay);
+            container.removeView(magnifierView);
+            magnifierView = null;
+        }
+    }
+
+    @Override
+    public void showScreenEffectDialog() {
+        (new ScreenEffectDialog(this)).show();
+    }
+
+    @Override
+    public void showDebugDialog() {
+        debugDialog.show();
+    }
+
+    @Override
+    public void showTouchpadHelpDialog() {
         ContentDialog dialog = new ContentDialog(this, R.layout.touchpad_help_dialog);
         dialog.setTitle(R.string.touchpad_help);
         dialog.setIcon(R.drawable.icon_help);
