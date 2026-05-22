@@ -73,7 +73,6 @@
     <string name="lorie_pref_enforceCharBasedInput">Enforce char based input</string>
     <string name="lorie_pref_enforceCharBasedInput_summary">Suppress IME suggestions</string>
     <string name="lorie_pref_clipboardEnable">Clipboard sharing</string>
-    <string name="lorie_pref_requestNotificationPermission">Request notification permission</string>
     <string name="lorie_pref_xrMode">Meta Oculus XR mode</string>
     <string name="lorie_pref_configureResponseToUserActions">Configure response to user actions</string>
     <string name="lorie_pref_storeSecondaryDisplayPreferencesSeparately">Store preferences for secondary displays separately</string>
@@ -96,12 +95,4 @@
     <string name="lorie_pref_summary_requiresExactOrCustom">Requires exact or custom resolution mode</string>
     <string name="lorie_pref_summary_requiresIntercepting">Requires shortcut interception</string>
     <string name="lorie_pref_summary_requiresTrackpadAndNative">Requires trackpad mode and non-native resolution</string>
-    <string name="lorie_notification_content_text">Pull down to show options</string>
-    <string name="lorie_notification_open_preferences">Preferences</string>
-    <string name="lorie_notification_exit">Exit</string>
-    <string name="lorie_notification_restart_activity">Restart</string>
-    <string name="lorie_notification_toggle_soft_keyboard">Toggle IME</string>
-    <string name="lorie_notification_toggle_additional_key_bar">Toggle additional keyboard</string>
-    <string name="lorie_notification_release_pointer_and_keyboard_capture">Release captures</string>
-    <string name="lorie_notification_toggle_fullscreen">Toggle fullscreen</string>
 </resources>

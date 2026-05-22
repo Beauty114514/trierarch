@@ -10,7 +10,6 @@ import static android.view.KeyEvent.KEYCODE_VOLUME_DOWN;
 import static android.view.KeyEvent.KEYCODE_VOLUME_UP;
 
 import android.annotation.SuppressLint;
-import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.PointF;
@@ -28,7 +27,6 @@ import android.view.View;
 import android.view.ViewConfiguration;
 
 import androidx.annotation.IntDef;
-import androidx.core.app.NotificationCompat;
 import androidx.core.math.MathUtils;
 
 import com.termux.x11.LoriePreferences;
@@ -499,59 +497,6 @@ public class TouchInputHandler {
             case "send media action": return (key, down) -> lorieViewOrThrow().sendKeyEvent(0, key, down);
             default: return noAction;
         }
-    }
-
-    public PendingIntent extractIntentFromPreferences(Prefs p, String name, int requestCode) {
-        LoriePreferences.PrefsProto.Preference pref = p.keys.get(name + "Action");
-        if (pref == null)
-            return null;
-
-        switch(pref.asList().get()) {
-            case "open preferences":
-                return PendingIntent.getActivity(mActivity, requestCode, new Intent(mActivity, LoriePreferences.class) {{
-                    putExtra("key", "value");
-                    setPackage(mActivity.getPackageName());
-                    setAction(Intent.ACTION_MAIN);
-                }}, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-            case "restart activity":
-                return PendingIntent.getActivity(mActivity, requestCode,
-                        Intent.makeRestartActivityTask(mActivity.getComponentName()), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-            case "exit":
-            case "toggle soft keyboard":
-            case "toggle additional key bar":
-            case "release pointer and keyboard capture":
-                return PendingIntent.getBroadcast(mActivity, requestCode, new Intent(MainActivity.ACTION_CUSTOM) {{
-                    putExtra("what", name);
-                    setPackage(mActivity.getPackageName());
-                }}, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-            default: return null;
-        }
-    }
-
-    @SuppressLint("DiscouragedApi")
-    public String extractTitleFromPreferences(Prefs p, String name) {
-        LoriePreferences.PrefsProto.Preference pref = p.keys.get(name + "Action");
-        if (pref == null)
-            return null;
-
-        String key = pref.asList().get().replace(' ', '_');
-        int id = mActivity.getResources().getIdentifier("lorie_notification_" + key, "string", mActivity.getPackageName());
-        return id == 0 ? null : mActivity.getResources().getString(id);
-    }
-
-    public NotificationCompat.Builder setupNotification(Prefs prefs, NotificationCompat.Builder builder) {
-        PendingIntent i;
-
-        if ((i = extractIntentFromPreferences(prefs, "notificationTap", 0)) != null)
-            builder.setContentIntent(i);
-
-        if ((i = extractIntentFromPreferences(prefs, "notificationButton0", 1)) != null)
-            builder.addAction(0, extractTitleFromPreferences(prefs, "notificationButton0"), i);
-
-        if ((i = extractIntentFromPreferences(prefs, "notificationButton1", 2)) != null)
-            builder.addAction(0, extractTitleFromPreferences(prefs, "notificationButton1"), i);
-
-        return builder;
     }
 
     public boolean shouldInterceptKeys() {

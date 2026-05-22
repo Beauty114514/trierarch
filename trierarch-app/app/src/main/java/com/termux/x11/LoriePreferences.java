@@ -1,8 +1,6 @@
 package com.termux.x11;
 
-import static android.Manifest.permission.POST_NOTIFICATIONS;
 import static android.Manifest.permission.WRITE_SECURE_SETTINGS;
-import static android.content.pm.PackageManager.PERMISSION_DENIED;
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 import static android.os.Build.VERSION.SDK_INT;
 import static android.system.Os.getuid;
@@ -25,8 +23,7 @@ import android.os.Bundle;
 
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
+import androidx.annotation.Nullable;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 
@@ -37,7 +34,6 @@ import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.preference.PreferenceManager;
 
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
@@ -352,11 +348,6 @@ public class LoriePreferences extends AppCompatActivity implements PreferenceFra
 
             setEnabled("scaleTouchpad", "1".equals(prefs.touchMode.get()) && !"native".equals(prefs.displayResolutionMode.get()));
             setEnabled("showMouseHelper", "1".equals(prefs.touchMode.get()));
-
-            boolean requestNotificationPermissionVisible =
-                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-                    && ContextCompat.checkSelfPermission(requireContext(), POST_NOTIFICATIONS) == PERMISSION_DENIED;
-            setVisible("requestNotificationPermission", requestNotificationPermissionVisible);
         }
 
         /** @noinspection SameParameterValue*/
@@ -390,11 +381,6 @@ public class LoriePreferences extends AppCompatActivity implements PreferenceFra
                             .setPrimaryClip(ClipData.newPlainText(p.getSummary(), p.getSummary()));
                     Toast.makeText(ctx, "Copied to clipboard", Toast.LENGTH_SHORT).show();
                 }
-            }
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && "requestNotificationPermission".contentEquals(p.getKey())) {
-                ActivityCompat.requestPermissions(requireActivity(), new String[]{POST_NOTIFICATIONS}, 101);
-                return true;
             }
 
             updatePreferencesLayout();

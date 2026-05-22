@@ -8,12 +8,8 @@ import static android.view.WindowManager.LayoutParams.*;
 import static com.termux.x11.CmdEntryPoint.ACTION_START;
 import static com.termux.x11.LoriePreferences.ACTION_PREFERENCES_CHANGED;
 
-import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.AppOpsManager;
-import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
 import android.content.ClipData;
 import android.content.Context;
@@ -34,7 +30,6 @@ import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.os.SystemClock;
-import android.service.notification.StatusBarNotification;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
@@ -56,9 +51,7 @@ import android.widget.ImageButton;
 import android.widget.LinearLayout;
 
 import androidx.annotation.NonNull;
-import androidx.core.content.ContextCompat;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.NotificationCompat;
 import androidx.core.math.MathUtils;
 import androidx.viewpager.widget.ViewPager;
 
@@ -86,9 +79,6 @@ public class MainActivity extends AppCompatActivity {
     private TouchInputHandler mInputHandler;
     protected ICmdEntryInterface service = null;
     public TermuxX11ExtraKeys mExtraKeys;
-    private Notification mNotification;
-    private final int mNotificationId = 7892;
-    NotificationManager mNotificationManager;
     static InputMethodManager inputMethodManager;
     private static boolean showIMEWhileExternalConnected = true;
     private static boolean externalKeyboardConnected = false;
@@ -246,9 +236,6 @@ public class MainActivity extends AppCompatActivity {
 
         // Taken from Stackoverflow answer https://stackoverflow.com/questions/7417123/android-how-to-adjust-layout-in-full-screen-mode-when-softkeyboard-is-visible/7509285#
         FullscreenWorkaround.assistActivity(this);
-        mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        mNotification = buildNotification();
-        postNotificationIfAllowed();
 
         if (tryConnect()) {
             final View content = findViewById(android.R.id.content);
@@ -261,12 +248,6 @@ public class MainActivity extends AppCompatActivity {
 
         initStylusAuxButtons();
         initMouseAuxButtons();
-
-        if (SDK_INT >= VERSION_CODES.TIRAMISU
-                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PERMISSION_GRANTED
-                && !shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS)) {
-            requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, 0);
-        }
 
         onReceiveConnection(getIntent());
         findViewById(android.R.id.content).addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> makeSureHelpersAreVisibleAndInScreenBounds());
@@ -659,20 +640,11 @@ public class MainActivity extends AppCompatActivity {
 
         lorieView.requestLayout();
         lorieView.invalidate();
-
-        for (StatusBarNotification notification: mNotificationManager.getActiveNotifications())
-            if (notification.getId() == mNotificationId) {
-                mNotification = buildNotification();
-                postNotificationIfAllowed();
-            }
     }
 
     @Override
     public void onResume() {
         super.onResume();
-
-        mNotification = buildNotification();
-        postNotificationIfAllowed();
 
         setTerminalToolbarView();
         getLorieView().requestFocus();
@@ -681,10 +653,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onPause() {
         inputMethodManager.hideSoftInputFromWindow(getWindow().getDecorView().getRootView().getWindowToken(), 0);
-
-        for (StatusBarNotification notification: mNotificationManager.getActiveNotifications())
-            if (notification.getId() == mNotificationId)
-                mNotificationManager.cancel(mNotificationId);
 
         super.onPause();
     }
@@ -744,59 +712,6 @@ public class MainActivity extends AppCompatActivity {
         if (filterOutWinKey && (e.getKeyCode() == KEYCODE_META_LEFT || e.getKeyCode() == KEYCODE_META_RIGHT || e.isMetaPressed()))
             return false;
         return mLorieKeyListener.onKey(getLorieView(), e.getKeyCode(), e);
-    }
-
-    /**
-     * On API 33+ {@link NotificationManager#notify} without
-     * {@link Manifest.permission#POST_NOTIFICATIONS} throws {@link SecurityException} and will
-     * crash the process if called from onCreate (upstream did notify before the permission request).
-     */
-    private void postNotificationIfAllowed() {
-        if (mNotification == null || mNotificationManager == null) return;
-        if (SDK_INT < VERSION_CODES.TIRAMISU
-                || ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
-            try {
-                mNotificationManager.notify(mNotificationId, mNotification);
-            } catch (SecurityException e) {
-                Log.w("MainActivity", "Could not post notification (POST_NOTIFICATIONS?)", e);
-            }
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == 0 && grantResults.length > 0
-                && grantResults[0] == PackageManager.PERMISSION_GRANTED
-                && mNotification != null) {
-            postNotificationIfAllowed();
-        }
-    }
-
-    @SuppressLint("ObsoleteSdkInt")
-    Notification buildNotification() {
-        NotificationCompat.Builder builder =  new NotificationCompat.Builder(this, getNotificationChannel(mNotificationManager))
-                .setContentTitle("Termux:X11")
-                .setSmallIcon(R.drawable.ic_x11_icon)
-                .setContentText(getResources().getText(R.string.lorie_notification_content_text))
-                .setOngoing(true)
-                .setPriority(Notification.PRIORITY_MAX)
-                .setSilent(true)
-                .setShowWhen(false)
-                .setColor(0xFF607D8B);
-        return mInputHandler.setupNotification(prefs, builder).build();
-    }
-
-    private String getNotificationChannel(NotificationManager notificationManager){
-        String channelId = getResources().getString(R.string.app_name);
-        String channelName = getResources().getString(R.string.app_name);
-        NotificationChannel channel = new NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_HIGH);
-        channel.setImportance(NotificationManager.IMPORTANCE_HIGH);
-        channel.setLockscreenVisibility(Notification.VISIBILITY_SECRET);
-        if (SDK_INT >= VERSION_CODES.Q)
-            channel.setAllowBubbles(false);
-        notificationManager.createNotificationChannel(channel);
-        return channelId;
     }
 
     int orientation;
