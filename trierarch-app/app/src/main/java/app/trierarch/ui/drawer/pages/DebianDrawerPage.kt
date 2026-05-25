@@ -1,27 +1,31 @@
 package app.trierarch.ui.drawer.pages
 
 import android.content.SharedPreferences
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.material3.DrawerState
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.res.stringArrayResource
-import androidx.compose.ui.unit.dp
-import app.trierarch.R
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import app.trierarch.TerminalSessionIds
-import app.trierarch.ui.drawer.menu.DrawerExpandableSection
-import app.trierarch.ui.drawer.menu.DrawerDropdownField
+import app.trierarch.ui.dialog.MOUSE_MODE_TABLET
+import app.trierarch.ui.drawer.menu.DisplayProtocol
+import app.trierarch.ui.drawer.menu.DrawerDesktopLaunchButton
+import app.trierarch.ui.drawer.menu.DrawerEmbeddedX11ViewSettings
+import app.trierarch.ui.drawer.menu.DrawerMenu
+import app.trierarch.ui.drawer.menu.DrawerMenuActions
+import app.trierarch.ui.drawer.menu.DrawerMenuLabels
+import app.trierarch.ui.drawer.menu.DrawerMenuOptions
+import app.trierarch.ui.drawer.menu.DrawerMenuVisibility
+import app.trierarch.ui.drawer.menu.DrawerProtocolRow
 import app.trierarch.ui.drawer.menu.DrawerScriptEditor
+import app.trierarch.ui.drawer.menu.DrawerWaylandViewSettings
 import app.trierarch.ui.prefs.AppPrefs
 import app.trierarch.ui.runtime.TerminalSessionController
 import kotlinx.coroutines.CoroutineScope
@@ -34,6 +38,11 @@ fun DebianDrawerPage(
     scope: CoroutineScope,
     terminalSessionState: TerminalSessionController.State,
     onTerminalSessionStateChange: (TerminalSessionController.State) -> Unit,
+    desktopVulkanMode: String,
+    desktopOpenGLMode: String,
+    mouseMode: Int,
+    resolutionPercent: Int,
+    scalePercent: Int,
     x11MouseModeLabel: String,
     onX11MouseModeSelectLabel: (String) -> Unit,
     x11ResolutionModeLabel: String,
@@ -53,154 +62,191 @@ fun DebianDrawerPage(
     onEnterDebianX11: () -> Unit,
     onEnterTerminal: () -> Unit,
     onLeaveGraphicalSurface: () -> Unit,
+    onShowKeyboard: () -> Unit,
+    onDesktopVulkanSelect: (String) -> Unit,
+    onDesktopOpenGLSelect: (String) -> Unit,
+    onWaylandMouseModeSelectLabel: (String) -> Unit,
+    onWaylandResolutionPercentSelectLabel: (String) -> Unit,
+    onWaylandScalePercentSelectLabel: (String) -> Unit,
+    vulkanOptions: List<String>,
+    openGLOptions: List<String>,
 ) {
-    val accent = drawerPageAccent()
+    var displayProtocol by remember { mutableStateOf(DisplayProtocol.WAYLAND) }
+    val scriptEditorOpen = debianWaylandScriptEditorOpen || debianX11ScriptEditorOpen
+    val waylandMouseModeLabel =
+        if (mouseMode == MOUSE_MODE_TABLET) "Tablet" else "Touchpad"
+    val waylandResolutionLabel = "${resolutionPercent.coerceIn(10, 100)}%"
+    val waylandScaleLabel = "${scalePercent.coerceIn(100, 1000)}%"
 
-    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-        Text("Debian", color = accent, style = MaterialTheme.typography.titleLarge)
-        Spacer(Modifier.height(12.dp))
-        Text(
-            text = "Wayland",
-            color = accent,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier
-                .fillMaxWidth()
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onLongPress = { onDebianWaylandScriptEditorOpenChange(true) },
-                        onTap = {
-                            scope.launch {
-                                drawerState.close()
-                                onEnterDebianWayland()
-                            }
-                        },
+    fun closeScriptEditors() {
+        onDebianWaylandScriptEditorOpenChange(false)
+        onDebianX11ScriptEditorOpenChange(false)
+    }
+
+    DrawerMenu(
+        title = "Debian",
+        labels = DrawerMenuLabels(
+            launcherDefaultLabel = "",
+            desktopVulkanLabel = desktopVulkanMode,
+            desktopOpenGLLabel = desktopOpenGLMode,
+            terminalFontLabel = "",
+            terminalSessionLabel = "",
+            mouseModeLabel = waylandMouseModeLabel,
+            resolutionPercentLabel = waylandResolutionLabel,
+            scalePercentLabel = waylandScaleLabel,
+        ),
+        options = DrawerMenuOptions(
+            launcherDefaultOptions = emptyList(),
+            desktopVulkanOptions = vulkanOptions,
+            desktopOpenGLOptions = openGLOptions,
+            terminalFontOptions = emptyList(),
+            terminalSessionOptions = emptyList(),
+            mouseModeOptions = emptyList(),
+            resolutionPercentOptions = emptyList(),
+            scalePercentOptions = emptyList(),
+        ),
+        actions = DrawerMenuActions(
+            onWaylandEntryClick = { },
+            onWaylandEntryLongPress = { },
+            onX11EntryClick = { },
+            onX11EntryLongPress = { },
+            onTerminalClick = {
+                scope.launch { drawerState.close() }
+                onTerminalSessionStateChange(
+                    terminalSessionState.copy(activeSessionId = TerminalSessionIds.DEBIAN_TERMINAL),
+                )
+                onLeaveGraphicalSurface()
+                onEnterTerminal()
+            },
+            onViewClick = { scope.launch { drawerState.close() } },
+            onAppearanceClick = { scope.launch { drawerState.close() } },
+            onSessionClick = { scope.launch { drawerState.close() } },
+            onKeyboardClick = {
+                scope.launch { drawerState.close() }
+                onShowKeyboard()
+            },
+            onLauncherDefaultSelect = { },
+            onDesktopVulkanSelect = onDesktopVulkanSelect,
+            onDesktopOpenGLSelect = onDesktopOpenGLSelect,
+            onTerminalFontSelect = { },
+            onTerminalSessionSelect = { },
+            onMouseModeSelect = { },
+            onResolutionPercentSelect = { },
+            onScalePercentSelect = { },
+            onCloseDrawerRequest = { scope.launch { drawerState.close() } },
+        ),
+        visibility = DrawerMenuVisibility(
+            launcherDefault = false,
+            graphics = true,
+            terminalSettings = false,
+            showWaylandEntry = false,
+            showX11Entry = false,
+            terminalEntry = true,
+            desktopView = true,
+            keyboard = true,
+        ),
+        desktopHeaderContent = {
+            val headerMode = when {
+                debianWaylandScriptEditorOpen -> "wayland-script"
+                debianX11ScriptEditorOpen -> "x11-script"
+                else -> "protocol"
+            }
+            AnimatedContent(
+                targetState = headerMode,
+                transitionSpec = {
+                    (fadeIn() + expandVertically()).togetherWith(fadeOut() + shrinkVertically())
+                },
+                label = "Debian protocol script editor",
+            ) { mode ->
+                when (mode) {
+                    "wayland-script" -> {
+                        DrawerScriptEditor(
+                            title = "Wayland startup script",
+                            initialText = AppPrefs.readDebianWaylandStartupScript(prefs),
+                            onCancel = {
+                                onDebianWaylandScriptEditorOpenChange(false)
+                            },
+                            onSave = {
+                                AppPrefs.writeDebianWaylandStartupScript(prefs, it)
+                                onDebianWaylandScriptEditorOpenChange(false)
+                            },
+                        )
+                    }
+                    "x11-script" -> {
+                        DrawerScriptEditor(
+                            title = "X11 startup script",
+                            initialText = AppPrefs.readDebianX11StartupScript(prefs),
+                            onCancel = {
+                                onDebianX11ScriptEditorOpenChange(false)
+                            },
+                            onSave = {
+                                AppPrefs.writeDebianX11StartupScript(prefs, it)
+                                onDebianX11ScriptEditorOpenChange(false)
+                            },
+                        )
+                    }
+                    else -> {
+                        DrawerProtocolRow(
+                            protocol = displayProtocol,
+                            onProtocolSelect = {
+                                displayProtocol = it
+                                closeScriptEditors()
+                            },
+                            onConfigureScript = {
+                                closeScriptEditors()
+                                when (displayProtocol) {
+                                    DisplayProtocol.WAYLAND ->
+                                        onDebianWaylandScriptEditorOpenChange(true)
+                                    DisplayProtocol.X11 ->
+                                        onDebianX11ScriptEditorOpenChange(true)
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+        },
+        desktopViewContent = {
+            when (displayProtocol) {
+                DisplayProtocol.WAYLAND -> {
+                    DrawerWaylandViewSettings(
+                        mouseModeLabel = waylandMouseModeLabel,
+                        onMouseModeSelectLabel = onWaylandMouseModeSelectLabel,
+                        resolutionPercentLabel = waylandResolutionLabel,
+                        onResolutionPercentSelectLabel = onWaylandResolutionPercentSelectLabel,
+                        scalePercentLabel = waylandScaleLabel,
+                        onScalePercentSelectLabel = onWaylandScalePercentSelectLabel,
                     )
                 }
-                .padding(vertical = 12.dp),
-        )
-        Text(
-            text = "X11",
-            color = accent,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier
-                .fillMaxWidth()
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onLongPress = { onDebianX11ScriptEditorOpenChange(true) },
-                        onTap = {
-                            scope.launch {
-                                drawerState.close()
-                                onEnterDebianX11()
-                            }
-                        },
+                DisplayProtocol.X11 -> {
+                    DrawerEmbeddedX11ViewSettings(
+                        x11MouseModeLabel = x11MouseModeLabel,
+                        onX11MouseModeSelectLabel = onX11MouseModeSelectLabel,
+                        x11ResolutionModeLabel = x11ResolutionModeLabel,
+                        onX11ResolutionModeSelectLabel = onX11ResolutionModeSelectLabel,
+                        x11DisplayScaleLabel = x11DisplayScaleLabel,
+                        onX11DisplayScaleSelectLabel = onX11DisplayScaleSelectLabel,
+                        x11ResolutionExactLabel = x11ResolutionExactLabel,
+                        onX11ResolutionExactSelectLabel = onX11ResolutionExactSelectLabel,
+                        x11ResolutionCustom = x11ResolutionCustom,
+                        onX11ResolutionCustomChange = onX11ResolutionCustomChange,
+                        onX11ResolutionCustomApply = onX11ResolutionCustomApply,
                     )
                 }
-                .padding(vertical = 12.dp),
-        )
-        DrawerDropdownField(
-            label = "Mouse mode",
-            value = x11MouseModeLabel,
-            options = listOf("Touchpad", "Touch"),
-            onSelect = onX11MouseModeSelectLabel,
-        )
-        DrawerDropdownField(
-            label = "X11 resolution mode",
-            value = x11ResolutionModeLabel,
-            options = listOf("Native", "Scaled", "Fixed size", "Custom"),
-            onSelect = onX11ResolutionModeSelectLabel,
-        )
-        if (x11ResolutionModeLabel == "Scaled") {
-            DrawerDropdownField(
-                label = "Display scale (%)",
-                value = x11DisplayScaleLabel,
-                options = (30..300 step 10).map { "$it%" },
-                onSelect = onX11DisplayScaleSelectLabel,
-            )
-        }
-        if (x11ResolutionModeLabel == "Fixed size") {
-            val exactOptions = stringArrayResource(R.array.displayResolution).toList()
-            DrawerDropdownField(
-                label = "Fixed resolution",
-                value = x11ResolutionExactLabel,
-                options = exactOptions,
-                onSelect = onX11ResolutionExactSelectLabel,
-            )
-        }
-        if (x11ResolutionModeLabel == "Custom") {
-            OutlinedTextField(
-                value = x11ResolutionCustom,
-                onValueChange = onX11ResolutionCustomChange,
-                label = { Text("Custom WxH (e.g. 1920x1080)") },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-            )
-            Text(
-                text = "Apply custom resolution",
-                style = MaterialTheme.typography.bodyLarge,
-                color = accent,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onX11ResolutionCustomApply() }
-                    .padding(vertical = 8.dp, horizontal = 12.dp),
-            )
-        }
-        DrawerExpandableSection(title = "Scripts", defaultExpanded = false) {
-            if (debianWaylandScriptEditorOpen) {
-                DrawerScriptEditor(
-                    title = "Wayland startup script",
-                    initialText = AppPrefs.readDebianWaylandStartupScript(prefs),
-                    onSave = {
-                        AppPrefs.writeDebianWaylandStartupScript(prefs, it)
-                        onDebianWaylandScriptEditorOpenChange(false)
+            }
+        },
+        footerContent = {
+            if (!scriptEditorOpen) {
+                DrawerDesktopLaunchButton(
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        when (displayProtocol) {
+                            DisplayProtocol.WAYLAND -> onEnterDebianWayland()
+                            DisplayProtocol.X11 -> onEnterDebianX11()
+                        }
                     },
-                )
-            } else if (debianX11ScriptEditorOpen) {
-                DrawerScriptEditor(
-                    title = "X11 startup script",
-                    initialText = AppPrefs.readDebianX11StartupScript(prefs),
-                    onSave = {
-                        AppPrefs.writeDebianX11StartupScript(prefs, it)
-                        onDebianX11ScriptEditorOpenChange(false)
-                    },
-                )
-            } else {
-                Text(
-                    text = "Edit Wayland startup script",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = accent,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onDebianWaylandScriptEditorOpenChange(true) }
-                        .padding(vertical = 12.dp, horizontal = 12.dp),
-                )
-                Text(
-                    text = "Edit X11 startup script",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = accent,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onDebianX11ScriptEditorOpenChange(true) }
-                        .padding(vertical = 12.dp, horizontal = 12.dp),
                 )
             }
-        }
-        Text(
-            text = "Terminal",
-            color = accent,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
-                    scope.launch { drawerState.close() }
-                    onTerminalSessionStateChange(terminalSessionState.copy(activeSessionId = TerminalSessionIds.DEBIAN_TERMINAL))
-                    onLeaveGraphicalSurface()
-                    onEnterTerminal()
-                }
-                .padding(vertical = 12.dp)
-        )
-        Spacer(Modifier.height(520.dp))
-    }
+        },
+    )
 }
-

@@ -8,9 +8,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
@@ -33,18 +33,24 @@ fun DrawerExpandableSection(
 ) {
     var expanded by remember { mutableStateOf(defaultExpanded) }
     val accent = drawerPageAccent()
+    val level = LocalDrawerHierarchyLevel.current
 
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { expanded = !expanded }
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .padding(
+                    start = drawerStartPadding(level),
+                    end = drawerEndPadding(),
+                    top = drawerSectionVerticalPadding(level),
+                    bottom = drawerSectionVerticalPadding(level),
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
+                style = drawerSectionTextStyle(level),
                 color = accent.copy(alpha = 0.92f),
                 modifier = Modifier.weight(1f)
             )
@@ -57,8 +63,10 @@ fun DrawerExpandableSection(
         }
 
         AnimatedVisibility(visible = expanded) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                content()
+            CompositionLocalProvider(LocalDrawerHierarchyLevel provides level + 1) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    content()
+                }
             }
         }
     }

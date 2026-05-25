@@ -34,25 +34,31 @@ fun DrawerDropdownField(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val accent = drawerPageAccent()
+    val level = LocalDrawerHierarchyLevel.current
 
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { expanded = true }
-                .padding(vertical = 10.dp, horizontal = 12.dp),
+                .padding(
+                    start = drawerStartPadding(level),
+                    end = drawerEndPadding(),
+                    top = drawerRowVerticalPadding(level),
+                    bottom = drawerRowVerticalPadding(level),
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodyLarge,
+                style = drawerRowTextStyle(level),
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f),
                 modifier = Modifier.weight(1f)
             )
             Spacer(Modifier.width(12.dp))
             Text(
                 text = value,
-                style = MaterialTheme.typography.bodyLarge,
+                style = drawerRowTextStyle(level),
                 color = accent,
             )
             Icon(

@@ -84,7 +84,7 @@ import java.util.Iterator;
 import java.util.concurrent.Executors;
 
 /**
- * Embedded variant of {@link XServerDisplayActivity} for Trierarch "方案1".
+ * Embedded variant of {@link XServerDisplayActivity}.
  *
  * This keeps Winlator's internal components (XServer/XServerView/WinHandler/XEnvironment)
  * but hosts them inside an existing Activity view tree so Compose overlays remain visible.

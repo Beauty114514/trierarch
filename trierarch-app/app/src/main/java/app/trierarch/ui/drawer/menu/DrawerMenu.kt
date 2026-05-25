@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -33,29 +32,41 @@ fun DrawerMenu(
         desktopView = true,
         keyboard = true,
     ),
+    topContent: (@Composable () -> Unit)? = null,
+    desktopHeaderContent: (@Composable () -> Unit)? = null,
+    desktopViewContent: (@Composable () -> Unit)? = null,
     extraContent: (@Composable () -> Unit)? = null,
+    footerContent: (@Composable () -> Unit)? = null,
 ) {
-    val accent = drawerPageAccent()
-
     Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.TopStart) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                color = accent,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+            DrawerPageHeader(
+                title = title,
+                onClose = actions.onCloseDrawerRequest,
             )
 
-            if (visibility.launcherDefault || visibility.showWaylandEntry || visibility.showX11Entry
-                || visibility.terminalEntry
-            ) {
+            if (visibility.terminalEntry) {
+                DrawerLaunchEntry(
+                    title = "Terminal",
+                    onTap = actions.onTerminalClick,
+                )
+            }
+
+            if (topContent != null) {
+                Spacer(Modifier.height(6.dp))
+                topContent()
+            }
+
+            if (visibility.launcherDefault || visibility.showWaylandEntry || visibility.showX11Entry) {
+                Spacer(Modifier.height(6.dp))
+
                 DrawerExpandableSection(title = "Common", defaultExpanded = true) {
                     if (visibility.showWaylandEntry) {
-                        DrawerPrimaryItem(
+                        DrawerLaunchEntry(
                             title = "Wayland",
                             onTap = actions.onWaylandEntryClick,
                             onLongPress = actions.onWaylandEntryLongPress,
@@ -63,17 +74,10 @@ fun DrawerMenu(
                     }
 
                     if (visibility.showX11Entry) {
-                        DrawerPrimaryItem(
+                        DrawerLaunchEntry(
                             title = "X11",
                             onTap = actions.onX11EntryClick,
                             onLongPress = actions.onX11EntryLongPress,
-                        )
-                    }
-
-                    if (visibility.terminalEntry) {
-                        DrawerPrimaryItem(
-                            title = "Terminal",
-                            onTap = actions.onTerminalClick,
                         )
                     }
 
@@ -82,70 +86,66 @@ fun DrawerMenu(
                             label = "Launcher default",
                             value = labels.launcherDefaultLabel,
                             options = options.launcherDefaultOptions,
-                            onSelect = {
-                                actions.onLauncherDefaultSelect(it)
-                                actions.onCloseDrawerRequest()
-                            },
+                            onSelect = actions.onLauncherDefaultSelect,
                         )
                     }
                 }
             }
 
-            if (visibility.graphics || visibility.desktopView || visibility.keyboard) {
+            if (visibility.graphics || visibility.desktopView || visibility.keyboard
+                || desktopHeaderContent != null
+            ) {
                 Spacer(Modifier.height(6.dp))
 
                 DrawerExpandableSection(title = "Desktop", defaultExpanded = true) {
-                    if (visibility.graphics) {
-                        DrawerDropdownField(
-                            label = "Vulkan",
-                            value = labels.desktopVulkanLabel,
-                            options = options.desktopVulkanOptions,
-                            onSelect = {
-                                actions.onDesktopVulkanSelect(it)
-                                actions.onCloseDrawerRequest()
-                            },
-                        )
+                    if (desktopHeaderContent != null) {
+                        desktopHeaderContent()
+                    }
 
-                        DrawerDropdownField(
-                            label = "OpenGL",
-                            value = labels.desktopOpenGLLabel,
-                            options = options.desktopOpenGLOptions,
-                            onSelect = {
-                                actions.onDesktopOpenGLSelect(it)
-                                actions.onCloseDrawerRequest()
-                            },
-                        )
+                    if (visibility.graphics) {
+                        DrawerExpandableSection(title = "Graphics Driver", defaultExpanded = true) {
+                            if (visibility.vulkanDropdown) {
+                                DrawerDropdownField(
+                                    label = "Vulkan",
+                                    value = labels.desktopVulkanLabel,
+                                    options = options.desktopVulkanOptions,
+                                    onSelect = actions.onDesktopVulkanSelect,
+                                )
+                            }
+
+                            DrawerDropdownField(
+                                label = "OpenGL",
+                                value = labels.desktopOpenGLLabel,
+                                options = options.desktopOpenGLOptions,
+                                onSelect = actions.onDesktopOpenGLSelect,
+                            )
+                        }
                     }
 
                     if (visibility.desktopView) {
-                        DrawerExpandableSection(title = "View", defaultExpanded = true) {
-                            DrawerDropdownField(
-                                label = "Mouse mode",
-                                value = labels.mouseModeLabel,
-                                options = options.mouseModeOptions,
-                                onSelect = {
-                                    actions.onMouseModeSelect(it)
-                                    actions.onCloseDrawerRequest()
-                                },
-                            )
-                            DrawerDropdownField(
-                                label = "Resolution",
-                                value = labels.resolutionPercentLabel,
-                                options = options.resolutionPercentOptions,
-                                onSelect = {
-                                    actions.onResolutionPercentSelect(it)
-                                    actions.onCloseDrawerRequest()
-                                },
-                            )
-                            DrawerDropdownField(
-                                label = "Scale",
-                                value = labels.scalePercentLabel,
-                                options = options.scalePercentOptions,
-                                onSelect = {
-                                    actions.onScalePercentSelect(it)
-                                    actions.onCloseDrawerRequest()
-                                },
-                            )
+                        if (desktopViewContent != null) {
+                            desktopViewContent()
+                        } else {
+                            DrawerExpandableSection(title = "View", defaultExpanded = true) {
+                                DrawerDropdownField(
+                                    label = "Mouse mode",
+                                    value = labels.mouseModeLabel,
+                                    options = options.mouseModeOptions,
+                                    onSelect = actions.onMouseModeSelect,
+                                )
+                                DrawerDropdownField(
+                                    label = "Resolution",
+                                    value = labels.resolutionPercentLabel,
+                                    options = options.resolutionPercentOptions,
+                                    onSelect = actions.onResolutionPercentSelect,
+                                )
+                                DrawerDropdownField(
+                                    label = "Scale",
+                                    value = labels.scalePercentLabel,
+                                    options = options.scalePercentOptions,
+                                    onSelect = actions.onScalePercentSelect,
+                                )
+                            }
                         }
                     }
                     if (visibility.keyboard) {
@@ -158,25 +158,23 @@ fun DrawerMenu(
                 Spacer(Modifier.height(6.dp))
 
                 DrawerExpandableSection(title = "Terminal", defaultExpanded = true) {
-                    DrawerDropdownField(
-                        label = "Appearance",
-                        value = labels.terminalFontLabel,
-                        options = options.terminalFontOptions,
-                        onSelect = {
-                            actions.onTerminalFontSelect(it)
-                            actions.onCloseDrawerRequest()
-                        },
-                    )
+                    if (visibility.terminalFont) {
+                        DrawerDropdownField(
+                            label = "Appearance",
+                            value = labels.terminalFontLabel,
+                            options = options.terminalFontOptions,
+                            onSelect = actions.onTerminalFontSelect,
+                        )
+                    }
 
-                    DrawerDropdownField(
-                        label = "Session",
-                        value = labels.terminalSessionLabel,
-                        options = options.terminalSessionOptions,
-                        onSelect = {
-                            actions.onTerminalSessionSelect(it)
-                            actions.onCloseDrawerRequest()
-                        },
-                    )
+                    if (visibility.terminalSession) {
+                        DrawerDropdownField(
+                            label = "Session",
+                            value = labels.terminalSessionLabel,
+                            options = options.terminalSessionOptions,
+                            onSelect = actions.onTerminalSessionSelect,
+                        )
+                    }
                 }
             }
 
@@ -184,17 +182,23 @@ fun DrawerMenu(
                 Spacer(Modifier.height(6.dp))
                 extraContent()
             }
+
+            if (footerContent != null) {
+                Spacer(Modifier.height(6.dp))
+                footerContent()
+            }
         }
     }
 }
 
 @Composable
-private fun DrawerPrimaryItem(
+fun DrawerLaunchEntry(
     title: String,
     onTap: () -> Unit,
-    onLongPress: (() -> Unit)?,
+    onLongPress: (() -> Unit)? = null,
 ) {
     val accent = drawerPageAccent()
+    val level = LocalDrawerHierarchyLevel.current
     val mod = Modifier
         .fillMaxWidth()
         .pointerInput(title) {
@@ -203,20 +207,19 @@ private fun DrawerPrimaryItem(
                 onLongPress = { onLongPress?.invoke() }
             )
         }
-        .padding(vertical = 12.dp, horizontal = 12.dp)
+        .padding(
+            start = drawerStartPadding(level),
+            end = drawerEndPadding(),
+            top = drawerRowVerticalPadding(level),
+            bottom = drawerRowVerticalPadding(level),
+        )
     Text(
         text = title,
-        style = MaterialTheme.typography.bodyLarge,
+        style = drawerRowTextStyle(level),
         color = accent,
         modifier = mod
     )
 }
-
-@Composable
-private fun DrawerPrimaryItem(
-    title: String,
-    onTap: () -> Unit,
-) = DrawerPrimaryItem(title = title, onTap = onTap, onLongPress = null)
 
 @Composable
 private fun DrawerTextItem(
@@ -224,14 +227,20 @@ private fun DrawerTextItem(
     onClick: () -> Unit,
 ) {
     val accent = drawerPageAccent()
+    val level = LocalDrawerHierarchyLevel.current
     Text(
         text = title,
-        style = MaterialTheme.typography.bodyLarge,
+        style = drawerRowTextStyle(level),
         color = accent,
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
-            .padding(vertical = 12.dp, horizontal = 12.dp)
+            .padding(
+                start = drawerStartPadding(level),
+                end = drawerEndPadding(),
+                top = drawerRowVerticalPadding(level),
+                bottom = drawerRowVerticalPadding(level),
+            )
     )
 }
 

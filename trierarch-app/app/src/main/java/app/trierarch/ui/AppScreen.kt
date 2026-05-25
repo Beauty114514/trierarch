@@ -47,7 +47,6 @@ import app.trierarch.ui.dialog.MOUSE_MODE_TOUCHPAD
 import app.trierarch.ui.drawer.AppDrawer
 import app.trierarch.ui.drawer.pages.DrawerPagedHost
 import app.trierarch.ui.drawer.pages.ArchDrawerPage
-import app.trierarch.ui.containers.ContainersScreen
 import app.trierarch.ui.drawer.pages.DebianDrawerPage
 import app.trierarch.ui.drawer.pages.TrierarchDrawerPage
 import app.trierarch.ui.drawer.pages.WineDrawerPage
@@ -115,7 +114,6 @@ private enum class AppSurface {
     ARCH_X11,
     DEBIAN_WAYLAND,
     DEBIAN_X11,
-    WINE_CONTAINERS,
     WINE_CONTAINER,
 }
 
@@ -153,6 +151,9 @@ fun AppScreen(startInTerminal: Boolean = false) {
     var debianWaylandScriptEditorOpen by remember { mutableStateOf(false) }
     var debianX11ScriptEditorOpen by remember { mutableStateOf(false) }
     var terminalSessionState by remember { mutableStateOf(TerminalSessionController.initialState()) }
+    var terminalMgmtRootfs by remember {
+        mutableStateOf(TerminalSessionIds.RootfsRow.ARCH)
+    }
     var mouseMode by remember { mutableStateOf(MOUSE_MODE_TOUCHPAD) }
     var resolutionPercent by remember { mutableStateOf(100) }
     var scalePercent by remember { mutableStateOf(100) }
@@ -392,12 +393,7 @@ fun AppScreen(startInTerminal: Boolean = false) {
                 }
             }
             RootfsPlatform.WINE -> when {
-                config.opensWineContainerPicker() -> {
-                    appSurface = AppSurface.WINE_CONTAINERS
-                    waylandSurfaceVisible = false
-                    pendingWaylandSurfaceReveal = false
-                    menuOpen = false
-                }
+                config.opensWineContainerPicker() -> enterTerminal()
                 config.selectedWineContainerId != null -> {
                     winlatorContainerId = config.selectedWineContainerId!!
                     appSurface = AppSurface.WINE_CONTAINER
@@ -405,12 +401,7 @@ fun AppScreen(startInTerminal: Boolean = false) {
                     pendingWaylandSurfaceReveal = false
                     menuOpen = false
                 }
-                else -> {
-                    appSurface = AppSurface.WINE_CONTAINERS
-                    waylandSurfaceVisible = false
-                    pendingWaylandSurfaceReveal = false
-                    menuOpen = false
-                }
+                else -> enterTerminal()
             }
         }
     }
@@ -784,7 +775,20 @@ fun AppScreen(startInTerminal: Boolean = false) {
                     TrierarchDrawerPage(
                         coldStartConfig = coldStartConfig,
                         onColdStartConfigChange = { updateColdStartConfig(it) },
+                        terminalFontKey = terminalFontKey,
+                        onTerminalFontSelectLabel = { label ->
+                            val id = ShellFonts.options.find { it.label == label }?.id
+                                ?: ShellFonts.DEFAULT_ID
+                            persistTerminalFont(id)
+                        },
+                        terminalSessionState = terminalSessionState,
+                        terminalMgmtRootfs = terminalMgmtRootfs,
+                        onTerminalMgmtRootfsChange = { terminalMgmtRootfs = it },
+                        onTerminalSessionStateChange = { terminalSessionState = it },
                         onShowKeyboard = { requestSoftKeyboard() },
+                        onCloseDrawer = {
+                            scope.launch { drawerState.close() }
+                        },
                     )
                 },
                 archContent = {
@@ -792,8 +796,6 @@ fun AppScreen(startInTerminal: Boolean = false) {
                         prefs = prefs,
                         drawerState = drawerState,
                         scope = scope,
-                        terminalFontKey = terminalFontKey,
-                        terminalSessionState = terminalSessionState,
                         desktopVulkanMode = desktopVulkanMode,
                         desktopOpenGLMode = desktopOpenGLMode,
                         mouseMode = mouseMode,
@@ -805,22 +807,45 @@ fun AppScreen(startInTerminal: Boolean = false) {
                         onArchX11ScriptEditorOpenChange = { archX11ScriptEditorOpen = it },
                         onEnterArchWayland = { enterArchWayland() },
                         onEnterArchX11 = { enterArchX11() },
-                        onEnterTerminal = { enterTerminal() },
+                        onEnterTerminal = {
+                            terminalSessionState = terminalSessionState.copy(
+                                activeSessionId = TerminalSessionIds.ARCH_TERMINAL,
+                            )
+                            enterTerminal()
+                        },
                         onDesktopVulkanSelect = { setDesktopVulkanMode(it) },
                         onDesktopOpenGLSelect = { setDesktopOpenGLMode(it) },
-                        onTerminalFontSelectLabel = { label ->
-                            val id = ShellFonts.options.find { it.label == label }?.id ?: ShellFonts.DEFAULT_ID
-                            persistTerminalFont(id)
+                        x11MouseModeLabel = if (x11MouseMode == EmbeddedX11Controller.MouseMode.TOUCH) {
+                            "Touch"
+                        } else {
+                            "Touchpad"
                         },
-                        onTerminalSessionStateChange = { terminalSessionState = it },
-                        onMouseModeSelectLabel = { label ->
+                        onX11MouseModeSelectLabel = {
+                            persistX11MouseMode(
+                                if (it == "Touch") {
+                                    EmbeddedX11Controller.MouseMode.TOUCH
+                                } else {
+                                    EmbeddedX11Controller.MouseMode.TOUCHPAD
+                                },
+                            )
+                        },
+                        x11ResolutionModeLabel = x11ResolutionModeLabel,
+                        onX11ResolutionModeSelectLabel = { applyX11ResolutionModeFromLabel(it) },
+                        x11DisplayScaleLabel = "${x11DisplayScale}%",
+                        onX11DisplayScaleSelectLabel = { applyX11DisplayScaleFromLabel(it) },
+                        x11ResolutionExactLabel = x11ResolutionExact,
+                        onX11ResolutionExactSelectLabel = { applyX11ResolutionExactFromLabel(it) },
+                        x11ResolutionCustom = x11ResolutionCustom,
+                        onX11ResolutionCustomChange = { x11ResolutionCustom = it },
+                        onX11ResolutionCustomApply = { applyX11ResolutionCustomWxh() },
+                        onWaylandMouseModeSelectLabel = { label ->
                             persistMouseMode(if (label == "Tablet") MOUSE_MODE_TABLET else MOUSE_MODE_TOUCHPAD)
                         },
-                        onResolutionPercentSelectLabel = { label ->
+                        onWaylandResolutionPercentSelectLabel = { label ->
                             val pct = label.removeSuffix("%").trim().toIntOrNull()
                             if (pct != null) persistResolutionPercent(pct)
                         },
-                        onScalePercentSelectLabel = { label ->
+                        onWaylandScalePercentSelectLabel = { label ->
                             val pct = label.removeSuffix("%").trim().toIntOrNull()
                             if (pct != null) persistScalePercent(pct)
                         },
@@ -835,10 +860,23 @@ fun AppScreen(startInTerminal: Boolean = false) {
                         scope = scope,
                         terminalSessionState = terminalSessionState,
                         onTerminalSessionStateChange = { terminalSessionState = it },
-                        x11MouseModeLabel = if (x11MouseMode == EmbeddedX11Controller.MouseMode.TOUCH) "Touch" else "Touchpad",
+                        desktopVulkanMode = desktopVulkanMode,
+                        desktopOpenGLMode = desktopOpenGLMode,
+                        mouseMode = mouseMode,
+                        resolutionPercent = resolutionPercent,
+                        scalePercent = scalePercent,
+                        x11MouseModeLabel = if (x11MouseMode == EmbeddedX11Controller.MouseMode.TOUCH) {
+                            "Touch"
+                        } else {
+                            "Touchpad"
+                        },
                         onX11MouseModeSelectLabel = {
                             persistX11MouseMode(
-                                if (it == "Touch") EmbeddedX11Controller.MouseMode.TOUCH else EmbeddedX11Controller.MouseMode.TOUCHPAD
+                                if (it == "Touch") {
+                                    EmbeddedX11Controller.MouseMode.TOUCH
+                                } else {
+                                    EmbeddedX11Controller.MouseMode.TOUCHPAD
+                                },
                             )
                         },
                         x11ResolutionModeLabel = x11ResolutionModeLabel,
@@ -862,52 +900,54 @@ fun AppScreen(startInTerminal: Boolean = false) {
                             waylandSurfaceVisible = false
                             pendingWaylandSurfaceReveal = false
                         },
+                        onShowKeyboard = { requestSoftKeyboard() },
+                        onDesktopVulkanSelect = { setDesktopVulkanMode(it) },
+                        onDesktopOpenGLSelect = { setDesktopOpenGLMode(it) },
+                        onWaylandMouseModeSelectLabel = { label ->
+                            persistMouseMode(if (label == "Tablet") MOUSE_MODE_TABLET else MOUSE_MODE_TOUCHPAD)
+                        },
+                        onWaylandResolutionPercentSelectLabel = { label ->
+                            val pct = label.removeSuffix("%").trim().toIntOrNull()
+                            if (pct != null) persistResolutionPercent(pct)
+                        },
+                        onWaylandScalePercentSelectLabel = { label ->
+                            val pct = label.removeSuffix("%").trim().toIntOrNull()
+                            if (pct != null) persistScalePercent(pct)
+                        },
+                        vulkanOptions = VULKAN_MODES,
+                        openGLOptions = OPENGL_MODES,
                     )
                 },
                 wineContent = {
                     WineDrawerPage(
-                        onOpenContainers = {
-                            scope.launch {
-                                appSurface = AppSurface.WINE_CONTAINERS
-                                drawerState.close()
-                            }
-                        },
                         winlatorHost = winlatorController,
                         onCloseDrawer = {
                             scope.launch { drawerState.close() }
                         },
+                        onRunContainer = { id ->
+                            winlatorContainerId = id
+                            appSurface = AppSurface.WINE_CONTAINER
+                        },
+                        onExitContainer = { enterTerminal() },
                     )
                 },
             )
         },
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            if (appSurface == AppSurface.WINE_CONTAINERS) {
-                ContainersScreen(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .zIndex(0f),
-                    onRunContainer = { id ->
-                        winlatorContainerId = id
-                        appSurface = AppSurface.WINE_CONTAINER
-                    },
-                )
-            }
-            else {
-                // Shell (PTY) below; Wayland/X11 surfaces above when enabled.
-                ShellScreen(
-                    terminalFontKey = terminalFontKey,
-                    activeSessionId = terminalSessionState.activeSessionId,
-                    terminalSessionIds = terminalSessionState.sessionIds,
-                    rendererSessionResetEpoch = rendererSessionResetEpoch,
-                    showKeyboardTrigger = if (showWaylandCompositor) 0 else showKeyboardTrigger,
-                    onKeyboardTriggerConsumed = { showKeyboardTrigger = 0 },
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .zIndex(0f),
-                )
-            }
-            if (desktopLaunchBlackout && appSurface != AppSurface.WINE_CONTAINERS) {
+            // Shell (PTY) stays below graphical surfaces so terminal buffers survive UI switches.
+            ShellScreen(
+                terminalFontKey = terminalFontKey,
+                activeSessionId = terminalSessionState.activeSessionId,
+                terminalSessionIds = terminalSessionState.sessionIds,
+                rendererSessionResetEpoch = rendererSessionResetEpoch,
+                showKeyboardTrigger = if (showWaylandCompositor) 0 else showKeyboardTrigger,
+                onKeyboardTriggerConsumed = { showKeyboardTrigger = 0 },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(0f),
+            )
+            if (desktopLaunchBlackout) {
                 // Dark cover while Wayland display session starts (Lorie is not in this window).
                 Box(
                     modifier = Modifier
