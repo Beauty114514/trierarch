@@ -1,3 +1,7 @@
+> [!WARNING]
+> # 警告: Trierarch目前 KWin会崩溃
+>
+> 因为kde最近的更新，Trierarch会遇到kWin崩溃的情况，开发者正在尝试修复与适配，如果实在难以修复，会尝试Debian发行版，经测试，Debian的稳定Kde版本在Trierarch上依旧能正常使用.
 # Trierarch
 
 [English](README.md) | 中文
