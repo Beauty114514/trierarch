@@ -21,8 +21,13 @@ captures/
 docs/WINE_MODE_ROADMAP.md
 # Aggregated native build outputs copied into app module for packaging
 trierarch-app/app/src/main/jniLibs/
-# Not packaged into the repo (local-only).
-trierarch-app/app/src/main/assets/
+# Generated or locally supplied assets are not packaged into the repo. Keep
+# only the source-controlled keymap, notices, and directory placeholder.
+trierarch-app/app/src/main/assets/*
+!trierarch-app/app/src/main/assets/.gitkeep
+!trierarch-app/app/src/main/assets/keymap_us.xkb
+!trierarch-app/app/src/main/assets/licenses/
+!trierarch-app/app/src/main/assets/licenses/FONT_LICENSES.txt
 
 # --- trierarch-audio (PulseAudio port/build) ---
 # Upstream clones + build outputs live here; keep only our scripts/patches/modules tracked.
