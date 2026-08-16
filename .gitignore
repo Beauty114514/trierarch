@@ -1,0 +1,19 @@
+# Local Android SDK configuration
+local.properties
+
+# Gradle and Android build output
+.gradle/
+gradle/gradle-daemon-jvm.properties
+**/build/
+**/.cxx/
+**/.externalNativeBuild/
+captures/
+*.apk
+*.aab
+
+# Android Studio / IntelliJ state
+.idea/
+*.iml
+
+# OS-generated files
+.DS_Store

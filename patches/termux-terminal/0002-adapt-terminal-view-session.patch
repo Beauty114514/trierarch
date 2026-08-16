@@ -1,0 +1,69 @@
+--- a/app/src/main/java/com/termux/view/TerminalView.java
++++ b/app/src/main/java/com/termux/view/TerminalView.java
+@@ -39,17 +39,16 @@
+ 
+ import com.termux.terminal.KeyHandler;
+ import com.termux.terminal.TerminalEmulator;
+-import com.termux.terminal.TerminalSession;
+ import com.termux.view.textselection.TextSelectionCursorController;
+ 
+-/** View displaying and interacting with a {@link TerminalSession}. */
++/** View displaying and interacting with a {@link DisplayableTermSession}. */
+ public final class TerminalView extends View {
+ 
+     /** Log terminal view key and IME events. */
+     private static boolean TERMINAL_VIEW_KEY_LOGGING_ENABLED = false;
+ 
+     /** The currently displayed terminal session, whose emulator is {@link #mEmulator}. */
+-    public TerminalSession mTermSession;
++    public DisplayableTermSession mTermSession;
+     /** Our terminal emulator whose session is {@link #mTermSession}. */
+     public TerminalEmulator mEmulator;
+ 
+@@ -283,11 +282,11 @@
+ 
+ 
+     /**
+-     * Attach a {@link TerminalSession} to this view.
++     * Attach a {@link DisplayableTermSession} to this view.
+      *
+-     * @param session The {@link TerminalSession} this view will be displaying.
++     * @param session The {@link DisplayableTermSession} this view will be displaying.
+      */
+-    public boolean attachSession(TerminalSession session) {
++    public boolean attachSession(DisplayableTermSession session) {
+         if (session == mTermSession) return false;
+         mTopRow = 0;
+ 
+@@ -1023,7 +1022,7 @@
+         }
+     }
+ 
+-    public TerminalSession getCurrentSession() {
++    public DisplayableTermSession getCurrentSession() {
+         return mTermSession;
+     }
+ 
+@@ -1222,10 +1221,10 @@
+      * This should be called when the view holding this activity is resumed or stopped so that
+      * cursor blinker does not run when activity is not visible. If you call this on onResume()
+      * to start cursor blinking, then ensure that {@link #mEmulator} is set, otherwise wait for the
+-     * {@link TerminalViewClient#onEmulatorSet()} event after calling {@link #attachSession(TerminalSession)}
++     * {@link TerminalViewClient#onEmulatorSet()} event after calling {@link #attachSession(DisplayableTermSession)}
+      * for the first session added in the activity since blinking will not start if {@link #mEmulator}
+      * is not set, like if activity is started again after exiting it with double back press. Do not
+-     * call this directly after {@link #attachSession(TerminalSession)} since {@link #updateSize()}
++     * call this directly after {@link #attachSession(DisplayableTermSession)} since {@link #updateSize()}
+      * may return without setting {@link #mEmulator} since width/height may be 0. Its called again in
+      * {@link #onSizeChanged(int, int, int, int)}. Calling on onResume() if emulator is already set
+      * is necessary, since onEmulatorSet() may not be called after activity is started after device
+@@ -1237,7 +1236,7 @@
+      * to be shown. It should also be checked if activity is visible if blinker is to be started
+      * before calling this.
+      *
+-     * It should also be called after terminal is reset with {@link TerminalSession#reset()} in case
++     * It should also be called after terminal reset in case
+      * cursor blinker was disabled before reset due to call to
+      * {@link com.termux.terminal.TerminalSessionClient#onTerminalCursorStateChange(boolean)}.
+      *
+

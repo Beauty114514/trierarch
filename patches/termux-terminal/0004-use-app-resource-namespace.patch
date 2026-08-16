@@ -1,0 +1,23 @@
+--- a/app/src/main/java/com/termux/view/textselection/TextSelectionCursorController.java
++++ b/app/src/main/java/com/termux/view/textselection/TextSelectionCursorController.java
+@@ -15,7 +15,7 @@
+ 
+ import com.termux.terminal.TerminalBuffer;
+ import com.termux.terminal.WcWidth;
+-import com.termux.view.R;
++import app.trierarch.R;
+ import com.termux.view.TerminalView;
+ 
+ public class TextSelectionCursorController implements CursorController {
+--- a/app/src/main/java/com/termux/view/textselection/TextSelectionHandleView.java
++++ b/app/src/main/java/com/termux/view/textselection/TextSelectionHandleView.java
+@@ -13,7 +13,7 @@
+ import android.view.WindowManager;
+ import android.widget.PopupWindow;
+ 
+-import com.termux.view.R;
++import app.trierarch.R;
+ import com.termux.view.TerminalView;
+ import com.termux.view.support.PopupWindowCompatGingerbread;
+ 
+

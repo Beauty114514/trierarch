@@ -1,0 +1,29 @@
+--- a/app/src/main/java/com/termux/view/TerminalViewClient.java
++++ b/app/src/main/java/com/termux/view/TerminalViewClient.java
+@@ -5,7 +5,6 @@
+ import android.view.ScaleGestureDetector;
+ import android.view.View;
+ 
+-import com.termux.terminal.TerminalSession;
+ 
+ /**
+  * The interface for communication between {@link TerminalView} and its client. It allows for getting
+@@ -42,7 +41,7 @@
+ 
+ 
+ 
+-    boolean onKeyDown(int keyCode, KeyEvent e, TerminalSession session);
++    boolean onKeyDown(int keyCode, KeyEvent e, DisplayableTermSession session);
+ 
+     boolean onKeyUp(int keyCode, KeyEvent e);
+ 
+@@ -60,7 +59,7 @@
+ 
+ 
+ 
+-    boolean onCodePoint(int codePoint, boolean ctrlDown, TerminalSession session);
++    boolean onCodePoint(int codePoint, boolean ctrlDown, DisplayableTermSession session);
+ 
+ 
+     void onEmulatorSet();
+
