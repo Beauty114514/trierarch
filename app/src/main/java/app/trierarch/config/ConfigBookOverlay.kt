@@ -25,6 +25,10 @@ class ConfigBookOverlay(
     private val onStartProot: (ProfileStore.ProotProfile) -> Unit,
     private val onStartChroot: (ProfileStore.ChrootProfile) -> Unit,
     private val onStartDroidspaces: (ProfileStore.DroidspacesProfile) -> Unit,
+    private val isRuntimeRunning: () -> Boolean,
+    private val onStopRuntime: () -> Unit,
+    private val onStartX11: (onReady: () -> Unit, onFailure: (String) -> Unit) -> Unit,
+    private val onShowTerminal: () -> Unit,
 ) : FrameLayout(context) {
     private val store = ProfileStore(context.applicationContext)
     private val title = label("Configuration", 19f, Typeface.BOLD)
@@ -36,6 +40,7 @@ class ConfigBookOverlay(
     private val config = button("Config") { editCurrent() }
     private val confirm = button("Confirm") { confirmCurrent() }
     private val start = button("Start") { startCurrent() }
+    private val stop = button("Stop") { stopCurrent() }
     private var files = emptyList<java.io.File>()
     private var index = 0
     private var replacing: java.io.File? = null
@@ -77,7 +82,7 @@ class ConfigBookOverlay(
         counter.gravity = Gravity.CENTER
         panel.addView(counter, LinearLayout.LayoutParams.MATCH_PARENT, dp(22))
         panel.addView(page, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
-        listOf(delete, config, confirm, start).forEach { actions.addView(it, weight(1f)) }
+        listOf(delete, config, confirm, start, stop).forEach { actions.addView(it, weight(1f)) }
         panel.addView(actions, LinearLayout.LayoutParams.MATCH_PARENT, dp(52))
 
         // onMeasure replaces this fallback before the first frame.
@@ -137,7 +142,7 @@ class ConfigBookOverlay(
     private fun showFile(file: java.io.File) {
         title.text = file.name
         actions.visibility = View.VISIBLE
-        delete.isEnabled = true; config.isEnabled = true; confirm.isEnabled = false; start.isEnabled = true
+        delete.isEnabled = true; config.isEnabled = true; confirm.isEnabled = false; start.isEnabled = true; stop.isEnabled = false
         val content = runCatching { store.read(file) }.getOrElse { "Unable to read ${file.name}: ${it.message}" }
         page.addView(ScrollView(context).apply {
             addView(label(content, 14f, Typeface.NORMAL).apply {
@@ -146,13 +151,19 @@ class ConfigBookOverlay(
                 setPadding(dp(10), dp(10), dp(10), dp(10))
             })
         }, FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+        Thread {
+            val running = runCatching { isRuntimeRunning() }.getOrDefault(false)
+            post {
+                if (editor == null && files.getOrNull(index) == file) stop.isEnabled = running
+            }
+        }.start()
     }
 
     private fun edit(file: java.io.File?, content: String) {
         replacing = file
         title.text = file?.name ?: "New configuration"
         actions.visibility = View.VISIBLE
-        delete.isEnabled = true; config.isEnabled = false; confirm.isEnabled = true; start.isEnabled = false
+        delete.isEnabled = true; config.isEnabled = false; confirm.isEnabled = true; start.isEnabled = false; stop.isEnabled = false
         page.removeAllViews()
         editor = EditText(context).apply {
             setText(content); setTextColor(Color.rgb(240, 240, 240)); setTextSize(14f)
@@ -181,22 +192,55 @@ class ConfigBookOverlay(
     private fun startCurrent() {
         val file = files.getOrNull(index) ?: return
         runCatching { store.read(file) }.onSuccess { content ->
-            runCatching { store.validate(content); store.runtime(content) }.onSuccess { runtime ->
+            runCatching { store.validate(content); store.runtime(content) to store.display(content) }.onSuccess { (runtime, display) ->
+                val withDisplay: (() -> Unit) -> Unit = { startRuntime ->
+                    if (display == ProfileStore.DISPLAY_X11) {
+                        onStartX11(
+                            {
+                                runCatching(startRuntime).onFailure { error ->
+                                    onShowTerminal()
+                                    toast(error.message ?: "Unable to start configuration")
+                                }
+                            },
+                            { message ->
+                                onShowTerminal()
+                                toast(message)
+                            },
+                        )
+                        dismiss()
+                    } else {
+                        launch {
+                            onShowTerminal()
+                            startRuntime()
+                        }
+                    }
+                }
                 when (runtime) {
-                    ProfileStore.RUNTIME_INTERNAL_SHELL -> launch { onStartInternalShell() }
+                    ProfileStore.RUNTIME_INTERNAL_SHELL -> withDisplay(onStartInternalShell)
                     ProfileStore.RUNTIME_PROOT -> runCatching { store.prootProfile(content) }
-                        .onSuccess { profile -> launch { onStartProot(profile) } }
+                        .onSuccess { profile -> withDisplay { onStartProot(profile) } }
                         .onFailure { toast(it.message ?: "Invalid PRoot configuration") }
                     ProfileStore.RUNTIME_CHROOT -> runCatching { store.chrootProfile(content) }
-                        .onSuccess { profile -> launch { onStartChroot(profile) } }
+                        .onSuccess { profile -> withDisplay { onStartChroot(profile) } }
                         .onFailure { toast(it.message ?: "Invalid chroot configuration") }
                     ProfileStore.RUNTIME_DROIDSPACES -> runCatching { store.droidspacesProfile(content) }
-                        .onSuccess { profile -> launch { onStartDroidspaces(profile) } }
+                        .onSuccess { profile -> withDisplay { onStartDroidspaces(profile) } }
                         .onFailure { toast(it.message ?: "Invalid DroidSpaces configuration") }
                     else -> toast("Runtime '$runtime' cannot be started yet")
                 }
             }.onFailure { toast(it.message ?: "Invalid configuration") }
         }.onFailure { toast(it.message ?: "Unable to read") }
+    }
+
+    private fun stopCurrent() {
+        if (!isRuntimeRunning()) {
+            stop.isEnabled = false
+            return
+        }
+        launch {
+            onStopRuntime()
+            onShowTerminal()
+        }
     }
 
     private fun previous() { if (editor == null && index > 0) show(index - 1) }
@@ -236,6 +280,6 @@ class ConfigBookOverlay(
         const val BOOK_MAX_WIDTH_FRACTION = .88f
         const val BOOK_MAX_HEIGHT_FRACTION = .78f
         const val ROOT_TWO = 1.41421356f
-        val TEMPLATE = "id = \"\"\nname = \"\"\nruntime = \"internal-shell\"\n"
+        val TEMPLATE = "id = \"\"\nname = \"\"\nruntime = \"internal-shell\"\n\n[display]\ntype = \"none\"\n"
     }
 }

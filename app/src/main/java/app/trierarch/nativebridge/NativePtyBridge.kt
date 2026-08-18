@@ -22,6 +22,8 @@ object NativePtyBridge {
         shell: String,
         nativeLibraryDirectory: String,
         cacheDirectory: String,
+        x11SocketDirectory: String,
+        launchArgv: Array<String>,
         rows: Int,
         columns: Int,
         callback: SessionCallback,
@@ -31,19 +33,30 @@ object NativePtyBridge {
     external fun openChrootSession(
         rootfsDirectory: String,
         shell: String,
+        x11SocketDirectory: String,
+        launchArgv: Array<String>,
         rows: Int,
         columns: Int,
         callback: SessionCallback,
     ): Long
 
-    /** Attaches to an already-running DroidSpaces container. */
+    /** Starts a stopped DroidSpaces container, or attaches to a running one. */
     external fun openDroidspacesSession(
         container: String,
         user: String,
+        x11SocketDirectory: String,
+        launchArgv: Array<String>,
         rows: Int,
         columns: Int,
         callback: SessionCallback,
     ): Long
+
+    /** Restores ownership of the private X11 socket directory after a legacy directory bind. */
+    external fun repairX11SocketDirectory(directory: String, appUid: Int)
+
+    external fun isDroidspacesRunning(container: String): Boolean
+
+    external fun stopDroidspaces(container: String)
 
     external fun write(sessionId: Long, bytes: ByteArray): Boolean
 

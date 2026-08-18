@@ -44,6 +44,8 @@ class NativePtySession private constructor(
         shell: String,
         nativeLibraryDirectory: File,
         cacheDirectory: File,
+        x11SocketDirectory: String?,
+        launchArgv: Array<String>,
         clipboard: TerminalClipboard,
     ) : this(
         openNativeSession = { rows, columns, callback ->
@@ -52,6 +54,8 @@ class NativePtySession private constructor(
                 shell,
                 nativeLibraryDirectory.absolutePath,
                 cacheDirectory.absolutePath,
+                x11SocketDirectory.orEmpty(),
+                launchArgv,
                 rows,
                 columns,
                 callback,
@@ -64,12 +68,16 @@ class NativePtySession private constructor(
     constructor(
         chrootRootfs: String,
         shell: String,
+        x11SocketDirectory: String?,
+        launchArgv: Array<String>,
         clipboard: TerminalClipboard,
     ) : this(
         openNativeSession = { rows, columns, callback ->
             NativePtyBridge.openChrootSession(
                 chrootRootfs,
                 shell,
+                x11SocketDirectory.orEmpty(),
+                launchArgv,
                 rows,
                 columns,
                 callback,
@@ -78,15 +86,18 @@ class NativePtySession private constructor(
         clipboard = clipboard,
     )
 
-    /** Attaches to an already-running DroidSpaces container. */
+    /** Trierarch owns the DroidSpaces session lifecycle. */
     constructor(
         droidspacesProfile: ProfileStore.DroidspacesProfile,
+        x11SocketDirectory: String?,
         clipboard: TerminalClipboard,
     ) : this(
         openNativeSession = { rows, columns, callback ->
             NativePtyBridge.openDroidspacesSession(
                 droidspacesProfile.container,
                 droidspacesProfile.user,
+                x11SocketDirectory.orEmpty(),
+                droidspacesProfile.launchArgv.orEmpty().toTypedArray(),
                 rows,
                 columns,
                 callback,
@@ -128,11 +139,22 @@ class NativePtySession private constructor(
         if (closed) return
         emulator.resize(columns, rows, cellWidthPixels, cellHeightPixels)
         if (sessionId == 0L) {
-            sessionId = openNativeSession(rows, columns, this)
+            startNative(rows, columns)
         } else {
             NativePtyBridge.resize(sessionId, rows, columns)
         }
         screenChanged()
+    }
+
+    /** Opens the PTY independently of TerminalView layout (needed by X11 sessions). */
+    fun start() {
+        if (!closed && sessionId == 0L) startNative(INITIAL_ROWS, INITIAL_COLUMNS)
+    }
+
+    fun isRunning(): Boolean = !closed && sessionId != 0L
+
+    private fun startNative(rows: Int, columns: Int) {
+        sessionId = openNativeSession(rows, columns, this)
     }
 
     override fun updateSize(

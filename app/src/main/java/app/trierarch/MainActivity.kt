@@ -14,6 +14,7 @@ import app.trierarch.config.ConfigBookOverlay
 import app.trierarch.terminal.DefaultTerminalViewModel
 import app.trierarch.terminal.TrierarchTerminalViewClient
 import app.trierarch.ui.FloatingMenuOrbView
+import app.trierarch.x11.X11HostController
 import com.termux.view.TerminalView
 
 /** The first Trierarch profile: a shell using the app's private files directory as its home. */
@@ -21,6 +22,9 @@ class MainActivity : AppCompatActivity() {
     private val terminalViewModel: DefaultTerminalViewModel by viewModels()
     private var terminalView: TerminalView? = null
     private var configBook: ConfigBookOverlay? = null
+    private lateinit var terminalContainer: FrameLayout
+    private val x11Host by lazy { X11HostController(this) }
+    private var x11Starting = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,7 +50,7 @@ class MainActivity : AppCompatActivity() {
         terminalView.setTerminalViewClient(
             TrierarchTerminalViewClient(terminalView, initialTextSizePx),
         )
-        val terminalContainer = FrameLayout(this).apply {
+        terminalContainer = FrameLayout(this).apply {
             addView(
                 terminalView,
                 FrameLayout.LayoutParams(
@@ -79,6 +83,10 @@ class MainActivity : AppCompatActivity() {
                             terminalViewModel.restartDroidspaces(profile)
                             attachTerminalSession()
                         },
+                        isRuntimeRunning = terminalViewModel::isRuntimeRunning,
+                        onStopRuntime = terminalViewModel::stopRuntime,
+                        onStartX11 = { onReady, onFailure -> showX11Display(onReady, onFailure) },
+                        onShowTerminal = { showTerminal() },
                     )
                     terminalContainer.addView(configBook)
                 }
@@ -102,6 +110,30 @@ class MainActivity : AppCompatActivity() {
         view.attachSession(session)
         session.setScreenChangedListener(view::onScreenUpdated)
         view.post(view::updateSize)
+    }
+
+    private fun showX11Display(onReady: () -> Unit, onFailure: (String) -> Unit) {
+        // Keep the terminal laid out while the runtime session is created. Native
+        // sessions are opened lazily from TerminalView.updateSize(); hiding it
+        // before that callback can leave the container with no PTY at all.
+        x11Starting = true
+        x11Host.showIn(
+            terminalContainer,
+            onReady = {
+                onReady()
+                if (x11Starting) terminalView?.visibility = android.view.View.INVISIBLE
+            },
+            onFailure = onFailure,
+        )
+    }
+
+    private fun showTerminal() {
+        x11Starting = false
+        x11Host.hide()
+        terminalView?.apply {
+            visibility = android.view.View.VISIBLE
+            requestFocus()
+        }
     }
 
     override fun onBackPressed() {

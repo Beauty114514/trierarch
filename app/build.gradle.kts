@@ -10,6 +10,12 @@ val prootRuntimeDirectory = rootProject.projectDir.parentFile.resolve(
     "trierarch-packages/proot/dist/android/arm64-v8a",
 )
 val prootJniLibsDirectory = layout.buildDirectory.dir("generated/prootJniLibs")
+// Lorie is built and versioned by the independent X11-host package.
+val x11RuntimeDirectory = rootProject.projectDir.parentFile.resolve(
+    "trierarch-packages/x11-host/dist/android/arm64-v8a",
+)
+val x11JniLibsDirectory = layout.buildDirectory.dir("generated/x11JniLibs")
+val x11AssetsDirectory = layout.buildDirectory.dir("generated/x11Assets")
 
 val buildNativeArm64 by tasks.registering(Exec::class) {
     group = "build"
@@ -53,6 +59,32 @@ val packageProotArm64 by tasks.registering(Sync::class) {
     }
 }
 
+val packageX11LibraryArm64 by tasks.registering(Sync::class) {
+    group = "build"
+    description = "Packages the Trierarch Lorie X11 arm64 library."
+    val library = x11RuntimeDirectory.resolve("libXlorie.so")
+    from(library) { into("arm64-v8a") }
+    into(x11JniLibsDirectory)
+    doFirst {
+        check(library.isFile) {
+            "Missing Lorie library. Build trierarch-packages/x11-host first."
+        }
+    }
+}
+
+val packageX11Assets by tasks.registering(Sync::class) {
+    group = "build"
+    description = "Packages the Trierarch Lorie XKB runtime asset."
+    val xkb = x11RuntimeDirectory.resolve("assets/lorie_xkb_bundled.zip")
+    from(xkb)
+    into(x11AssetsDirectory)
+    doFirst {
+        check(xkb.isFile) {
+            "Missing Lorie XKB runtime asset. Build trierarch-packages/x11-host first."
+        }
+    }
+}
+
 android {
     namespace = "app.trierarch"
     compileSdk {
@@ -82,12 +114,19 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+    buildFeatures {
+        aidl = true
+    }
 
     sourceSets {
         getByName("main").jniLibs.srcDirs(
             nativeJniLibsDirectory.get().asFile,
             prootJniLibsDirectory.get().asFile,
+            x11JniLibsDirectory.get().asFile,
         )
+        // SourceSet accepts a concrete directory, not Gradle's Provider wrapper.
+        // `preBuild` explicitly depends on packageX11Assets below.
+        getByName("main").assets.srcDir(x11AssetsDirectory.get().asFile)
     }
     packaging {
         jniLibs {
@@ -97,7 +136,7 @@ android {
 }
 
 tasks.named("preBuild").configure {
-    dependsOn(buildNativeArm64, packageProotArm64)
+    dependsOn(buildNativeArm64, packageProotArm64, packageX11LibraryArm64, packageX11Assets)
 }
 
 dependencies {

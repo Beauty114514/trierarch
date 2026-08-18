@@ -2,6 +2,7 @@ package app.trierarch.config
 
 import android.content.Context
 import org.tomlj.Toml
+import org.tomlj.TomlParseResult
 import java.io.File
 
 /** Direct filesystem access for profile documents; no index or database exists. */
@@ -52,6 +53,11 @@ class ProfileStore(context: Context) {
         val runtime = parsed.getString("runtime")?.trim().orEmpty()
         require(runtime.isNotEmpty()) { "runtime is required" }
         require(parsed.getString("name")?.trim().isNullOrEmpty().not()) { "name is required" }
+        val display = parsed.getString("display.type")?.trim().orEmpty().ifEmpty { DISPLAY_NONE }
+        require(display == DISPLAY_NONE || display == DISPLAY_X11) {
+            "display.type must be '$DISPLAY_NONE' or '$DISPLAY_X11'"
+        }
+        launchArgv(parsed)
         if (runtime == RUNTIME_PROOT || runtime == RUNTIME_CHROOT) {
             val rootfs = parsed.getString("rootfs")?.trim().orEmpty()
             require(rootfs.isNotEmpty()) {
@@ -72,6 +78,13 @@ class ProfileStore(context: Context) {
     }
 
     fun runtime(text: String): String = Toml.parse(text).getString("runtime")?.trim().orEmpty()
+
+    /** The display is optional; omitted means the terminal-only default. */
+    fun display(text: String): String = Toml.parse(text)
+        .getString("display.type")
+        ?.trim()
+        .orEmpty()
+        .ifEmpty { DISPLAY_NONE }
 
     /** Reads the minimal, explicit contract for one PRoot session. */
     fun prootProfile(text: String): ProotProfile {
@@ -94,6 +107,8 @@ class ProfileStore(context: Context) {
             name = required(parsed.getString("name"), "name"),
             rootfs = rootfs,
             shell = shell,
+            display = parsed.getString("display.type")?.trim().orEmpty().ifEmpty { DISPLAY_NONE },
+            launchArgv = launchArgv(parsed),
         )
     }
 
@@ -117,10 +132,12 @@ class ProfileStore(context: Context) {
             name = required(parsed.getString("name"), "name"),
             rootfs = rootfs,
             shell = shell,
+            display = parsed.getString("display.type")?.trim().orEmpty().ifEmpty { DISPLAY_NONE },
+            launchArgv = launchArgv(parsed),
         )
     }
 
-    /** Attaches to a container that DroidSpaces has already deployed and started. */
+    /** A container DroidSpaces has deployed; Trierarch owns this profile's session start. */
     fun droidspacesProfile(text: String): DroidspacesProfile {
         val parsed = parse(text)
         require(parsed.getString("runtime")?.trim() == RUNTIME_DROIDSPACES) {
@@ -131,6 +148,8 @@ class ProfileStore(context: Context) {
             name = required(parsed.getString("name"), "name"),
             container = required(parsed.getString("container"), "container"),
             user = parsed.getString("user")?.trim().takeUnless { it.isNullOrEmpty() } ?: "root",
+            display = parsed.getString("display.type")?.trim().orEmpty().ifEmpty { DISPLAY_NONE },
+            launchArgv = launchArgv(parsed),
         )
     }
 
@@ -143,11 +162,29 @@ class ProfileStore(context: Context) {
     private fun required(value: String?, key: String): String = value?.trim().takeUnless { it.isNullOrEmpty() }
         ?: throw IllegalArgumentException("$key is required")
 
+    /** Optional direct program invocation; absent keeps the runtime's interactive-shell default. */
+    private fun launchArgv(parsed: TomlParseResult): List<String>? {
+        if (!parsed.contains("launch.argv")) return null
+        require(parsed.isArray("launch.argv")) { "launch.argv must be an array of strings" }
+        val array = checkNotNull(parsed.getArray("launch.argv"))
+        require(array.size() > 0) { "launch.argv must not be empty" }
+        return (0 until array.size()).map { index ->
+            val value = array.getString(index)
+                ?: throw IllegalArgumentException("launch.argv[$index] must be a string")
+            require(value.isNotEmpty() && !value.contains('\u0000')) {
+                "launch.argv[$index] must not be empty or contain a NUL byte"
+            }
+            value
+        }
+    }
+
     data class ProotProfile(
         val id: String,
         val name: String,
         val rootfs: File,
         val shell: String,
+        val display: String,
+        val launchArgv: List<String>?,
     )
 
     data class ChrootProfile(
@@ -155,6 +192,8 @@ class ProfileStore(context: Context) {
         val name: String,
         val rootfs: String,
         val shell: String,
+        val display: String,
+        val launchArgv: List<String>?,
     )
 
     data class DroidspacesProfile(
@@ -162,6 +201,8 @@ class ProfileStore(context: Context) {
         val name: String,
         val container: String,
         val user: String,
+        val display: String,
+        val launchArgv: List<String>?,
     )
 
     companion object {
@@ -171,6 +212,8 @@ class ProfileStore(context: Context) {
         const val RUNTIME_PROOT = "proot"
         const val RUNTIME_CHROOT = "chroot"
         const val RUNTIME_DROIDSPACES = "droidspaces"
+        const val DISPLAY_NONE = "none"
+        const val DISPLAY_X11 = "x11"
         const val EXTRA_RUNTIME = "app.trierarch.config.RUNTIME"
     }
 }
