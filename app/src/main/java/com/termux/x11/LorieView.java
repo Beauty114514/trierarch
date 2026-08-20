@@ -9,7 +9,7 @@ import android.view.SurfaceView;
 import androidx.annotation.Keep;
 
 import com.termux.x11.input.InputEventSender;
-import com.termux.x11.input.TouchInputHandler;
+import com.termux.x11.input.X11InputRouter;
 
 import dalvik.annotation.optimization.CriticalNative;
 import dalvik.annotation.optimization.FastNative;
@@ -17,7 +17,7 @@ import dalvik.annotation.optimization.FastNative;
 /**
  * A deliberately small SurfaceView facade for the fixed Lorie JNI ABI.
  *
- * It owns rendering and the first minimal touchpad input path. Keyboard,
+ * It owns rendering and the X11 pointer input path. Keyboard,
  * clipboard, scaling controls and external-display policy remain separate.
  */
 @Keep
@@ -25,13 +25,14 @@ public final class LorieView extends SurfaceView {
     private long nativeHandle;
     private int latestWidth;
     private int latestHeight;
-    private final TouchInputHandler touchInput;
+    private final X11InputRouter inputRouter;
 
     public LorieView(Context context) {
         super(context);
-        touchInput = new TouchInputHandler(context,
+        inputRouter = new X11InputRouter(context,
                 new InputEventSender((x, y, button, down, relative) ->
-                        sendMouseEvent(nativeHandle, x, y, button, down, relative)));
+                        sendMouseEvent(nativeHandle, x, y, button, down, relative)),
+                this::setCursorVisible);
         nativeHandle = nativeInit();
         getHolder().addCallback(new SurfaceHolder.Callback() {
             @Override public void surfaceCreated(SurfaceHolder holder) {
@@ -63,23 +64,27 @@ public final class LorieView extends SurfaceView {
         return nativeHandle != 0 && connected(nativeHandle);
     }
 
+    public void setCursorVisible(boolean visible) {
+        if (nativeHandle != 0) setCursorVisible(nativeHandle, visible);
+    }
+
     @Override public boolean onTouchEvent(MotionEvent event) {
         if (nativeHandle == 0) return true;
-        return touchInput.onTouchEvent(this, event);
+        return inputRouter.onTouchEvent(this, event);
     }
 
     @Override public boolean onGenericMotionEvent(MotionEvent event) {
         if (nativeHandle == 0) return true;
-        return touchInput.onGenericMotionEvent(event) || super.onGenericMotionEvent(event);
+        return inputRouter.onGenericMotionEvent(this, event) || super.onGenericMotionEvent(event);
     }
 
     @Override public boolean onHoverEvent(MotionEvent event) {
         if (nativeHandle == 0) return true;
-        return touchInput.onHoverEvent(this, event) || super.onHoverEvent(event);
+        return inputRouter.onHoverEvent(this, event) || super.onHoverEvent(event);
     }
 
     @Override protected void onDetachedFromWindow() {
-        touchInput.cancel(this);
+        inputRouter.cancel(this);
         if (nativeHandle != 0) {
             nativeDestroy(nativeHandle);
             nativeHandle = 0;
@@ -89,7 +94,7 @@ public final class LorieView extends SurfaceView {
 
     @Override public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (!hasFocus) touchInput.cancel(this);
+        if (!hasFocus) inputRouter.cancel(this);
     }
 
     private void publishSize() {
@@ -116,6 +121,7 @@ public final class LorieView extends SurfaceView {
     @FastNative private native void nativeDestroy(long handle);
     @FastNative private native void surfaceChanged(long handle, Surface surface);
     @FastNative private native void setViewport(long handle, int x, int y, int width, int height, int expectedWidth, int expectedHeight, int hidden);
+    @FastNative private native void setCursorVisible(long handle, boolean visible);
     @FastNative private native void setRendererZoom(long handle, int percent);
     @FastNative private native void setFiltering(long handle, int filtering);
     @FastNative private static native void connect(long handle, int fileDescriptor);

@@ -6,7 +6,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.SparseArray;
 import android.view.MotionEvent;
-import android.view.View;
 import android.view.ViewConfiguration;
 
 /** Detects multi-finger taps and long presses with explicit pointer tracking. */
@@ -40,7 +39,7 @@ public final class TapGestureDetector {
         touchSlopSquare = touchSlop * touchSlop;
     }
 
-    public void onTouchEvent(View owner, MotionEvent event) {
+    public void onTouchEvent(MotionEvent event) {
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 reset();
@@ -78,11 +77,7 @@ public final class TapGestureDetector {
         }
     }
 
-    public boolean hasMoved() {
-        return tapCancelled;
-    }
-
-    public void cancel(View owner) {
+    public void cancel() {
         reset();
     }
 

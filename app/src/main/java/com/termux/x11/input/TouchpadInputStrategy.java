@@ -2,17 +2,17 @@ package com.termux.x11.input;
 
 import android.view.MotionEvent;
 
-/** Translates gesture callbacks into relative X11 mouse events. */
-public final class TrackpadInputStrategy implements TapGestureDetector.Listener {
+/** Translates touchpad gesture callbacks into relative X11 pointer events. */
+public final class TouchpadInputStrategy {
     private final InputEventSender sender;
     private boolean buttonHeld;
     private int heldButton;
 
-    public TrackpadInputStrategy(InputEventSender sender) {
+    public TouchpadInputStrategy(InputEventSender sender) {
         this.sender = sender;
     }
 
-    public void onMotionEvent(MotionEvent event) {
+    public void onTouchEvent(MotionEvent event) {
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
@@ -24,19 +24,19 @@ public final class TrackpadInputStrategy implements TapGestureDetector.Listener 
         }
     }
 
-    public void onCursorMove(float distanceX, float distanceY) {
-        sender.sendCursorMove(-distanceX, -distanceY, true);
+    public void onPointerMove(float distanceX, float distanceY) {
+        sender.sendPointerMove(-distanceX, -distanceY, true);
     }
 
     public void onScroll(float distanceX, float distanceY) {
         sender.sendMouseWheelEvent(distanceX, distanceY);
     }
 
-    @Override public void onTap(int pointerCount) {
+    public void onTap(int pointerCount) {
         sender.sendMouseClick(buttonForPointerCount(pointerCount), true);
     }
 
-    @Override public void onLongPress(int pointerCount) {
+    public void onLongPress(int pointerCount) {
         int button = buttonForPointerCount(pointerCount);
         releaseHeldButton();
         sender.sendMouseDown(button, true);
