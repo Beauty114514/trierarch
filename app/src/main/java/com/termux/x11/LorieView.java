@@ -3,9 +3,13 @@ package com.termux.x11;
 import android.content.Context;
 import android.view.Surface;
 import android.view.SurfaceHolder;
+import android.view.MotionEvent;
 import android.view.SurfaceView;
 
 import androidx.annotation.Keep;
+
+import com.termux.x11.input.InputEventSender;
+import com.termux.x11.input.TouchInputHandler;
 
 import dalvik.annotation.optimization.CriticalNative;
 import dalvik.annotation.optimization.FastNative;
@@ -13,17 +17,21 @@ import dalvik.annotation.optimization.FastNative;
 /**
  * A deliberately small SurfaceView facade for the fixed Lorie JNI ABI.
  *
- * It owns rendering only.  Touch, keyboard, clipboard, scaling controls and
- * external-display policy stay outside the first X11 milestone.
+ * It owns rendering and the first minimal touchpad input path. Keyboard,
+ * clipboard, scaling controls and external-display policy remain separate.
  */
 @Keep
 public final class LorieView extends SurfaceView {
     private long nativeHandle;
     private int latestWidth;
     private int latestHeight;
+    private final TouchInputHandler touchInput;
 
     public LorieView(Context context) {
         super(context);
+        touchInput = new TouchInputHandler(context,
+                new InputEventSender((x, y, button, down, relative) ->
+                        sendMouseEvent(nativeHandle, x, y, button, down, relative)));
         nativeHandle = nativeInit();
         getHolder().addCallback(new SurfaceHolder.Callback() {
             @Override public void surfaceCreated(SurfaceHolder holder) {
@@ -55,12 +63,33 @@ public final class LorieView extends SurfaceView {
         return nativeHandle != 0 && connected(nativeHandle);
     }
 
+    @Override public boolean onTouchEvent(MotionEvent event) {
+        if (nativeHandle == 0) return true;
+        return touchInput.onTouchEvent(this, event);
+    }
+
+    @Override public boolean onGenericMotionEvent(MotionEvent event) {
+        if (nativeHandle == 0) return true;
+        return touchInput.onGenericMotionEvent(event) || super.onGenericMotionEvent(event);
+    }
+
+    @Override public boolean onHoverEvent(MotionEvent event) {
+        if (nativeHandle == 0) return true;
+        return touchInput.onHoverEvent(this, event) || super.onHoverEvent(event);
+    }
+
     @Override protected void onDetachedFromWindow() {
+        touchInput.cancel(this);
         if (nativeHandle != 0) {
             nativeDestroy(nativeHandle);
             nativeHandle = 0;
         }
         super.onDetachedFromWindow();
+    }
+
+    @Override public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (!hasFocus) touchInput.cancel(this);
     }
 
     private void publishSize() {
