@@ -14,6 +14,7 @@ import app.trierarch.config.ConfigBookOverlay
 import app.trierarch.terminal.DefaultTerminalViewModel
 import app.trierarch.terminal.TrierarchTerminalViewClient
 import app.trierarch.ui.FloatingMenuOrbView
+import app.trierarch.wayland.WaylandSurfaceView
 import app.trierarch.x11.X11HostController
 import com.termux.view.TerminalView
 
@@ -25,6 +26,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var terminalContainer: FrameLayout
     private val x11Host by lazy { X11HostController(this) }
     private var x11Starting = false
+    private var waylandSurface: WaylandSurfaceView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,11 +82,17 @@ class MainActivity : AppCompatActivity() {
                             attachTerminalSession()
                         },
                         onStartDroidspaces = { profile ->
+                            if (profile.display == app.trierarch.config.ProfileStore.DISPLAY_WAYLAND) {
+                                showWaylandSurface()
+                            }
                             terminalViewModel.restartDroidspaces(profile)
                             attachTerminalSession()
                         },
                         isRuntimeRunning = terminalViewModel::isRuntimeRunning,
-                        onStopRuntime = terminalViewModel::stopRuntime,
+                        onStopRuntime = {
+                            terminalViewModel.stopRuntime()
+                            hideWaylandSurface()
+                        },
                         onStartX11 = { onReady, onFailure -> showX11Display(onReady, onFailure) },
                         onShowTerminal = { showTerminal() },
                     )
@@ -112,6 +120,21 @@ class MainActivity : AppCompatActivity() {
         view.post(view::updateSize)
     }
 
+    private fun showWaylandSurface() {
+        if (waylandSurface == null) {
+            waylandSurface = WaylandSurfaceView(this)
+            terminalContainer.addView(
+                waylandSurface,
+                0,
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                ),
+            )
+        }
+        terminalView?.visibility = android.view.View.INVISIBLE
+    }
+
     private fun showX11Display(onReady: () -> Unit, onFailure: (String) -> Unit) {
         // Keep the terminal laid out while the runtime session is created. Native
         // sessions are opened lazily from TerminalView.updateSize(); hiding it
@@ -130,10 +153,16 @@ class MainActivity : AppCompatActivity() {
     private fun showTerminal() {
         x11Starting = false
         x11Host.hide()
+        hideWaylandSurface()
         terminalView?.apply {
             visibility = android.view.View.VISIBLE
             requestFocus()
         }
+    }
+
+    private fun hideWaylandSurface() {
+        waylandSurface?.let { terminalContainer.removeView(it) }
+        waylandSurface = null
     }
 
     override fun onBackPressed() {

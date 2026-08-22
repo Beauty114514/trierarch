@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import app.trierarch.config.ProfileStore
 import app.trierarch.runtime.InternalShellLaunchSpec
 import app.trierarch.x11.X11Runtime
+import app.trierarch.wayland.WaylandBridge
 import java.io.File
 
 /** Owns the built-in app-internal shell independently of a terminal view instance. */
@@ -40,16 +41,28 @@ class DefaultTerminalViewModel(application: Application) : AndroidViewModel(appl
             x11SocketDirectory = x11SocketDirectory(profile.display),
             launchArgv = profile.launchArgv.orEmpty().toTypedArray(),
             clipboard = AndroidTerminalClipboard(app),
-        ).also { next -> if (profile.display == ProfileStore.DISPLAY_X11) next.start() }
+        ).also { next ->
+            if (profile.display == ProfileStore.DISPLAY_X11 || profile.display == ProfileStore.DISPLAY_WAYLAND) {
+                next.start()
+            }
+        }
     }
 
     fun restartDroidspaces(profile: ProfileStore.DroidspacesProfile) {
         session.close()
+        if (profile.display == ProfileStore.DISPLAY_WAYLAND) {
+            check(WaylandBridge.start(app)) { "Unable to start Wayland host" }
+        }
         session = NativePtySession(
             droidspacesProfile = profile,
             x11SocketDirectory = x11SocketDirectory(profile.display),
+            waylandRuntimeDirectory = waylandRuntimeDirectory(profile.display),
             clipboard = AndroidTerminalClipboard(app),
-        ).also { next -> if (profile.display == ProfileStore.DISPLAY_X11) next.start() }
+        ).also { next ->
+            if (profile.display == ProfileStore.DISPLAY_X11 || profile.display == ProfileStore.DISPLAY_WAYLAND) {
+                next.start()
+            }
+        }
     }
 
     fun isRuntimeRunning(): Boolean = session.isRunning()
@@ -57,6 +70,7 @@ class DefaultTerminalViewModel(application: Application) : AndroidViewModel(appl
     /** Trierarch owns the active runtime session, including chroot and PRoot. */
     fun stopRuntime() {
         session.close()
+        WaylandBridge.stop()
         session = createInternalShell()
     }
 
@@ -72,5 +86,10 @@ class DefaultTerminalViewModel(application: Application) : AndroidViewModel(appl
     private fun x11SocketDirectory(display: String): String? =
         X11Runtime.socketDirectory(app).absolutePath.takeIf {
             display == ProfileStore.DISPLAY_X11
+        }
+
+    private fun waylandRuntimeDirectory(display: String): String? =
+        File(app.filesDir, "wayland/runtime").also { it.mkdirs() }.absolutePath.takeIf {
+            display == ProfileStore.DISPLAY_WAYLAND
         }
 }

@@ -45,6 +45,7 @@ object NativePtyBridge {
         container: String,
         user: String,
         x11SocketDirectory: String,
+        waylandRuntimeDirectory: String,
         launchArgv: Array<String>,
         rows: Int,
         columns: Int,

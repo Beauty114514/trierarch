@@ -16,6 +16,10 @@ val x11RuntimeDirectory = rootProject.projectDir.parentFile.resolve(
 )
 val x11JniLibsDirectory = layout.buildDirectory.dir("generated/x11JniLibs")
 val x11AssetsDirectory = layout.buildDirectory.dir("generated/x11Assets")
+val waylandRuntimeDirectory = rootProject.projectDir.parentFile.resolve(
+    "trierarch-packages/wayland-host/dist/android/arm64-v8a",
+)
+val waylandJniLibsDirectory = layout.buildDirectory.dir("generated/waylandJniLibs")
 
 val buildNativeArm64 by tasks.registering(Exec::class) {
     group = "build"
@@ -85,6 +89,25 @@ val packageX11Assets by tasks.registering(Sync::class) {
     }
 }
 
+val packageWaylandArm64 by tasks.registering(Sync::class) {
+    group = "build"
+    description = "Packages the Trierarch Wayland host arm64 libraries."
+    notCompatibleWithConfigurationCache("Wayland artifacts are copied from an external package workspace")
+    from(waylandRuntimeDirectory) { into("arm64-v8a") }
+    into(waylandJniLibsDirectory)
+    doFirst {
+        check(waylandRuntimeDirectory.resolve("libtrierarch-wayland-host.so").isFile) {
+            "Missing Wayland host. Build trierarch-packages/wayland-host first."
+        }
+        check(waylandRuntimeDirectory.resolve("libwayland-server.so").isFile) {
+            "Missing Wayland server library. Build trierarch-packages/wayland-host first."
+        }
+        check(waylandRuntimeDirectory.resolve("libffi.so").isFile) {
+            "Missing libffi. Build trierarch-packages/wayland-host first."
+        }
+    }
+}
+
 android {
     namespace = "app.trierarch"
     compileSdk {
@@ -123,6 +146,7 @@ android {
             nativeJniLibsDirectory.get().asFile,
             prootJniLibsDirectory.get().asFile,
             x11JniLibsDirectory.get().asFile,
+            waylandJniLibsDirectory.get().asFile,
         )
         // SourceSet accepts a concrete directory, not Gradle's Provider wrapper.
         // `preBuild` explicitly depends on packageX11Assets below.
@@ -136,7 +160,7 @@ android {
 }
 
 tasks.named("preBuild").configure {
-    dependsOn(buildNativeArm64, packageProotArm64, packageX11LibraryArm64, packageX11Assets)
+    dependsOn(buildNativeArm64, packageProotArm64, packageX11LibraryArm64, packageX11Assets, packageWaylandArm64)
 }
 
 dependencies {

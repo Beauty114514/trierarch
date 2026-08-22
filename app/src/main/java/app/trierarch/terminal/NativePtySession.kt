@@ -90,6 +90,7 @@ class NativePtySession private constructor(
     constructor(
         droidspacesProfile: ProfileStore.DroidspacesProfile,
         x11SocketDirectory: String?,
+        waylandRuntimeDirectory: String?,
         clipboard: TerminalClipboard,
     ) : this(
         openNativeSession = { rows, columns, callback ->
@@ -97,6 +98,7 @@ class NativePtySession private constructor(
                 droidspacesProfile.container,
                 droidspacesProfile.user,
                 x11SocketDirectory.orEmpty(),
+                waylandRuntimeDirectory.orEmpty(),
                 droidspacesProfile.launchArgv.orEmpty().toTypedArray(),
                 rows,
                 columns,

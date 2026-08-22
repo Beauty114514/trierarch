@@ -54,8 +54,8 @@ class ProfileStore(context: Context) {
         require(runtime.isNotEmpty()) { "runtime is required" }
         require(parsed.getString("name")?.trim().isNullOrEmpty().not()) { "name is required" }
         val display = parsed.getString("display.type")?.trim().orEmpty().ifEmpty { DISPLAY_NONE }
-        require(display == DISPLAY_NONE || display == DISPLAY_X11) {
-            "display.type must be '$DISPLAY_NONE' or '$DISPLAY_X11'"
+        require(display == DISPLAY_NONE || display == DISPLAY_X11 || display == DISPLAY_WAYLAND) {
+            "display.type must be '$DISPLAY_NONE', '$DISPLAY_X11', or '$DISPLAY_WAYLAND'"
         }
         launchArgv(parsed)
         if (runtime == RUNTIME_PROOT || runtime == RUNTIME_CHROOT) {
@@ -214,6 +214,7 @@ class ProfileStore(context: Context) {
         const val RUNTIME_DROIDSPACES = "droidspaces"
         const val DISPLAY_NONE = "none"
         const val DISPLAY_X11 = "x11"
+        const val DISPLAY_WAYLAND = "wayland"
         const val EXTRA_RUNTIME = "app.trierarch.config.RUNTIME"
     }
 }
