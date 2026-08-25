@@ -4,6 +4,7 @@ plugins {
 
 val nativeProjectDirectory = rootProject.projectDir.parentFile.resolve("trierarch-packages/native")
 val nativeJniLibsDirectory = layout.buildDirectory.dir("generated/jniLibs")
+val rootfsCommandJniLibsDirectory = layout.buildDirectory.dir("generated/rootfsCommandJniLibs")
 // Runtime comparison: consume the independently maintained PRoot package.
 // Its source revision and Android build recipe are recorded with the package.
 val prootRuntimeDirectory = rootProject.projectDir.parentFile.resolve(
@@ -21,6 +22,10 @@ val waylandRuntimeDirectory = rootProject.projectDir.parentFile.resolve(
 )
 val waylandJniLibsDirectory = layout.buildDirectory.dir("generated/waylandJniLibs")
 
+val cleanNativeJniLibs by tasks.registering(Delete::class) {
+    delete(nativeJniLibsDirectory)
+}
+
 val buildNativeArm64 by tasks.registering(Exec::class) {
     group = "build"
     description = "Builds Trierarch's Rust PTY host for Android arm64."
@@ -28,12 +33,22 @@ val buildNativeArm64 by tasks.registering(Exec::class) {
     commandLine(
         "cargo", "ndk", "-t", "arm64-v8a", "-P", "24",
         "-o", nativeJniLibsDirectory.get().asFile.absolutePath,
-        "build", "--release",
+        "build", "--release", "--lib", "--bin", "trierarch-rootfs",
     )
     inputs.dir(nativeProjectDirectory.resolve("src"))
     inputs.file(nativeProjectDirectory.resolve("Cargo.toml"))
     inputs.file(nativeProjectDirectory.resolve("Cargo.lock"))
     outputs.dir(nativeJniLibsDirectory)
+    dependsOn(cleanNativeJniLibs)
+}
+
+val packageRootfsCommandArm64 by tasks.registering(Copy::class) {
+    group = "build"
+    description = "Packages Trierarch's rootfs import command for Android arm64."
+    dependsOn(buildNativeArm64)
+    from(nativeProjectDirectory.resolve("target/aarch64-linux-android/release/trierarch-rootfs"))
+    into(rootfsCommandJniLibsDirectory.map { it.dir("arm64-v8a") })
+    rename { "libtrierarch-rootfs.so" }
 }
 
 val packageProotArm64 by tasks.registering(Sync::class) {
@@ -144,6 +159,7 @@ android {
     sourceSets {
         getByName("main").jniLibs.srcDirs(
             nativeJniLibsDirectory.get().asFile,
+            rootfsCommandJniLibsDirectory.get().asFile,
             prootJniLibsDirectory.get().asFile,
             x11JniLibsDirectory.get().asFile,
             waylandJniLibsDirectory.get().asFile,
@@ -160,7 +176,14 @@ android {
 }
 
 tasks.named("preBuild").configure {
-    dependsOn(buildNativeArm64, packageProotArm64, packageX11LibraryArm64, packageX11Assets, packageWaylandArm64)
+    dependsOn(
+        buildNativeArm64,
+        packageRootfsCommandArm64,
+        packageProotArm64,
+        packageX11LibraryArm64,
+        packageX11Assets,
+        packageWaylandArm64,
+    )
 }
 
 dependencies {

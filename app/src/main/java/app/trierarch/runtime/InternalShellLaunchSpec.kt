@@ -4,7 +4,11 @@ import java.io.File
 
 /** The built-in, zero-configuration runtime. */
 object InternalShellLaunchSpec {
-    fun create(filesDirectory: File, cacheDirectory: File): TerminalLaunchSpec {
+    fun create(
+        filesDirectory: File,
+        cacheDirectory: File,
+        nativeLibraryDirectory: File,
+    ): TerminalLaunchSpec {
         check(filesDirectory.isDirectory || filesDirectory.mkdirs()) {
             "Unable to create the internal workspace"
         }
@@ -16,6 +20,9 @@ object InternalShellLaunchSpec {
             """
             . /system/etc/mkshrc
             TRIERARCH_ROOT="${'$'}PWD"
+            trierarch-rootfs() {
+                "${'$'}TRIERARCH_NATIVE_LIB_DIR/libtrierarch-rootfs.so" "${'$'}@"
+            }
             trierarch_prompt_path() {
                 case "${'$'}PWD" in
                     "${'$'}TRIERARCH_ROOT") REPLY='~' ;;
@@ -36,8 +43,10 @@ object InternalShellLaunchSpec {
             workingDirectory = filesDirectory,
             environment = arrayOf(
                 "HOME=${filesDirectory.absolutePath}",
+                "TRIERARCH_FILES_DIR=${filesDirectory.absolutePath}",
+                "TRIERARCH_NATIVE_LIB_DIR=${nativeLibraryDirectory.absolutePath}",
                 "TMPDIR=${cacheDirectory.absolutePath}",
-                "PATH=/system/bin:/system/xbin",
+                "PATH=${nativeLibraryDirectory.absolutePath}:/system/bin:/system/xbin",
                 "TERM=xterm-256color",
                 "LANG=C.UTF-8",
                 "ENV=${shellInitializationFile.absolutePath}",

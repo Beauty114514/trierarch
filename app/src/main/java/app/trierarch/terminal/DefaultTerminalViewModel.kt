@@ -79,7 +79,11 @@ class DefaultTerminalViewModel(application: Application) : AndroidViewModel(appl
     }
 
     private fun createInternalShell() = NativePtySession(
-        launchSpec = InternalShellLaunchSpec.create(app.filesDir, app.cacheDir),
+        launchSpec = InternalShellLaunchSpec.create(
+            filesDirectory = app.filesDir,
+            cacheDirectory = app.cacheDir,
+            nativeLibraryDirectory = File(app.applicationInfo.nativeLibraryDir),
+        ),
         clipboard = AndroidTerminalClipboard(app),
     )
 
