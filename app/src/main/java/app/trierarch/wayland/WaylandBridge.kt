@@ -24,7 +24,13 @@ object WaylandBridge {
     @JvmStatic
     fun attachSurface(surface: Surface) = nativeAttachSurface(surface)
 
+    @JvmStatic
+    fun setOutputSize(width: Int, height: Int) {
+        if (width > 0 && height > 0) nativeSetOutputSize(width, height)
+    }
+
     private external fun nativeStart(runtimeDirectory: String): Boolean
     private external fun nativeStop()
     private external fun nativeAttachSurface(surface: Surface)
+    private external fun nativeSetOutputSize(width: Int, height: Int)
 }

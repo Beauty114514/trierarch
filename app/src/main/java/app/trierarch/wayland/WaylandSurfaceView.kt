@@ -18,9 +18,16 @@ class WaylandSurfaceView(context: Context) : SurfaceView(context), SurfaceHolder
 
     override fun surfaceCreated(holder: SurfaceHolder) {
         WaylandBridge.attachSurface(holder.surface)
+        updateOutputSize(holder.surfaceFrame.width(), holder.surfaceFrame.height())
     }
 
-    override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) = Unit
+    override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+        updateOutputSize(width, height)
+    }
 
     override fun surfaceDestroyed(holder: SurfaceHolder) = Unit
+
+    private fun updateOutputSize(width: Int, height: Int) {
+        WaylandBridge.setOutputSize(width, height)
+    }
 }
