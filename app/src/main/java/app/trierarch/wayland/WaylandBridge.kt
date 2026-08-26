@@ -29,8 +29,30 @@ object WaylandBridge {
         if (width > 0 && height > 0) nativeSetOutputSize(width, height)
     }
 
+    @JvmStatic fun movePointerAbsolute(x: Float, y: Float, timeMillis: Int) =
+        nativeMovePointerAbsolute(x, y, timeMillis)
+
+    @JvmStatic fun movePointerRelative(deltaX: Float, deltaY: Float, timeMillis: Int) =
+        nativeMovePointerRelative(deltaX, deltaY, timeMillis)
+
+    @JvmStatic fun setPointerButton(button: Int, pressed: Boolean, timeMillis: Int) =
+        nativeSetPointerButton(button, pressed, timeMillis)
+
+    @JvmStatic fun scrollPointer(deltaX: Float, deltaY: Float, timeMillis: Int) =
+        nativeScrollPointer(deltaX, deltaY, timeMillis)
+
+    @JvmStatic fun resetPointer(timeMillis: Int) = nativeResetPointer(timeMillis)
+
+    @JvmStatic fun setCursorVisible(visible: Boolean) = nativeSetCursorVisible(visible)
+
     private external fun nativeStart(runtimeDirectory: String): Boolean
     private external fun nativeStop()
     private external fun nativeAttachSurface(surface: Surface)
     private external fun nativeSetOutputSize(width: Int, height: Int)
+    private external fun nativeMovePointerAbsolute(x: Float, y: Float, timeMillis: Int)
+    private external fun nativeMovePointerRelative(deltaX: Float, deltaY: Float, timeMillis: Int)
+    private external fun nativeSetPointerButton(button: Int, pressed: Boolean, timeMillis: Int)
+    private external fun nativeScrollPointer(deltaX: Float, deltaY: Float, timeMillis: Int)
+    private external fun nativeResetPointer(timeMillis: Int)
+    private external fun nativeSetCursorVisible(visible: Boolean)
 }
