@@ -26,7 +26,7 @@ public final class X11PointerEventSink implements PointerEventSink {
         sink.sendMouseEvent(0f, 0f, button, pressed, true);
     }
 
-    @Override public void scroll(float deltaX, float deltaY) {
+    @Override public void scroll(float deltaX, float deltaY, ScrollSource source) {
         sink.sendMouseEvent(deltaX, deltaY, 4, false, true);
     }
 }

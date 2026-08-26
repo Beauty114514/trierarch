@@ -28,7 +28,7 @@ final class TouchpadInputStrategy {
     }
 
     void onScroll(float distanceX, float distanceY) {
-        sink.scroll(distanceX, distanceY);
+        sink.scroll(distanceX, distanceY, PointerEventSink.ScrollSource.FINGER);
     }
 
     void onTap(int pointerCount) {

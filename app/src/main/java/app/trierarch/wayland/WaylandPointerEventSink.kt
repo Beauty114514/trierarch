@@ -17,8 +17,12 @@ internal object WaylandPointerEventSink : PointerEventSink {
         WaylandBridge.setPointerButton(button, pressed, now())
     }
 
-    override fun scroll(deltaX: Float, deltaY: Float) {
-        WaylandBridge.scrollPointer(deltaX, deltaY, now())
+    override fun scroll(deltaX: Float, deltaY: Float, source: PointerEventSink.ScrollSource) {
+        val axisSource = when (source) {
+            PointerEventSink.ScrollSource.FINGER -> WaylandBridge.AXIS_SOURCE_FINGER
+            PointerEventSink.ScrollSource.WHEEL -> WaylandBridge.AXIS_SOURCE_WHEEL
+        }
+        WaylandBridge.scrollPointer(deltaX, deltaY, axisSource, now())
     }
 
     override fun cancel() {

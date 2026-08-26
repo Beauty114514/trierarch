@@ -5,6 +5,8 @@ import android.view.Surface
 import java.io.File
 
 object WaylandBridge {
+    const val AXIS_SOURCE_WHEEL = 0
+    const val AXIS_SOURCE_FINGER = 1
     init {
         System.loadLibrary("wayland-server")
         System.loadLibrary("ffi")
@@ -38,8 +40,8 @@ object WaylandBridge {
     @JvmStatic fun setPointerButton(button: Int, pressed: Boolean, timeMillis: Int) =
         nativeSetPointerButton(button, pressed, timeMillis)
 
-    @JvmStatic fun scrollPointer(deltaX: Float, deltaY: Float, timeMillis: Int) =
-        nativeScrollPointer(deltaX, deltaY, timeMillis)
+    @JvmStatic fun scrollPointer(deltaX: Float, deltaY: Float, source: Int, timeMillis: Int) =
+        nativeScrollPointer(deltaX, deltaY, source, timeMillis)
 
     @JvmStatic fun resetPointer(timeMillis: Int) = nativeResetPointer(timeMillis)
 
@@ -52,7 +54,7 @@ object WaylandBridge {
     private external fun nativeMovePointerAbsolute(x: Float, y: Float, timeMillis: Int)
     private external fun nativeMovePointerRelative(deltaX: Float, deltaY: Float, timeMillis: Int)
     private external fun nativeSetPointerButton(button: Int, pressed: Boolean, timeMillis: Int)
-    private external fun nativeScrollPointer(deltaX: Float, deltaY: Float, timeMillis: Int)
+    private external fun nativeScrollPointer(deltaX: Float, deltaY: Float, source: Int, timeMillis: Int)
     private external fun nativeResetPointer(timeMillis: Int)
     private external fun nativeSetCursorVisible(visible: Boolean)
 }

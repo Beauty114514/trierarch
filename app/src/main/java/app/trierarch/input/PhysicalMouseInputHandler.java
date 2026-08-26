@@ -36,7 +36,8 @@ public final class PhysicalMouseInputHandler {
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_SCROLL:
                 sink.scroll(-100f * event.getAxisValue(MotionEvent.AXIS_HSCROLL),
-                        -100f * event.getAxisValue(MotionEvent.AXIS_VSCROLL));
+                        -100f * event.getAxisValue(MotionEvent.AXIS_VSCROLL),
+                        PointerEventSink.ScrollSource.WHEEL);
                 syncButtons(event);
                 return true;
             case MotionEvent.ACTION_HOVER_MOVE:
