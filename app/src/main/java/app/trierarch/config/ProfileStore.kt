@@ -57,6 +57,7 @@ class ProfileStore(context: Context) {
         require(display == DISPLAY_NONE || display == DISPLAY_X11 || display == DISPLAY_WAYLAND) {
             "display.type must be '$DISPLAY_NONE', '$DISPLAY_X11', or '$DISPLAY_WAYLAND'"
         }
+        graphicsProfile(parsed, display)
         launchArgv(parsed)
         if (runtime == RUNTIME_PROOT || runtime == RUNTIME_CHROOT) {
             val rootfs = parsed.getString("rootfs")?.trim().orEmpty()
@@ -109,6 +110,7 @@ class ProfileStore(context: Context) {
             shell = shell,
             display = parsed.getString("display.type")?.trim().orEmpty().ifEmpty { DISPLAY_NONE },
             launchArgv = launchArgv(parsed),
+            graphics = graphicsProfile(parsed, parsed.getString("display.type")?.trim().orEmpty().ifEmpty { DISPLAY_NONE }),
         )
     }
 
@@ -134,6 +136,7 @@ class ProfileStore(context: Context) {
             shell = shell,
             display = parsed.getString("display.type")?.trim().orEmpty().ifEmpty { DISPLAY_NONE },
             launchArgv = launchArgv(parsed),
+            graphics = graphicsProfile(parsed, parsed.getString("display.type")?.trim().orEmpty().ifEmpty { DISPLAY_NONE }),
         )
     }
 
@@ -150,6 +153,7 @@ class ProfileStore(context: Context) {
             user = parsed.getString("user")?.trim().takeUnless { it.isNullOrEmpty() } ?: "root",
             display = parsed.getString("display.type")?.trim().orEmpty().ifEmpty { DISPLAY_NONE },
             launchArgv = launchArgv(parsed),
+            graphics = graphicsProfile(parsed, parsed.getString("display.type")?.trim().orEmpty().ifEmpty { DISPLAY_NONE }),
         )
     }
 
@@ -161,6 +165,24 @@ class ProfileStore(context: Context) {
 
     private fun required(value: String?, key: String): String = value?.trim().takeUnless { it.isNullOrEmpty() }
         ?: throw IllegalArgumentException("$key is required")
+
+    /**
+     * Rendering policy is deliberately small for now.  The app resolves it to
+     * concrete environment variables before crossing the native boundary, so
+     * every runtime receives the same guest-facing contract.
+     */
+    private fun graphicsProfile(parsed: TomlParseResult, display: String): GraphicsProfile {
+        val renderer = parsed.getString("graphics.renderer")?.trim().orEmpty().ifEmpty { GRAPHICS_AUTO }
+        require(renderer == GRAPHICS_AUTO || renderer == GRAPHICS_LLVMPIPE) {
+            "graphics.renderer must be '$GRAPHICS_AUTO' or '$GRAPHICS_LLVMPIPE'"
+        }
+        val qtQuickBackend = parsed.getString("graphics.qt_quick_backend")?.trim().orEmpty()
+            .ifEmpty { if (display == DISPLAY_NONE) GRAPHICS_AUTO else QT_QUICK_SOFTWARE }
+        require(qtQuickBackend == GRAPHICS_AUTO || qtQuickBackend == QT_QUICK_SOFTWARE) {
+            "graphics.qt_quick_backend must be '$GRAPHICS_AUTO' or '$QT_QUICK_SOFTWARE'"
+        }
+        return GraphicsProfile(renderer, qtQuickBackend)
+    }
 
     /** Optional direct program invocation; absent keeps the runtime's interactive-shell default. */
     private fun launchArgv(parsed: TomlParseResult): List<String>? {
@@ -185,6 +207,7 @@ class ProfileStore(context: Context) {
         val shell: String,
         val display: String,
         val launchArgv: List<String>?,
+        val graphics: GraphicsProfile,
     )
 
     data class ChrootProfile(
@@ -194,6 +217,7 @@ class ProfileStore(context: Context) {
         val shell: String,
         val display: String,
         val launchArgv: List<String>?,
+        val graphics: GraphicsProfile,
     )
 
     data class DroidspacesProfile(
@@ -203,7 +227,21 @@ class ProfileStore(context: Context) {
         val user: String,
         val display: String,
         val launchArgv: List<String>?,
+        val graphics: GraphicsProfile,
     )
+
+    data class GraphicsProfile(
+        val renderer: String,
+        val qtQuickBackend: String,
+    ) {
+        fun environment(): List<String> = buildList {
+            if (renderer == GRAPHICS_LLVMPIPE) {
+                add("LIBGL_ALWAYS_SOFTWARE=1")
+                add("GALLIUM_DRIVER=llvmpipe")
+            }
+            if (qtQuickBackend == QT_QUICK_SOFTWARE) add("QT_QUICK_BACKEND=software")
+        }
+    }
 
     companion object {
         private const val EXTENSION = "toml"
@@ -215,6 +253,9 @@ class ProfileStore(context: Context) {
         const val DISPLAY_NONE = "none"
         const val DISPLAY_X11 = "x11"
         const val DISPLAY_WAYLAND = "wayland"
+        const val GRAPHICS_AUTO = "auto"
+        const val GRAPHICS_LLVMPIPE = "llvmpipe"
+        const val QT_QUICK_SOFTWARE = "software"
         const val EXTRA_RUNTIME = "app.trierarch.config.RUNTIME"
     }
 }

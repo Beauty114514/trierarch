@@ -29,6 +29,7 @@ class DefaultTerminalViewModel(application: Application) : AndroidViewModel(appl
             cacheDirectory = app.cacheDir,
             x11SocketDirectory = x11SocketDirectory(profile.display),
             launchArgv = profile.launchArgv.orEmpty().toTypedArray(),
+            graphicsEnvironment = profile.graphics.environment().toTypedArray(),
             clipboard = AndroidTerminalClipboard(app),
         ).also { next -> if (profile.display == ProfileStore.DISPLAY_X11) next.start() }
     }
@@ -40,6 +41,7 @@ class DefaultTerminalViewModel(application: Application) : AndroidViewModel(appl
             shell = profile.shell,
             x11SocketDirectory = x11SocketDirectory(profile.display),
             launchArgv = profile.launchArgv.orEmpty().toTypedArray(),
+            graphicsEnvironment = profile.graphics.environment().toTypedArray(),
             clipboard = AndroidTerminalClipboard(app),
         ).also { next ->
             if (profile.display == ProfileStore.DISPLAY_X11 || profile.display == ProfileStore.DISPLAY_WAYLAND) {

@@ -46,6 +46,7 @@ class NativePtySession private constructor(
         cacheDirectory: File,
         x11SocketDirectory: String?,
         launchArgv: Array<String>,
+        graphicsEnvironment: Array<String>,
         clipboard: TerminalClipboard,
     ) : this(
         openNativeSession = { rows, columns, callback ->
@@ -56,6 +57,7 @@ class NativePtySession private constructor(
                 cacheDirectory.absolutePath,
                 x11SocketDirectory.orEmpty(),
                 launchArgv,
+                graphicsEnvironment,
                 rows,
                 columns,
                 callback,
@@ -70,6 +72,7 @@ class NativePtySession private constructor(
         shell: String,
         x11SocketDirectory: String?,
         launchArgv: Array<String>,
+        graphicsEnvironment: Array<String>,
         clipboard: TerminalClipboard,
     ) : this(
         openNativeSession = { rows, columns, callback ->
@@ -78,6 +81,7 @@ class NativePtySession private constructor(
                 shell,
                 x11SocketDirectory.orEmpty(),
                 launchArgv,
+                graphicsEnvironment,
                 rows,
                 columns,
                 callback,
@@ -100,6 +104,7 @@ class NativePtySession private constructor(
                 x11SocketDirectory.orEmpty(),
                 waylandRuntimeDirectory.orEmpty(),
                 droidspacesProfile.launchArgv.orEmpty().toTypedArray(),
+                droidspacesProfile.graphics.environment().toTypedArray(),
                 rows,
                 columns,
                 callback,
