@@ -8,8 +8,8 @@ import android.view.SurfaceView;
 
 import androidx.annotation.Keep;
 
-import com.termux.x11.input.InputEventSender;
-import com.termux.x11.input.X11InputRouter;
+import app.trierarch.input.PointerInputRouter;
+import com.termux.x11.input.X11PointerEventSink;
 
 import dalvik.annotation.optimization.CriticalNative;
 import dalvik.annotation.optimization.FastNative;
@@ -25,12 +25,12 @@ public final class LorieView extends SurfaceView {
     private long nativeHandle;
     private int latestWidth;
     private int latestHeight;
-    private final X11InputRouter inputRouter;
+    private final PointerInputRouter inputRouter;
 
     public LorieView(Context context) {
         super(context);
-        inputRouter = new X11InputRouter(context,
-                new InputEventSender((x, y, button, down, relative) ->
+        inputRouter = new PointerInputRouter(context,
+                new X11PointerEventSink((x, y, button, down, relative) ->
                         sendMouseEvent(nativeHandle, x, y, button, down, relative)),
                 this::setCursorVisible);
         nativeHandle = nativeInit();

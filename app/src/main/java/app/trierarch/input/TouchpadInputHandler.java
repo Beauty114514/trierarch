@@ -1,30 +1,29 @@
-package com.termux.x11.input;
+package app.trierarch.input;
 
 import android.content.Context;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
 
-/** Handles touchpad gestures and translates them into X11 pointer events. */
+/** Handles touchpad gestures and translates them into protocol-independent pointer events. */
 public final class TouchpadInputHandler implements TapGestureDetector.Listener {
-    private final TouchpadInputStrategy touchpadStrategy;
+    private final TouchpadInputStrategy strategy;
     private final TapGestureDetector tapDetector;
     private final GestureDetector gestureDetector;
 
-    public TouchpadInputHandler(Context context, InputEventSender sender) {
-        touchpadStrategy = new TouchpadInputStrategy(sender);
+    public TouchpadInputHandler(Context context, PointerEventSink sink) {
+        strategy = new TouchpadInputStrategy(sink);
         tapDetector = new TapGestureDetector(context, this);
         gestureDetector = new GestureDetector(context, new GestureDetector.SimpleOnGestureListener() {
             @Override public boolean onDown(MotionEvent event) { return true; }
-
-            @Override public boolean onScroll(
-                    MotionEvent first, MotionEvent current, float distanceX, float distanceY) {
+            @Override public boolean onScroll(MotionEvent first, MotionEvent current,
+                    float distanceX, float distanceY) {
                 if (current.getPointerCount() == 2) {
-                    touchpadStrategy.onScroll(distanceX, distanceY);
+                    strategy.onScroll(distanceX, distanceY);
                     return true;
                 }
                 if (current.getPointerCount() != 1) return false;
-                touchpadStrategy.onPointerMove(distanceX, distanceY);
+                strategy.onPointerMove(distanceX, distanceY);
                 return true;
             }
         });
@@ -36,7 +35,7 @@ public final class TouchpadInputHandler implements TapGestureDetector.Listener {
             cancel(view);
             return true;
         }
-        touchpadStrategy.onTouchEvent(event);
+        strategy.onTouchEvent(event);
         gestureDetector.onTouchEvent(event);
         tapDetector.onTouchEvent(event);
         return true;
@@ -44,8 +43,7 @@ public final class TouchpadInputHandler implements TapGestureDetector.Listener {
 
     public boolean onGenericMotionEvent(MotionEvent event) {
         if (event.getActionMasked() != MotionEvent.ACTION_SCROLL) return false;
-        touchpadStrategy.onScroll(
-                -100f * event.getAxisValue(MotionEvent.AXIS_HSCROLL),
+        strategy.onScroll(-100f * event.getAxisValue(MotionEvent.AXIS_HSCROLL),
                 -100f * event.getAxisValue(MotionEvent.AXIS_VSCROLL));
         return true;
     }
@@ -59,13 +57,13 @@ public final class TouchpadInputHandler implements TapGestureDetector.Listener {
     public void cancel(View view) {
         long now = android.os.SystemClock.uptimeMillis();
         MotionEvent cancel = MotionEvent.obtain(now, now, MotionEvent.ACTION_CANCEL, 0f, 0f, 0);
-        touchpadStrategy.onTouchEvent(cancel);
+        strategy.onTouchEvent(cancel);
         gestureDetector.onTouchEvent(cancel);
         cancel.recycle();
         tapDetector.cancel();
-        touchpadStrategy.cancel();
+        strategy.cancel();
     }
 
-    @Override public void onTap(int pointerCount) { touchpadStrategy.onTap(pointerCount); }
-    @Override public void onLongPress(int pointerCount) { touchpadStrategy.onLongPress(pointerCount); }
+    @Override public void onTap(int pointerCount) { strategy.onTap(pointerCount); }
+    @Override public void onLongPress(int pointerCount) { strategy.onLongPress(pointerCount); }
 }

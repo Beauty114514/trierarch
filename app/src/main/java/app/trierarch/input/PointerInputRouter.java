@@ -1,23 +1,21 @@
-package com.termux.x11.input;
+package app.trierarch.input;
 
 import android.content.Context;
 import android.view.MotionEvent;
 import android.view.View;
 
-/** Routes Android pointer events to the physical-mouse or touchpad handler. */
-public final class X11InputRouter {
+/** Routes Android events to physical-mouse or simulated-touchpad handling. */
+public final class PointerInputRouter {
+    private final PointerEventSink sink;
     private final PhysicalMouseInputHandler physicalMouseHandler;
     private final TouchpadInputHandler touchpadHandler;
     private final CursorVisibilityController cursorVisibilityController;
 
-    public X11InputRouter(Context context, InputEventSender sender) {
-        this(context, sender, visible -> { });
-    }
-
-    public X11InputRouter(
-            Context context, InputEventSender sender, CursorVisibilityController.Sink cursorSink) {
-        physicalMouseHandler = new PhysicalMouseInputHandler(sender);
-        touchpadHandler = new TouchpadInputHandler(context, sender);
+    public PointerInputRouter(Context context, PointerEventSink sink,
+            CursorVisibilityController.Sink cursorSink) {
+        this.sink = sink;
+        physicalMouseHandler = new PhysicalMouseInputHandler(sink);
+        touchpadHandler = new TouchpadInputHandler(context, sink);
         cursorVisibilityController = new CursorVisibilityController(cursorSink);
     }
 
@@ -51,6 +49,7 @@ public final class X11InputRouter {
     public void cancel(View view) {
         touchpadHandler.cancel(view);
         physicalMouseHandler.cancel();
+        sink.cancel();
         cursorVisibilityController.reset();
     }
 }

@@ -1,9 +1,9 @@
-package com.termux.x11.input;
+package app.trierarch.input;
 
+import android.os.Build;
 import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;
-import android.os.Build;
 
 /** Recognizes and forwards physical mouse events without applying touch gestures. */
 public final class PhysicalMouseInputHandler {
@@ -13,10 +13,12 @@ public final class PhysicalMouseInputHandler {
             {MotionEvent.BUTTON_SECONDARY, 3}
     };
 
-    private final InputEventSender sender;
+    private final PointerEventSink sink;
     private int lastButtonState;
 
-    public PhysicalMouseInputHandler(InputEventSender sender) { this.sender = sender; }
+    public PhysicalMouseInputHandler(PointerEventSink sink) {
+        this.sink = sink;
+    }
 
     public boolean accepts(MotionEvent event) {
         int index = event.getActionIndex();
@@ -33,8 +35,7 @@ public final class PhysicalMouseInputHandler {
     public boolean onPointerEvent(View view, MotionEvent event) {
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_SCROLL:
-                sender.sendMouseWheelEvent(
-                        -100f * event.getAxisValue(MotionEvent.AXIS_HSCROLL),
+                sink.scroll(-100f * event.getAxisValue(MotionEvent.AXIS_HSCROLL),
                         -100f * event.getAxisValue(MotionEvent.AXIS_VSCROLL));
                 syncButtons(event);
                 return true;
@@ -59,26 +60,23 @@ public final class PhysicalMouseInputHandler {
         }
     }
 
-    public void cancel() { releaseButtons(); }
+    public void cancel() {
+        releaseButtons();
+    }
 
     private void sendMotion(View view, MotionEvent event) {
         InputDevice device = event.getDevice();
-        boolean captured = view != null
-                && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+        boolean captured = view != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                 && view.hasPointerCapture();
         boolean relativeSource = (event.getSource() & InputDevice.SOURCE_MOUSE_RELATIVE)
                 == InputDevice.SOURCE_MOUSE_RELATIVE;
         boolean relativeAxes = device != null
                 && device.getMotionRange(MotionEvent.AXIS_RELATIVE_X) != null;
-
         if (captured && (relativeSource || relativeAxes)) {
-            float x = relativeAxes
-                    ? event.getAxisValue(MotionEvent.AXIS_RELATIVE_X) : event.getX();
-            float y = relativeAxes
-                    ? event.getAxisValue(MotionEvent.AXIS_RELATIVE_Y) : event.getY();
-            sender.sendPointerMove(x, y, true);
+            sink.moveRelative(relativeAxes ? event.getAxisValue(MotionEvent.AXIS_RELATIVE_X) : event.getX(),
+                    relativeAxes ? event.getAxisValue(MotionEvent.AXIS_RELATIVE_Y) : event.getY());
         } else if (!captured) {
-            sender.sendPointerMove(event.getX(), event.getY(), false);
+            sink.moveAbsolute(event.getX(), event.getY());
         }
     }
 
@@ -87,7 +85,7 @@ public final class PhysicalMouseInputHandler {
         for (int[] button : BUTTONS) {
             int mask = button[0];
             if ((lastButtonState & mask) != (current & mask))
-                sender.sendMouseButton(button[1], (current & mask) != 0, true);
+                sink.setButton(button[1], (current & mask) != 0);
         }
         lastButtonState = current;
     }
@@ -95,8 +93,7 @@ public final class PhysicalMouseInputHandler {
     private void releaseButtons() {
         if (lastButtonState == 0) return;
         for (int[] button : BUTTONS) {
-            if ((lastButtonState & button[0]) != 0)
-                sender.sendMouseButton(button[1], false, true);
+            if ((lastButtonState & button[0]) != 0) sink.setButton(button[1], false);
         }
         lastButtonState = 0;
     }

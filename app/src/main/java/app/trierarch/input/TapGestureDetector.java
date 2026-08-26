@@ -1,4 +1,4 @@
-package com.termux.x11.input;
+package app.trierarch.input;
 
 import android.content.Context;
 import android.graphics.PointF;
@@ -9,8 +9,8 @@ import android.view.MotionEvent;
 import android.view.ViewConfiguration;
 
 /** Detects multi-finger taps and long presses with explicit pointer tracking. */
-public final class TapGestureDetector {
-    public interface Listener {
+final class TapGestureDetector {
+    interface Listener {
         void onTap(int pointerCount);
         void onLongPress(int pointerCount);
     }
@@ -19,14 +19,12 @@ public final class TapGestureDetector {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final SparseArray<PointF> initialPositions = new SparseArray<>();
     private final int touchSlopSquare;
-
     private int pointerCount;
     private PointF initialPoint;
     private boolean tapCancelled;
-
     private final Runnable longPress;
 
-    public TapGestureDetector(Context context, Listener listener) {
+    TapGestureDetector(Context context, Listener listener) {
         this.listener = listener;
         longPress = () -> {
             if (!tapCancelled && pointerCount > 0 && initialPoint != null) {
@@ -39,7 +37,7 @@ public final class TapGestureDetector {
         touchSlopSquare = touchSlop * touchSlop;
     }
 
-    public void onTouchEvent(MotionEvent event) {
+    void onTouchEvent(MotionEvent event) {
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 reset();
@@ -63,9 +61,7 @@ public final class TapGestureDetector {
                 break;
             case MotionEvent.ACTION_UP:
                 cancelLongPress();
-                if (!tapCancelled && initialPoint != null && pointerCount > 0) {
-                    listener.onTap(pointerCount);
-                }
+                if (!tapCancelled && initialPoint != null && pointerCount > 0) listener.onTap(pointerCount);
                 reset();
                 break;
             case MotionEvent.ACTION_CANCEL:
@@ -77,13 +73,10 @@ public final class TapGestureDetector {
         }
     }
 
-    public void cancel() {
-        reset();
-    }
+    void cancel() { reset(); }
 
     private void trackDownEvent(MotionEvent event) {
-        int index = event.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN
-                ? event.getActionIndex() : 0;
+        int index = event.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN ? event.getActionIndex() : 0;
         int pointerId = event.getPointerId(index);
         PointF position = new PointF(event.getX(index), event.getY(index));
         initialPositions.put(pointerId, position);
@@ -91,8 +84,7 @@ public final class TapGestureDetector {
     }
 
     private void trackUpEvent(MotionEvent event) {
-        int index = event.getActionMasked() == MotionEvent.ACTION_POINTER_UP
-                ? event.getActionIndex() : 0;
+        int index = event.getActionMasked() == MotionEvent.ACTION_POINTER_UP ? event.getActionIndex() : 0;
         initialPositions.remove(event.getPointerId(index));
     }
 
@@ -119,7 +111,5 @@ public final class TapGestureDetector {
         tapCancelled = false;
     }
 
-    private void cancelLongPress() {
-        handler.removeCallbacks(longPress);
-    }
+    private void cancelLongPress() { handler.removeCallbacks(longPress); }
 }
