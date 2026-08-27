@@ -238,6 +238,7 @@ class ProfileStore(context: Context) {
             if (renderer == GRAPHICS_LLVMPIPE) {
                 add("LIBGL_ALWAYS_SOFTWARE=1")
                 add("GALLIUM_DRIVER=llvmpipe")
+                add("MESA_LOADER_DRIVER_OVERRIDE=llvmpipe")
             }
             if (qtQuickBackend == QT_QUICK_SOFTWARE) add("QT_QUICK_BACKEND=software")
         }
