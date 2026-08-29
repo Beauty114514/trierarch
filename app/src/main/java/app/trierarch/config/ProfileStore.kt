@@ -57,7 +57,15 @@ class ProfileStore(context: Context) {
         require(display == DISPLAY_NONE || display == DISPLAY_X11 || display == DISPLAY_WAYLAND) {
             "display.type must be '$DISPLAY_NONE', '$DISPLAY_X11', or '$DISPLAY_WAYLAND'"
         }
-        graphicsProfile(parsed, display)
+        val graphics = graphicsProfile(parsed, display)
+        if (graphics.renderer == GRAPHICS_VIRGL) {
+            require(runtime == RUNTIME_DROIDSPACES) {
+                "graphics.renderer '$GRAPHICS_VIRGL' is currently supported only by droidspaces"
+            }
+            require(display != DISPLAY_NONE) {
+                "graphics.renderer '$GRAPHICS_VIRGL' requires display.type 'x11' or 'wayland'"
+            }
+        }
         launchArgv(parsed)
         if (runtime == RUNTIME_PROOT || runtime == RUNTIME_CHROOT) {
             val rootfs = parsed.getString("rootfs")?.trim().orEmpty()
@@ -173,11 +181,13 @@ class ProfileStore(context: Context) {
      */
     private fun graphicsProfile(parsed: TomlParseResult, display: String): GraphicsProfile {
         val renderer = parsed.getString("graphics.renderer")?.trim().orEmpty().ifEmpty { GRAPHICS_AUTO }
-        require(renderer == GRAPHICS_AUTO || renderer == GRAPHICS_LLVMPIPE) {
-            "graphics.renderer must be '$GRAPHICS_AUTO' or '$GRAPHICS_LLVMPIPE'"
+        require(renderer == GRAPHICS_AUTO || renderer == GRAPHICS_LLVMPIPE || renderer == GRAPHICS_VIRGL) {
+            "graphics.renderer must be '$GRAPHICS_AUTO', '$GRAPHICS_LLVMPIPE', or '$GRAPHICS_VIRGL'"
         }
         val qtQuickBackend = parsed.getString("graphics.qt_quick_backend")?.trim().orEmpty()
-            .ifEmpty { if (display == DISPLAY_NONE) GRAPHICS_AUTO else QT_QUICK_SOFTWARE }
+            .ifEmpty {
+                if (display == DISPLAY_NONE || renderer == GRAPHICS_VIRGL) GRAPHICS_AUTO else QT_QUICK_SOFTWARE
+            }
         require(qtQuickBackend == GRAPHICS_AUTO || qtQuickBackend == QT_QUICK_SOFTWARE) {
             "graphics.qt_quick_backend must be '$GRAPHICS_AUTO' or '$QT_QUICK_SOFTWARE'"
         }
@@ -240,6 +250,11 @@ class ProfileStore(context: Context) {
                 add("GALLIUM_DRIVER=llvmpipe")
                 add("MESA_LOADER_DRIVER_OVERRIDE=llvmpipe")
             }
+            if (renderer == GRAPHICS_VIRGL) {
+                add("LIBGL_ALWAYS_SOFTWARE=0")
+                add("GALLIUM_DRIVER=virpipe")
+                add("MESA_LOADER_DRIVER_OVERRIDE=virpipe")
+            }
             if (qtQuickBackend == QT_QUICK_SOFTWARE) add("QT_QUICK_BACKEND=software")
         }
     }
@@ -256,6 +271,7 @@ class ProfileStore(context: Context) {
         const val DISPLAY_WAYLAND = "wayland"
         const val GRAPHICS_AUTO = "auto"
         const val GRAPHICS_LLVMPIPE = "llvmpipe"
+        const val GRAPHICS_VIRGL = "virgl"
         const val QT_QUICK_SOFTWARE = "software"
         const val EXTRA_RUNTIME = "app.trierarch.config.RUNTIME"
     }

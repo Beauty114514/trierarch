@@ -48,12 +48,22 @@ object NativePtyBridge {
         user: String,
         x11SocketDirectory: String,
         waylandRuntimeDirectory: String,
+        virglRuntimeDirectory: String,
         launchArgv: Array<String>,
         graphicsEnvironment: Array<String>,
         rows: Int,
         columns: Int,
         callback: SessionCallback,
     ): Long
+
+    /** Starts the private VirGL vtest host and returns only after its socket is ready. */
+    external fun startVirglHost(
+        runtimeDirectory: String,
+        payloadDirectory: String,
+        nativeLibraryDirectory: String,
+    )
+
+    external fun stopVirglHost()
 
     /** Restores ownership of the private X11 socket directory after a legacy directory bind. */
     external fun repairX11SocketDirectory(directory: String, appUid: Int)

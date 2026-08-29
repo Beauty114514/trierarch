@@ -6,6 +6,7 @@ import app.trierarch.config.ProfileStore
 import app.trierarch.runtime.InternalShellLaunchSpec
 import app.trierarch.x11.X11Runtime
 import app.trierarch.wayland.WaylandBridge
+import app.trierarch.virgl.VirglHostController
 import java.io.File
 
 /** Owns the built-in app-internal shell independently of a terminal view instance. */
@@ -52,6 +53,11 @@ class DefaultTerminalViewModel(application: Application) : AndroidViewModel(appl
 
     fun restartDroidspaces(profile: ProfileStore.DroidspacesProfile) {
         session.close()
+        val virglRuntimeDirectory = if (profile.graphics.renderer == ProfileStore.GRAPHICS_VIRGL) {
+            VirglHostController.start(app).absolutePath
+        } else {
+            ""
+        }
         if (profile.display == ProfileStore.DISPLAY_WAYLAND) {
             check(WaylandBridge.start(app)) { "Unable to start Wayland host" }
         }
@@ -59,6 +65,7 @@ class DefaultTerminalViewModel(application: Application) : AndroidViewModel(appl
             droidspacesProfile = profile,
             x11SocketDirectory = x11SocketDirectory(profile.display),
             waylandRuntimeDirectory = waylandRuntimeDirectory(profile.display),
+            virglRuntimeDirectory = virglRuntimeDirectory,
             clipboard = AndroidTerminalClipboard(app),
         ).also { next ->
             if (profile.display == ProfileStore.DISPLAY_X11 || profile.display == ProfileStore.DISPLAY_WAYLAND) {
@@ -73,6 +80,7 @@ class DefaultTerminalViewModel(application: Application) : AndroidViewModel(appl
     fun stopRuntime() {
         session.close()
         WaylandBridge.stop()
+        VirglHostController.stop()
         session = createInternalShell()
     }
 

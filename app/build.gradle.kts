@@ -21,6 +21,12 @@ val waylandRuntimeDirectory = rootProject.projectDir.parentFile.resolve(
     "trierarch-packages/wayland-host/dist/android/arm64-v8a",
 )
 val waylandJniLibsDirectory = layout.buildDirectory.dir("generated/waylandJniLibs")
+// VirGL is an executable host plus private shared libraries, so it is packaged
+// as APK assets and extracted to the app's private files directory at runtime.
+val virglRuntimeDirectory = rootProject.projectDir.parentFile.resolve(
+    "trierarch-packages/virgl-host/dist/android/arm64-v8a",
+)
+val virglAssetsDirectory = layout.buildDirectory.dir("generated/virglAssets")
 
 val cleanNativeJniLibs by tasks.registering(Delete::class) {
     delete(nativeJniLibsDirectory)
@@ -123,6 +129,31 @@ val packageWaylandArm64 by tasks.registering(Sync::class) {
     }
 }
 
+val packageVirglAssets by tasks.registering(Sync::class) {
+    group = "build"
+    description = "Packages the Trierarch VirGL host arm64 runtime assets."
+    notCompatibleWithConfigurationCache("VirGL artifacts are copied from an external package workspace")
+    from(virglRuntimeDirectory) {
+        include("virgl_test_server_android", "virgl_render_server", "libvirglrenderer.so", "libepoxy.so")
+        into("virgl/arm64-v8a")
+    }
+    from(virglRuntimeDirectory.resolve("angle/vulkan")) {
+        include("*.so")
+        into("virgl/arm64-v8a/angle/vulkan")
+    }
+    into(virglAssetsDirectory)
+    doFirst {
+        listOf("virgl_test_server_android", "libvirglrenderer.so", "libepoxy.so").forEach { name ->
+            check(virglRuntimeDirectory.resolve(name).isFile) {
+                "Missing VirGL runtime file '$name'. Build trierarch-packages/virgl-host first."
+            }
+        }
+        check(virglRuntimeDirectory.resolve("angle/vulkan/libEGL_angle.so").isFile) {
+            "Missing VirGL ANGLE Vulkan runtime. Build trierarch-packages/virgl-host first."
+        }
+    }
+}
+
 android {
     namespace = "app.trierarch"
     compileSdk {
@@ -166,7 +197,10 @@ android {
         )
         // SourceSet accepts a concrete directory, not Gradle's Provider wrapper.
         // `preBuild` explicitly depends on packageX11Assets below.
-        getByName("main").assets.srcDir(x11AssetsDirectory.get().asFile)
+        getByName("main").assets.srcDirs(
+            x11AssetsDirectory.get().asFile,
+            virglAssetsDirectory.get().asFile,
+        )
     }
     packaging {
         jniLibs {
@@ -183,6 +217,7 @@ tasks.named("preBuild").configure {
         packageX11LibraryArm64,
         packageX11Assets,
         packageWaylandArm64,
+        packageVirglAssets,
     )
 }
 
