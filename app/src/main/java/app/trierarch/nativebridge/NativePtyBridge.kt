@@ -23,6 +23,8 @@ object NativePtyBridge {
         nativeLibraryDirectory: String,
         cacheDirectory: String,
         x11SocketDirectory: String,
+        waylandRuntimeDirectory: String,
+        virglRuntimeDirectory: String,
         launchArgv: Array<String>,
         graphicsEnvironment: Array<String>,
         rows: Int,

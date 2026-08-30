@@ -23,16 +23,30 @@ class DefaultTerminalViewModel(application: Application) : AndroidViewModel(appl
 
     fun restartProot(profile: ProfileStore.ProotProfile) {
         session.close()
+        val virglRuntimeDirectory = if (profile.graphics.renderer == ProfileStore.GRAPHICS_VIRGL) {
+            VirglHostController.start(app).absolutePath
+        } else {
+            ""
+        }
+        if (profile.display == ProfileStore.DISPLAY_WAYLAND) {
+            check(WaylandBridge.start(app)) { "Unable to start Wayland host" }
+        }
         session = NativePtySession(
             rootfsDirectory = profile.rootfs,
             shell = profile.shell,
             nativeLibraryDirectory = File(app.applicationInfo.nativeLibraryDir),
             cacheDirectory = app.cacheDir,
             x11SocketDirectory = x11SocketDirectory(profile.display),
+            waylandRuntimeDirectory = waylandRuntimeDirectory(profile.display),
+            virglRuntimeDirectory = virglRuntimeDirectory,
             launchArgv = profile.launchArgv.orEmpty().toTypedArray(),
             graphicsEnvironment = profile.graphics.environment().toTypedArray(),
             clipboard = AndroidTerminalClipboard(app),
-        ).also { next -> if (profile.display == ProfileStore.DISPLAY_X11) next.start() }
+        ).also { next ->
+            if (profile.display == ProfileStore.DISPLAY_X11 || profile.display == ProfileStore.DISPLAY_WAYLAND) {
+                next.start()
+            }
+        }
     }
 
     fun restartChroot(profile: ProfileStore.ChrootProfile) {

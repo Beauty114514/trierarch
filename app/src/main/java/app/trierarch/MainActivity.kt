@@ -74,6 +74,9 @@ class MainActivity : AppCompatActivity() {
                             attachTerminalSession()
                         },
                         onStartProot = { profile ->
+                            if (profile.display == app.trierarch.config.ProfileStore.DISPLAY_WAYLAND) {
+                                showWaylandSurface()
+                            }
                             terminalViewModel.restartProot(profile)
                             attachTerminalSession()
                         },
