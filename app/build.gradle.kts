@@ -27,6 +27,8 @@ val virglRuntimeDirectory = rootProject.projectDir.parentFile.resolve(
     "trierarch-packages/virgl-host/dist/android/arm64-v8a",
 )
 val virglAssetsDirectory = layout.buildDirectory.dir("generated/virglAssets")
+val guestCompatibilityProjectDirectory = rootProject.projectDir.parentFile.resolve("trierarch-packages/compat")
+val guestCompatibilityAssetsDirectory = layout.buildDirectory.dir("generated/guestCompatibilityAssets")
 
 val cleanNativeJniLibs by tasks.registering(Delete::class) {
     delete(nativeJniLibsDirectory)
@@ -154,6 +156,29 @@ val packageVirglAssets by tasks.registering(Sync::class) {
     }
 }
 
+val buildGuestCompatibilityArm64 by tasks.registering(Exec::class) {
+    group = "build"
+    description = "Builds Trierarch's Linux guest compatibility library for arm64."
+    workingDir(guestCompatibilityProjectDirectory)
+    environment("CC", "aarch64-linux-gnu-gcc")
+    commandLine("bash", "scripts/build-linux.sh")
+    inputs.dir(guestCompatibilityProjectDirectory.resolve("src"))
+    inputs.file(guestCompatibilityProjectDirectory.resolve("scripts/build-linux.sh"))
+    outputs.file(guestCompatibilityProjectDirectory.resolve("dist/linux/aarch64/libtrierarch-udev-compat.so"))
+}
+
+val packageGuestCompatibilityAssets by tasks.registering(Sync::class) {
+    group = "build"
+    description = "Packages the Linux guest compatibility library as an APK asset."
+    dependsOn(buildGuestCompatibilityArm64)
+    val library = guestCompatibilityProjectDirectory.resolve("dist/linux/aarch64/libtrierarch-udev-compat.so")
+    from(library) { into("compat/arm64-v8a") }
+    into(guestCompatibilityAssetsDirectory)
+    doFirst {
+        check(library.isFile) { "Missing guest compatibility library." }
+    }
+}
+
 android {
     namespace = "app.trierarch"
     compileSdk {
@@ -200,6 +225,7 @@ android {
         getByName("main").assets.srcDirs(
             x11AssetsDirectory.get().asFile,
             virglAssetsDirectory.get().asFile,
+            guestCompatibilityAssetsDirectory.get().asFile,
         )
     }
     packaging {
@@ -218,6 +244,7 @@ tasks.named("preBuild").configure {
         packageX11Assets,
         packageWaylandArm64,
         packageVirglAssets,
+        packageGuestCompatibilityAssets,
     )
 }
 

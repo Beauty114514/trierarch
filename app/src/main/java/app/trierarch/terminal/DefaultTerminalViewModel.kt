@@ -3,6 +3,7 @@ package app.trierarch.terminal
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import app.trierarch.config.ProfileStore
+import app.trierarch.compat.GuestCompatibilityRuntime
 import app.trierarch.runtime.InternalShellLaunchSpec
 import app.trierarch.x11.X11Runtime
 import app.trierarch.wayland.WaylandBridge
@@ -39,6 +40,9 @@ class DefaultTerminalViewModel(application: Application) : AndroidViewModel(appl
             x11SocketDirectory = x11SocketDirectory(profile.display),
             waylandRuntimeDirectory = waylandRuntimeDirectory(profile.display),
             virglRuntimeDirectory = virglRuntimeDirectory,
+            udevCompatibilityLibrary = GuestCompatibilityRuntime.udevMonitorLibrary(
+                app, profile.compatibility.enablesUdevMonitorShim,
+            )?.absolutePath.orEmpty(),
             launchArgv = profile.launchArgv.orEmpty().toTypedArray(),
             graphicsEnvironment = profile.graphics.environment().toTypedArray(),
             clipboard = AndroidTerminalClipboard(app),
@@ -57,6 +61,9 @@ class DefaultTerminalViewModel(application: Application) : AndroidViewModel(appl
             x11SocketDirectory = x11SocketDirectory(profile.display),
             launchArgv = profile.launchArgv.orEmpty().toTypedArray(),
             graphicsEnvironment = profile.graphics.environment().toTypedArray(),
+            udevCompatibilityLibrary = GuestCompatibilityRuntime.udevMonitorLibrary(
+                app, profile.compatibility.enablesUdevMonitorShim,
+            )?.absolutePath.orEmpty(),
             clipboard = AndroidTerminalClipboard(app),
         ).also { next ->
             if (profile.display == ProfileStore.DISPLAY_X11 || profile.display == ProfileStore.DISPLAY_WAYLAND) {
@@ -80,6 +87,9 @@ class DefaultTerminalViewModel(application: Application) : AndroidViewModel(appl
             x11SocketDirectory = x11SocketDirectory(profile.display),
             waylandRuntimeDirectory = waylandRuntimeDirectory(profile.display),
             virglRuntimeDirectory = virglRuntimeDirectory,
+            udevCompatibilityLibrary = GuestCompatibilityRuntime.udevMonitorLibrary(
+                app, profile.compatibility.enablesUdevMonitorShim,
+            )?.absolutePath.orEmpty(),
             clipboard = AndroidTerminalClipboard(app),
         ).also { next ->
             if (profile.display == ProfileStore.DISPLAY_X11 || profile.display == ProfileStore.DISPLAY_WAYLAND) {

@@ -58,6 +58,7 @@ class ProfileStore(context: Context) {
             "display.type must be '$DISPLAY_NONE', '$DISPLAY_X11', or '$DISPLAY_WAYLAND'"
         }
         val graphics = graphicsProfile(parsed, display)
+        compatibilityProfile(parsed)
         if (graphics.renderer == GRAPHICS_VIRGL) {
             require(runtime == RUNTIME_DROIDSPACES || runtime == RUNTIME_PROOT) {
                 "graphics.renderer '$GRAPHICS_VIRGL' is currently supported by droidspaces and proot"
@@ -119,6 +120,7 @@ class ProfileStore(context: Context) {
             display = parsed.getString("display.type")?.trim().orEmpty().ifEmpty { DISPLAY_NONE },
             launchArgv = launchArgv(parsed),
             graphics = graphicsProfile(parsed, parsed.getString("display.type")?.trim().orEmpty().ifEmpty { DISPLAY_NONE }),
+            compatibility = compatibilityProfile(parsed),
         )
     }
 
@@ -145,6 +147,7 @@ class ProfileStore(context: Context) {
             display = parsed.getString("display.type")?.trim().orEmpty().ifEmpty { DISPLAY_NONE },
             launchArgv = launchArgv(parsed),
             graphics = graphicsProfile(parsed, parsed.getString("display.type")?.trim().orEmpty().ifEmpty { DISPLAY_NONE }),
+            compatibility = compatibilityProfile(parsed),
         )
     }
 
@@ -162,6 +165,7 @@ class ProfileStore(context: Context) {
             display = parsed.getString("display.type")?.trim().orEmpty().ifEmpty { DISPLAY_NONE },
             launchArgv = launchArgv(parsed),
             graphics = graphicsProfile(parsed, parsed.getString("display.type")?.trim().orEmpty().ifEmpty { DISPLAY_NONE }),
+            compatibility = compatibilityProfile(parsed),
         )
     }
 
@@ -194,6 +198,19 @@ class ProfileStore(context: Context) {
         return GraphicsProfile(renderer, qtQuickBackend)
     }
 
+    /**
+     * Guest compatibility shims are intentionally runtime-neutral.  `auto`
+     * leaves a real host service alone and only falls back when Android has
+     * denied a guest operation such as a udev netlink monitor.
+     */
+    private fun compatibilityProfile(parsed: TomlParseResult): CompatibilityProfile {
+        val udevMonitor = parsed.getString("compat.udev_monitor")?.trim().orEmpty().ifEmpty { COMPAT_AUTO }
+        require(udevMonitor == COMPAT_AUTO || udevMonitor == COMPAT_OFF) {
+            "compat.udev_monitor must be '$COMPAT_AUTO' or '$COMPAT_OFF'"
+        }
+        return CompatibilityProfile(udevMonitor)
+    }
+
     /** Optional direct program invocation; absent keeps the runtime's interactive-shell default. */
     private fun launchArgv(parsed: TomlParseResult): List<String>? {
         if (!parsed.contains("launch.argv")) return null
@@ -218,6 +235,7 @@ class ProfileStore(context: Context) {
         val display: String,
         val launchArgv: List<String>?,
         val graphics: GraphicsProfile,
+        val compatibility: CompatibilityProfile,
     )
 
     data class ChrootProfile(
@@ -228,6 +246,7 @@ class ProfileStore(context: Context) {
         val display: String,
         val launchArgv: List<String>?,
         val graphics: GraphicsProfile,
+        val compatibility: CompatibilityProfile,
     )
 
     data class DroidspacesProfile(
@@ -238,6 +257,7 @@ class ProfileStore(context: Context) {
         val display: String,
         val launchArgv: List<String>?,
         val graphics: GraphicsProfile,
+        val compatibility: CompatibilityProfile,
     )
 
     data class GraphicsProfile(
@@ -259,6 +279,10 @@ class ProfileStore(context: Context) {
         }
     }
 
+    data class CompatibilityProfile(val udevMonitor: String) {
+        val enablesUdevMonitorShim: Boolean get() = udevMonitor == COMPAT_AUTO
+    }
+
     companion object {
         private const val EXTENSION = "toml"
         private val ID_PATTERN = Regex("[a-z0-9]+(?:-[a-z0-9]+)*")
@@ -273,6 +297,8 @@ class ProfileStore(context: Context) {
         const val GRAPHICS_LLVMPIPE = "llvmpipe"
         const val GRAPHICS_VIRGL = "virgl"
         const val QT_QUICK_SOFTWARE = "software"
+        const val COMPAT_AUTO = "auto"
+        const val COMPAT_OFF = "off"
         const val EXTRA_RUNTIME = "app.trierarch.config.RUNTIME"
     }
 }

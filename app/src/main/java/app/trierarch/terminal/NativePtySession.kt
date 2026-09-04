@@ -47,6 +47,7 @@ class NativePtySession private constructor(
         x11SocketDirectory: String?,
         waylandRuntimeDirectory: String?,
         virglRuntimeDirectory: String?,
+        udevCompatibilityLibrary: String,
         launchArgv: Array<String>,
         graphicsEnvironment: Array<String>,
         clipboard: TerminalClipboard,
@@ -60,6 +61,7 @@ class NativePtySession private constructor(
                 x11SocketDirectory.orEmpty(),
                 waylandRuntimeDirectory.orEmpty(),
                 virglRuntimeDirectory.orEmpty(),
+                udevCompatibilityLibrary,
                 launchArgv,
                 graphicsEnvironment,
                 rows,
@@ -77,6 +79,7 @@ class NativePtySession private constructor(
         x11SocketDirectory: String?,
         launchArgv: Array<String>,
         graphicsEnvironment: Array<String>,
+        udevCompatibilityLibrary: String,
         clipboard: TerminalClipboard,
     ) : this(
         openNativeSession = { rows, columns, callback ->
@@ -86,6 +89,7 @@ class NativePtySession private constructor(
                 x11SocketDirectory.orEmpty(),
                 launchArgv,
                 graphicsEnvironment,
+                udevCompatibilityLibrary,
                 rows,
                 columns,
                 callback,
@@ -100,6 +104,7 @@ class NativePtySession private constructor(
         x11SocketDirectory: String?,
         waylandRuntimeDirectory: String?,
         virglRuntimeDirectory: String?,
+        udevCompatibilityLibrary: String,
         clipboard: TerminalClipboard,
     ) : this(
         openNativeSession = { rows, columns, callback ->
@@ -109,6 +114,7 @@ class NativePtySession private constructor(
                 x11SocketDirectory.orEmpty(),
                 waylandRuntimeDirectory.orEmpty(),
                 virglRuntimeDirectory.orEmpty(),
+                udevCompatibilityLibrary,
                 droidspacesProfile.launchArgv.orEmpty().toTypedArray(),
                 droidspacesProfile.graphics.environment().toTypedArray(),
                 rows,
