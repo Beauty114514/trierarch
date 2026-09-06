@@ -79,6 +79,20 @@ class PhysicalKeyboardRouterTest {
         assertEquals(50, sent.last().eventTime)
     }
 
+    @Test
+    fun `rejected press is not released later`() {
+        val sent = mutableListOf<PhysicalKeyEvent>()
+        val router = PhysicalKeyboardRouter { event ->
+            sent += event
+            false
+        }
+
+        assertFalse(router.dispatch(event(PhysicalKeyEvent.Action.DOWN, keyCode = 29, scanCode = 30)))
+        assertFalse(router.hasPressedKeys())
+        assertFalse(router.releaseAll(eventTime = 20))
+        assertEquals(1, sent.size)
+    }
+
     private fun event(
         action: PhysicalKeyEvent.Action,
         keyCode: Int,

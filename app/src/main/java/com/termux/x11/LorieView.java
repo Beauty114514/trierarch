@@ -1,14 +1,18 @@
 package com.termux.x11;
 
 import android.content.Context;
+import android.os.SystemClock;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.MotionEvent;
 import android.view.SurfaceView;
+import android.view.KeyEvent;
 
 import androidx.annotation.Keep;
 
 import app.trierarch.input.PointerInputRouter;
+import app.trierarch.input.PhysicalKeyEvent;
+import app.trierarch.input.PhysicalKeyboardRouter;
 import com.termux.x11.input.X11PointerEventSink;
 
 import dalvik.annotation.optimization.CriticalNative;
@@ -26,6 +30,7 @@ public final class LorieView extends SurfaceView {
     private int latestWidth;
     private int latestHeight;
     private final PointerInputRouter inputRouter;
+    private final PhysicalKeyboardRouter keyboardRouter;
 
     public LorieView(Context context) {
         super(context);
@@ -33,7 +38,18 @@ public final class LorieView extends SurfaceView {
                 new X11PointerEventSink((x, y, button, down, relative) ->
                         sendMouseEvent(nativeHandle, x, y, button, down, relative)),
                 this::setCursorVisible);
+        keyboardRouter = new PhysicalKeyboardRouter(event -> {
+            if (nativeHandle == 0 || !isConnected()) return false;
+            return sendKeyEvent(
+                    nativeHandle,
+                    event.getScanCode(),
+                    event.getKeyCode(),
+                    event.getAction() == PhysicalKeyEvent.Action.DOWN
+            );
+        });
         nativeHandle = nativeInit();
+        setFocusable(true);
+        setFocusableInTouchMode(true);
         getHolder().addCallback(new SurfaceHolder.Callback() {
             @Override public void surfaceCreated(SurfaceHolder holder) {
                 holder.setFormat(5); // HAL_PIXEL_FORMAT_BGRA_8888
@@ -68,6 +84,21 @@ public final class LorieView extends SurfaceView {
         if (nativeHandle != 0) setCursorVisible(nativeHandle, visible);
     }
 
+    /** Releases external keys before this view stops being the desktop target. */
+    public void releasePressedKeys() {
+        keyboardRouter.releaseAll(SystemClock.uptimeMillis());
+    }
+
+    @Override public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyboardRouter.dispatchAndroidEvent(event)) return true;
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override public boolean onKeyUp(int keyCode, KeyEvent event) {
+        if (keyboardRouter.dispatchAndroidEvent(event)) return true;
+        return super.onKeyUp(keyCode, event);
+    }
+
     @Override public boolean onTouchEvent(MotionEvent event) {
         if (nativeHandle == 0) return true;
         return inputRouter.onTouchEvent(this, event);
@@ -85,6 +116,7 @@ public final class LorieView extends SurfaceView {
 
     @Override protected void onDetachedFromWindow() {
         inputRouter.cancel(this);
+        releasePressedKeys();
         if (nativeHandle != 0) {
             nativeDestroy(nativeHandle);
             nativeHandle = 0;
@@ -94,7 +126,15 @@ public final class LorieView extends SurfaceView {
 
     @Override public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (!hasFocus) inputRouter.cancel(this);
+        if (!hasFocus) {
+            inputRouter.cancel(this);
+            releasePressedKeys();
+        }
+    }
+
+    @Override protected void onFocusChanged(boolean gainFocus, int direction, android.graphics.Rect previouslyFocusedRect) {
+        super.onFocusChanged(gainFocus, direction, previouslyFocusedRect);
+        if (!gainFocus) releasePressedKeys();
     }
 
     private void publishSize() {

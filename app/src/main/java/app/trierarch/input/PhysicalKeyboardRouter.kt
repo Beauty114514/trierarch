@@ -59,9 +59,11 @@ class PhysicalKeyboardRouter(
         when (event.action) {
             PhysicalKeyEvent.Action.DOWN -> {
                 suppressedReleases.remove(event.identity())
+                val accepted = sink.send(event)
                 if (event.repeatCount == 0) {
-                    pressedKeys[event.identity()] = event
+                    if (accepted) pressedKeys[event.identity()] = event
                 }
+                return accepted
             }
 
             PhysicalKeyEvent.Action.UP -> {

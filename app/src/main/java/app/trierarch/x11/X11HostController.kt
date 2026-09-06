@@ -45,6 +45,7 @@ class X11HostController(context: Context) {
             )
         }
         view.visibility = android.view.View.VISIBLE
+        view.requestFocus()
         // Lorie renders into SurfaceView's separate surface. Its ordinary View layer
         // must stay transparent or it covers that surface with a solid rectangle.
         view.setBackgroundColor(android.graphics.Color.TRANSPARENT)
@@ -65,7 +66,10 @@ class X11HostController(context: Context) {
         readyRetryCount = 0
         onReady = null
         onFailure = null
-        display?.visibility = android.view.View.INVISIBLE
+        display?.apply {
+            releasePressedKeys()
+            visibility = android.view.View.INVISIBLE
+        }
     }
 
     private fun bindServerIfNeeded() {
