@@ -4,13 +4,25 @@ import android.content.Context
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.MotionEvent
+import android.view.KeyEvent
+import android.os.SystemClock
 import android.graphics.PixelFormat
 import app.trierarch.input.PointerInputRouter
+import app.trierarch.input.PhysicalKeyEvent
+import app.trierarch.input.PhysicalKeyboardRouter
 
 /** Full-screen, display-only target for the first Wayland milestone. */
 class WaylandSurfaceView(context: Context) : SurfaceView(context), SurfaceHolder.Callback {
     private val inputRouter = PointerInputRouter(context, WaylandPointerEventSink) {
         WaylandBridge.setCursorVisible(it)
+    }
+    private val keyboardRouter = PhysicalKeyboardRouter { event ->
+        WaylandBridge.setKeyboardKey(
+            keyCode = event.keyCode,
+            scanCode = event.scanCode,
+            pressed = event.action == PhysicalKeyEvent.Action.DOWN,
+            timeMillis = event.eventTime.toWaylandTime(),
+        )
     }
 
     init {
@@ -43,17 +55,38 @@ class WaylandSurfaceView(context: Context) : SurfaceView(context), SurfaceHolder
     override fun onHoverEvent(event: MotionEvent): Boolean =
         inputRouter.onHoverEvent(this, event) || super.onHoverEvent(event)
 
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean =
+        keyboardRouter.dispatchAndroidEvent(event) || super.onKeyDown(keyCode, event)
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean =
+        keyboardRouter.dispatchAndroidEvent(event) || super.onKeyUp(keyCode, event)
+
+    fun releasePressedKeys() {
+        keyboardRouter.releaseAll(SystemClock.uptimeMillis())
+    }
+
     override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
         super.onWindowFocusChanged(hasWindowFocus)
-        if (!hasWindowFocus) inputRouter.cancel(this)
+        if (!hasWindowFocus) {
+            inputRouter.cancel(this)
+            releasePressedKeys()
+        }
+    }
+
+    override fun onFocusChanged(gainFocus: Boolean, direction: Int, previouslyFocusedRect: android.graphics.Rect?) {
+        super.onFocusChanged(gainFocus, direction, previouslyFocusedRect)
+        if (!gainFocus) releasePressedKeys()
     }
 
     override fun onDetachedFromWindow() {
         inputRouter.cancel(this)
+        releasePressedKeys()
         super.onDetachedFromWindow()
     }
 
     private fun updateOutputSize(width: Int, height: Int) {
         WaylandBridge.setOutputSize(width, height)
     }
+
+    private fun Long.toWaylandTime(): Int = (this and 0x7fff_ffffL).toInt()
 }

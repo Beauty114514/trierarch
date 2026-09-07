@@ -135,6 +135,7 @@ class MainActivity : AppCompatActivity() {
                 ),
             )
         }
+        waylandSurface?.requestFocus()
         terminalView?.visibility = android.view.View.INVISIBLE
     }
 
@@ -164,7 +165,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun hideWaylandSurface() {
-        waylandSurface?.let { terminalContainer.removeView(it) }
+        waylandSurface?.let {
+            it.releasePressedKeys()
+            terminalContainer.removeView(it)
+        }
         waylandSurface = null
     }
 

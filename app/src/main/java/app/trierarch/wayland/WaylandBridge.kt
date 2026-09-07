@@ -45,6 +45,13 @@ object WaylandBridge {
 
     @JvmStatic fun resetPointer(timeMillis: Int) = nativeResetPointer(timeMillis)
 
+    @JvmStatic fun setKeyboardKey(
+        keyCode: Int,
+        scanCode: Int,
+        pressed: Boolean,
+        timeMillis: Int,
+    ): Boolean = nativeSetKeyboardKey(keyCode, scanCode, pressed, timeMillis)
+
     @JvmStatic fun setCursorVisible(visible: Boolean) = nativeSetCursorVisible(visible)
 
     private external fun nativeStart(runtimeDirectory: String): Boolean
@@ -56,5 +63,11 @@ object WaylandBridge {
     private external fun nativeSetPointerButton(button: Int, pressed: Boolean, timeMillis: Int)
     private external fun nativeScrollPointer(deltaX: Float, deltaY: Float, source: Int, timeMillis: Int)
     private external fun nativeResetPointer(timeMillis: Int)
+    private external fun nativeSetKeyboardKey(
+        keyCode: Int,
+        scanCode: Int,
+        pressed: Boolean,
+        timeMillis: Int,
+    ): Boolean
     private external fun nativeSetCursorVisible(visible: Boolean)
 }
